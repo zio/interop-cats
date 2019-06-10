@@ -46,7 +46,7 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"       %%% "scalaz-zio"           % "1.0-RC6",
+      "dev.zio"       %%% "zio"                  % "1.0.0-RC8-4",
       "org.typelevel" %%% "cats-effect"          % "1.3.1" % Optional,
       "org.typelevel" %%% "cats-mtl-core"        % "0.5.0" % Optional,
       "co.fs2"        %%% "fs2-core"             % "1.0.4" % Test,
@@ -90,8 +90,9 @@ val CatsScalaCheckShapelessVersion = Def.setting {
 // TODO remove it when https://github.com/typelevel/discipline/issues/52 is closed
 lazy val interopCatsJVM = interopCats.jvm
   .settings(
+    // TODO: Remove once scalacheck-shapeless has a stable version for 2.13.0-M5
     resolvers += Resolver
-      .sonatypeRepo("snapshots"), // TODO: Remove once scalacheck-shapeless has a stable version for 2.13.0-M5
+      .sonatypeRepo("snapshots"),
     libraryDependencies ++= Seq(
       "org.typelevel"              %% "cats-effect-laws"                                                 % "1.3.1"                              % Test,
       "org.typelevel"              %% "cats-testkit"                                                     % "1.6.1"                              % Test,
