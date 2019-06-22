@@ -92,8 +92,7 @@ val CatsScalaCheckShapelessVersion = Def.setting {
 lazy val interopCatsJVM = interopCats.jvm
   .settings(
     // TODO: Remove once scalacheck-shapeless has a stable version for 2.13.0-M5
-    resolvers += Resolver
-      .sonatypeRepo("snapshots"),
+    resolvers += Resolver.sonatypeRepo("snapshots"),
     libraryDependencies ++= Seq(
       "org.typelevel"              %% "cats-effect-laws"                                                 % "1.3.1"                              % Test,
       "org.typelevel"              %% "cats-testkit"                                                     % "1.6.1"                              % Test,
@@ -104,3 +103,6 @@ lazy val interopCatsJVM = interopCats.jvm
   )
 
 lazy val interopCatsJS = interopCats.js
+  .settings(
+    libraryDependencies += "org.scala-js" %%% "scalajs-java-time" % "0.2.5" % Test
+  )
