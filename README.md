@@ -1,5 +1,7 @@
 # Interop Cats Effect
 
+[![CircleCI][ci-badge]][ci-url]
+
 This library provides instances required by Cats Effect.
 
 ## `IO` Cats Effect's instances
@@ -41,3 +43,6 @@ def loadUsers: Stream[Task, User] =
 
 val allUsers: List[User] = unsafeRun(loadUsers.compile.toList)
 ```
+
+[ci-badge]: https://circleci.com/gh/zio/interop-cats/tree/master.svg?style=svg
+[ci-url]: https://circleci.com/gh/zio/interop-cats/tree/master
