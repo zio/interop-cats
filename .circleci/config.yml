@@ -87,8 +87,10 @@ jobs:
           key: sbt-cache
       - run: echo -n "${PGP_PUBLIC}" | base64 -d > /tmp/public.asc
       - run: echo -n "${PGP_SECRET}" | base64 -d > /tmp/secret.asc
-      - run: sbt ++2.11.12! releaseEarly
-      - run: sbt ++2.12.8! releaseEarly
+      - run: sbt ++2.11.12! interopCatsJVM/releaseEarly
+      - run: sbt ++2.12.8! interopCatsJVM/releaseEarly
+      - run: sbt ++2.11.12! interopCatsJS/releaseEarly
+      - run: sbt ++2.12.8! interopCatsJS/releaseEarly
 
 workflows:
   version: 2
