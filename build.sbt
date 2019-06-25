@@ -15,9 +15,9 @@ inThisBuild(
         url("http://degoes.net")
       )
     ),
-    pgpPublicRing := file("/tmp/public.asc")
-    pgpSecretRing := file("/tmp/secret.asc")
-    releaseEarlyWith := SonatypePublisher
+    pgpPublicRing := file("/tmp/public.asc"),
+    pgpSecretRing := file("/tmp/secret.asc"),
+    releaseEarlyWith := SonatypePublisher,
     scmInfo := Some(
       ScmInfo(url("https://github.com/zio/interop-cats/"), "scm:git:git@github.com:zio/interop-cats.git")
     )
