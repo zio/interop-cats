@@ -19,8 +19,8 @@ package interop
 
 import cats.arrow.FunctionK
 import cats.effect.Resource.{ Allocate, Bind, Suspend }
-import cats.effect.{ ConcurrentEffect, ExitCase, LiftIO, Resource, Sync, IO => CIO }
-import cats.{ effect, Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
+import cats.effect.{ Async, Effect, ExitCase, LiftIO, Resource, IO => CIO }
+import cats.{ Applicative, Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
 
 trait CatsZManagedSyntax {
   import scala.language.implicitConversions
@@ -39,7 +39,7 @@ final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) 
    * Convert a cats Resource into a ZManaged.
    * Beware that unhandled error during release of the resource will result in the fiber dying.
    */
-  def toManaged[R](implicit l: LiftIO[ZIO[R, Throwable, ?]], ev: ConcurrentEffect[F]): ZManaged[R, Throwable, A] = {
+  def toManaged[R](implicit l: LiftIO[ZIO[R, Throwable, ?]], ev: Effect[F]): ZManaged[R, Throwable, A] = {
     def convert[A1](resource: Resource[CIO, A1]): ZManaged[R, Throwable, A1] =
       resource match {
         case Allocate(res) =>
@@ -69,13 +69,13 @@ final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) 
 
 final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) extends AnyVal {
 
-  def toResource[F[_]](implicit r: Runtime[R], S: Sync[F]): Resource[F, A] =
-    Resource.suspend(S.delay {
-      r.unsafeRun(managed.reserve) match {
-        case Reservation(acquire, release) =>
-          Resource.make(S.delay(r.unsafeRun(acquire)))(_ => S.delay(r.unsafeRun(release.unit)))
-      }
-    })
+  def toResourceZIO(implicit ev: Applicative[ZIO[R, E, ?]]): Resource[ZIO[R, E, ?], A] =
+    Resource
+      .make(managed.reserve)(_.release.unit)
+      .flatMap(Resource liftF _.acquire)
+
+  def toResource[F[_]](implicit F: Async[F], ev: Effect[ZIO[R, E, ?]]): Resource[F, A] =
+    toResourceZIO.mapK(Lambda[FunctionK[ZIO[R, E, ?], F]](F liftIO ev.toIO(_)))
 
 }
 
@@ -95,7 +95,7 @@ trait CatsZManagedInstances extends CatsZManagedInstances1 {
     implicit ev: LiftIO[ZIO[R, Throwable, ?]]
   ): LiftIO[ZManaged[R, Throwable, ?]] =
     new LiftIO[ZManaged[R, Throwable, ?]] {
-      override def liftIO[A](ioa: effect.IO[A]): ZManaged[R, Throwable, A] =
+      override def liftIO[A](ioa: CIO[A]): ZManaged[R, Throwable, A] =
         ZManaged.fromEffect(ev.liftIO(ioa))
     }
 

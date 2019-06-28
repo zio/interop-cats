@@ -1,12 +1,18 @@
 package zio.interop
 
-import cats.effect.Resource
+import java.util.concurrent.TimeUnit
+
+import cats.effect.{ Concurrent, ContextShift, Resource, Timer, IO => CIO }
+import cats.syntax.apply._
+import cats.syntax.functor._
 import org.specs2.Specification
 import org.specs2.specification.AroundTimeout
-import zio.{ DefaultRuntime, Task, ZIO, ZManaged }
+import zio.{ DefaultRuntime, IO, Promise, Reservation, UIO, ZIO, ZManaged }
 import zio.interop.catz._
 
 import scala.collection.mutable
+import scala.concurrent.ExecutionContext.global
+import scala.concurrent.duration.FiniteDuration
 
 class CatsZManagedSyntaxSpec extends Specification with AroundTimeout with DefaultRuntime {
 
@@ -24,12 +30,13 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout with Defau
         calls finalizers when using resource $toResourceFinalizers
         calls finalizers when using resource fails $toResourceFinalizersWhenFailed
         calls finalizers when using resource is canceled $toResourceFinalizersWhenCanceled
+        acquisition of Reservation preserves cancellability in new F $toResourceCancelableReservationAcquisition
       """
 
   def toManagedFinalizersWhenInterrupted = {
     val effects = new mutable.ListBuffer[Int]
-    def res(x: Int): Resource[Task, Unit] =
-      Resource.make(ZIO.effect { effects += x; () })(_ => ZIO.effect { effects += x; () })
+    def res(x: Int): Resource[CIO, Unit] =
+      Resource.make(CIO.delay { effects += x; () })(_ => CIO.delay { effects += x; () })
 
     val testCase = ZIO.runtime[Any].flatMap { implicit r =>
       val managed: ZManaged[Any, Throwable, Unit] = res(1).toManaged
@@ -42,8 +49,8 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout with Defau
 
   def toManagedFinalizersWhenFailed = {
     val effects = new mutable.ListBuffer[Int]
-    def res(x: Int): Resource[Task, Unit] =
-      Resource.make(ZIO.effect { effects += x; () })(_ => ZIO.effect { effects += x; () })
+    def res(x: Int): Resource[CIO, Unit] =
+      Resource.make(CIO.delay { effects += x; () })(_ => CIO.delay { effects += x; () })
 
     val testCase = ZIO.runtime[Any].flatMap { implicit r =>
       val managed: ZManaged[Any, Throwable, Unit] = res(1).toManaged
@@ -56,8 +63,8 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout with Defau
 
   def toManagedFinalizersWhenDied = {
     val effects = new mutable.ListBuffer[Int]
-    def res(x: Int): Resource[Task, Unit] =
-      Resource.make(ZIO.effect { effects += x; () })(_ => ZIO.effect { effects += x; () })
+    def res(x: Int): Resource[CIO, Unit] =
+      Resource.make(CIO.delay { effects += x; () })(_ => CIO.delay { effects += x; () })
 
     val testCase = ZIO.runtime[Any].flatMap { implicit r =>
       val managed: ZManaged[Any, Throwable, Unit] = res(1).toManaged
@@ -70,9 +77,9 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout with Defau
 
   def toManagedFinalizersExceptionAcquisition = {
     val effects = new mutable.ListBuffer[Int]
-    def res(x: Int): Resource[Task, Unit] =
-      Resource.make(ZIO.effect(effects += x) *> ZIO.effect(throw new RuntimeException()).unit)(
-        _ => ZIO.effect { effects += x; () }
+    def res(x: Int): Resource[CIO, Unit] =
+      Resource.make(CIO.delay(effects += x) *> CIO.delay(throw new RuntimeException()).void)(
+        _ => CIO.delay { effects += x; () }
       )
 
     val testCase = ZIO.runtime[Any].flatMap { implicit r =>
@@ -86,8 +93,8 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout with Defau
 
   def toManagedFinalizers = {
     val effects = new mutable.ListBuffer[Int]
-    def res(x: Int): Resource[Task, Unit] =
-      Resource.make(ZIO.effect { effects += x; () })(_ => ZIO.effect { effects += x; () })
+    def res(x: Int): Resource[CIO, Unit] =
+      Resource.make(CIO.delay { effects += x; () })(_ => CIO.delay { effects += x; () })
 
     val testCase = ZIO.runtime[Any].flatMap { implicit r =>
       val managed: ZManaged[Any, Throwable, Unit] = res(1).toManaged
@@ -101,8 +108,8 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout with Defau
   def toManagedComposition = {
 
     val effects = new mutable.ListBuffer[Int]
-    def res(x: Int): Resource[Task, Unit] =
-      Resource.make(ZIO.effect { effects += x; () })(_ => ZIO.effect { effects += x; () })
+    def res(x: Int): Resource[CIO, Unit] =
+      Resource.make(CIO.delay { effects += x; () })(_ => CIO.delay { effects += x; () })
 
     def man(x: Int): ZManaged[Any, Throwable, Unit] =
       ZManaged.make(ZIO.effectTotal(effects += x).unit)(_ => ZIO.effectTotal(effects += x))
@@ -156,5 +163,25 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout with Defau
     unsafeRun(testCase.orElse(ZIO.unit))
     effects must be_===(List(1, 1))
   }
+
+  def toResourceCancelableReservationAcquisition =
+    unsafeRun {
+      ZIO.runtime[Any] >>= { implicit runtime =>
+        implicit val ctx: ContextShift[CIO] = CIO.contextShift(global)
+        implicit val timer: Timer[CIO]      = CIO.timer(global)
+
+        for {
+          latch    <- Promise.make[Nothing, Unit]
+          managed  = ZManaged.reserve(Reservation(latch.await, ZIO.unit))
+          resource = managed.toResource[CIO]
+          res <- IO {
+                  Concurrent
+                    .timeout(resource.use(_ => CIO.unit), FiniteDuration(0, TimeUnit.SECONDS))
+                    .unsafeRunSync()
+                }.const(false) orElse UIO(true)
+          _ <- latch.succeed(())
+        } yield res must_=== true
+      }
+    }
 
 }
