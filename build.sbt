@@ -2,6 +2,8 @@ import sbtcrossproject.CrossPlugin.autoImport.crossProject
 import explicitdeps.ExplicitDepsPlugin.autoImport.moduleFilterRemoveValue
 import ScalazBuild._
 
+name := "interop-cats"
+
 inThisBuild(
   List(
     organization := "dev.zio",
