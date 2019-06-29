@@ -72,7 +72,7 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
   def toResourceZIO(implicit ev: Applicative[ZIO[R, E, ?]]): Resource[ZIO[R, E, ?], A] =
     Resource
       .make(managed.reserve)(_.release.unit)
-      .flatMap(Resource liftF _.acquire)
+      .evalMap(_.acquire)
 
   def toResource[F[_]](implicit F: Async[F], ev: Effect[ZIO[R, E, ?]]): Resource[F, A] =
     toResourceZIO.mapK(Lambda[FunctionK[ZIO[R, E, ?], F]](F liftIO ev.toIO(_)))
