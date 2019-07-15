@@ -11,8 +11,9 @@ import cats.mtl.laws.discipline.{
   FunctorRaiseTests
 }
 import org.scalacheck.{ Arbitrary, Cogen }
-import org.scalatest.prop.Checkers
-import org.scalatest.{ BeforeAndAfterAll, FunSuite, Matchers }
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatestplus.scalacheck.Checkers
+import org.scalatest.{ BeforeAndAfterAll, Matchers }
 import org.typelevel.discipline.scalatest.Discipline
 import zio.blocking.Blocking
 import zio.clock.Clock
@@ -23,7 +24,7 @@ import zio.interop.catz.mtl._
 import zio.random.Random
 import zio.system.System
 
-class catzMtlSpec extends FunSuite with BeforeAndAfterAll with Matchers with Checkers with Discipline with GenIO {
+class catzMtlSpec extends AnyFunSuite with BeforeAndAfterAll with Matchers with Checkers with Discipline with GenIO {
 
   type Env = Clock with Console with System with Random with Blocking
 

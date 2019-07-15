@@ -47,60 +47,25 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"       %%% "zio"                  % "1.0.0-RC9-4",
-      "org.typelevel" %%% "cats-effect"          % "1.3.1" % Optional,
-      "org.typelevel" %%% "cats-mtl-core"        % "0.5.0" % Optional,
-      "co.fs2"        %%% "fs2-core"             % "1.0.5" % Test,
-      "dev.zio"       %%% "zio"                  % "1.0.0-RC9-4" % Test classifier "tests",
+      "dev.zio"       %%% "zio"                  % "1.0.0-RC10-1",
+      "org.typelevel" %%% "cats-effect"          % "2.0.0-M4" % Optional,
+      "org.typelevel" %%% "cats-mtl-core"        % "0.6.0" % Optional,
+      "co.fs2"        %%% "fs2-core"             % "1.1.0-M1" % Test,
+      "dev.zio"       %%% "zio"                  % "1.0.0-RC10-1" % Test classifier "tests",
       "org.specs2"    %%% "specs2-core"          % "4.6.0" % Test,
       "org.specs2"    %%% "specs2-scalacheck"    % "4.6.0" % Test,
       "org.specs2"    %%% "specs2-matcher-extra" % "4.6.0" % Test
     )
   )
 
-val CatsScalaCheckVersion = Def.setting {
-  CrossVersion.partialVersion(scalaVersion.value) match {
-    case Some((2, v)) if v <= 12 =>
-      "1.13"
-    case _ =>
-      "1.14"
-  }
-}
-
-val ScalaCheckVersion = Def.setting {
-  CrossVersion.partialVersion(scalaVersion.value) match {
-    case Some((2, v)) if v <= 12 =>
-      "1.13.5"
-    case _ =>
-      "1.14.0"
-  }
-}
-
-def majorMinor(version: String) = version.split('.').take(2).mkString(".")
-
-val CatsScalaCheckShapelessVersion = Def.setting {
-  CrossVersion.partialVersion(scalaVersion.value) match {
-    case Some((2, v)) if v <= 12 =>
-      "1.1.8"
-    case _ =>
-      "1.2.0-1+7-a4ed6f38-SNAPSHOT" // TODO: Stable version
-  }
-}
-
-// Below is for the cats law spec
-// Separated due to binary incompatibility in scalacheck 1.13 vs 1.14
-// TODO remove it when https://github.com/typelevel/discipline/issues/52 is closed
 lazy val interopCatsJVM = interopCats.jvm
   .settings(
-    // TODO: Remove once scalacheck-shapeless has a stable version for 2.13.0-M5
-    resolvers += Resolver.sonatypeRepo("snapshots"),
     libraryDependencies ++= Seq(
-      "org.typelevel"              %% "cats-effect-laws"                                                 % "1.3.1"                              % Test,
-      "org.typelevel"              %% "cats-testkit"                                                     % "1.6.1"                              % Test,
-      "org.typelevel"              %% "cats-mtl-laws"                                                    % "0.5.0"                              % Test,
-      "com.github.alexarchambault" %% s"scalacheck-shapeless_${majorMinor(CatsScalaCheckVersion.value)}" % CatsScalaCheckShapelessVersion.value % Test
-    ),
-    dependencyOverrides += "org.scalacheck" %% "scalacheck" % ScalaCheckVersion.value % Test
+      "org.typelevel"              %% "cats-effect-laws"           % "2.0.0-M4" % Test,
+      "org.typelevel"              %% "cats-testkit"               % "2.0.0-M4" % Test,
+      "org.typelevel"              %% "cats-mtl-laws"              % "0.6.0"    % Test,
+      "com.github.alexarchambault" %% s"scalacheck-shapeless_1.14" % "1.14.0"   % Test
+    )
   )
 
 lazy val interopCatsJS = interopCats.js
