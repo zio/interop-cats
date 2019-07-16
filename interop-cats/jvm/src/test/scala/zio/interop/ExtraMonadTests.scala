@@ -1,6 +1,5 @@
 package zio.interop
 
-import catalysts.Platform
 import cats.kernel.laws.discipline.catsLawsIsEqToProp
 import cats.{ Eq, Monad }
 import org.scalacheck.{ Arbitrary, Prop }
@@ -18,9 +17,7 @@ trait ExtraMonadTests[F[_]] extends Laws {
       def bases: Seq[(String, RuleSet)] = Nil
       def parents: Seq[RuleSet]         = Nil
       def props: Seq[(String, Prop)] =
-        if (Platform.isJvm)
-          Seq[(String, Prop)]("tailRecM construction stack safety" -> Prop.lzy(laws.tailRecMConstructionStackSafety))
-        else Seq.empty
+        Seq[(String, Prop)]("tailRecM construction stack safety" -> Prop.lzy(laws.tailRecMConstructionStackSafety))
     }
 }
 

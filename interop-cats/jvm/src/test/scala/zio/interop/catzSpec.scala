@@ -2,19 +2,18 @@ package zio
 package interop
 
 import cats.Eq
-import cats.effect.concurrent.Deferred
 import cats.effect.{ ConcurrentEffect, ContextShift }
 import cats.effect.laws.ConcurrentEffectLaws
 import cats.effect.laws.discipline.arbitrary._
 import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests, Parameters }
 import cats.effect.laws.util.{ TestContext, TestInstances }
 import cats.implicits._
-import cats.laws._
 import cats.laws.discipline.MonadTests
 import cats.laws.discipline.{ AlternativeTests, BifunctorTests, MonadErrorTests, ParallelTests, SemigroupKTests }
 import org.scalacheck.{ Arbitrary, Cogen }
-import org.scalatest.prop.Checkers
-import org.scalatest.{ BeforeAndAfterAll, FunSuite, Matchers }
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatestplus.scalacheck.Checkers
+import org.scalatest.{ BeforeAndAfterAll, Matchers }
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.Discipline
 import zio.blocking.Blocking
@@ -25,37 +24,11 @@ import zio.interop.catz._
 import zio.random.Random
 import zio.system.System
 
-trait ConcurrentEffectLawsOverrides[F[_]] extends ConcurrentEffectLaws[F] {
-
-  import cats.effect.IO
-  import scala.concurrent.Promise
-
-  override final def runCancelableIsSynchronous[A](fa: F[A]) = {
-    val lh = Deferred.uncancelable[F, Unit].flatMap { release =>
-      val latch = Promise[Unit]()
-      // Never ending task
-      val ff = F.cancelable[A] { _ =>
-//          F.runAsync(started.complete(()))(_ => IO.unit).unsafeRunSync()
-        latch.success(()); release.complete(())
-      }
-      // Execute, then cancel after the effect has started
-      val token = for {
-        canceler <- F.delay(F.runCancelable(ff)(_ => IO.unit).unsafeRunSync())
-        _        <- F.liftIO(IO.fromFuture(IO.pure(latch.future)))
-        _        <- canceler
-      } yield ()
-
-      F.liftIO(F.runAsync(token)(_ => IO.unit).toIO) *> release.get
-    }
-    lh <-> F.unit
-  }
-}
-
 object IOConcurrentEffectTests {
   def apply()(implicit ce: ConcurrentEffect[Task], cs: ContextShift[Task]): ConcurrentEffectTests[Task] =
     new ConcurrentEffectTests[Task] {
       def laws =
-        new ConcurrentEffectLaws[Task] with ConcurrentEffectLawsOverrides[Task] {
+        new ConcurrentEffectLaws[Task] {
           override val F: ConcurrentEffect[Task]        = ce
           override val contextShift: ContextShift[Task] = cs
         }
@@ -63,7 +36,7 @@ object IOConcurrentEffectTests {
 }
 
 class catzSpec
-    extends FunSuite
+    extends AnyFunSuite
     with BeforeAndAfterAll
     with Matchers
     with Checkers
@@ -175,11 +148,11 @@ class catzSpec
       import zio.duration._
 
       def eqv(io1: IO[E, A], io2: IO[E, A]): Boolean = {
-        val v1  = rts.unsafeRunSync(io1.timeout(20.seconds)).map(_.get)
-        val v2  = rts.unsafeRunSync(io2.timeout(20.seconds)).map(_.get)
+        val v1  = rts.unsafeRunSync(io1.timeoutFail("Test timed out")(20.seconds))
+        val v2  = rts.unsafeRunSync(io2.timeoutFail("Test timed out")(20.seconds))
         val res = v1 === v2
         if (!res) {
-          println(s"Mismatch: $v1 != $v2")
+          println(s"Mismatch: ${v1.fold(_.prettyPrint, _.toString)} != ${v2.fold(_.prettyPrint, _.toString)}")
         }
         res
       }
