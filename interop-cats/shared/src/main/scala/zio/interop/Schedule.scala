@@ -19,11 +19,10 @@ package zio.interop
 import cats.effect.ConcurrentEffect
 import zio.ZSchedule.Decision
 import zio.clock.Clock
-import zio.{ RIO, ZSchedule }
 import zio.duration.{ Duration => ZDuration }
-import Schedule.Env
+import zio.interop.Schedule.Env
 import zio.random.Random
-import zio.Runtime
+import zio.{ RIO, Runtime, ZSchedule }
 
 import scala.concurrent.duration.Duration
 
@@ -389,12 +388,12 @@ object Schedule {
   private[interop] type Env = Random with Clock
 
   private[interop] def toEffect[F[+_], R, A](zio: RIO[R, A])(implicit R: Runtime[R], F: ConcurrentEffect[F]): F[A] =
-    F.liftIO(taskEffectInstances.toIO(zio))
+    F.liftIO(taskEffectInstance.toIO(zio))
 
   private[interop] def fromEffect[F[+_], R, A](
     eff: F[A]
   )(implicit R: Runtime[R], F: ConcurrentEffect[F]): RIO[R, A] =
-    taskEffectInstances.liftIO[A](F.toIO(eff))
+    taskEffectInstance.liftIO[A](F.toIO(eff))
 
   final def apply[F[+_]: ConcurrentEffect, S, A, B](
     initial0: F[S],
