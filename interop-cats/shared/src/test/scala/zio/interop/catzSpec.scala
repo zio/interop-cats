@@ -1,6 +1,6 @@
 package zio.interop
 
-import cats.Eq
+import cats.{ Eq, Monad }
 import cats.effect.laws.discipline.arbitrary._
 import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests }
 import cats.effect.laws.util.{ TestContext, TestInstances }
@@ -135,6 +135,7 @@ class catzSpec
     ContextShift[UIO]
     cats.effect.Clock[UIO]
     Timer[UIO]
+    Monad[UIO]
   }
 }
 
