@@ -100,7 +100,9 @@ jobs:
       - checkout
       - restore_cache:
           key: sbt-cache-machine
-      - run: sbt ++2.13.0! testJS
+      - run:
+          command: sbt ++2.13.0! testJS
+          no_output_timeout: 30m
       - save_cache:
           key: sbt-cache-machine
           paths:
