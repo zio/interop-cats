@@ -47,7 +47,8 @@ final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) 
             l.liftIO(res.bracketCase {
                 case (a, r) =>
                   CIO.delay(
-                    ZManaged.reserve(Reservation(ZIO.succeed(a), l.liftIO(r(ExitCase.Completed)).orDie.uninterruptible))
+                    ZManaged
+                      .reserve(Reservation(ZIO.succeed(a), _ => l.liftIO(r(ExitCase.Completed)).orDie.uninterruptible))
                   )
               } {
                 case (_, ExitCase.Completed) =>
@@ -71,7 +72,7 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
 
   def toResourceZIO(implicit ev: Applicative[ZIO[R, E, ?]]): Resource[ZIO[R, E, ?], A] =
     Resource
-      .make(managed.reserve)(_.release.unit)
+      .make(managed.reserve)(_.release(Exit.unit).unit)
       .evalMap(_.acquire)
 
   def toResource[F[_]](implicit F: Async[F], ev: Effect[ZIO[R, E, ?]]): Resource[F, A] =

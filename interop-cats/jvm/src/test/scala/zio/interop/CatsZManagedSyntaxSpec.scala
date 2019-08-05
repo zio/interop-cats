@@ -172,7 +172,7 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout with Defau
 
         for {
           latch    <- Promise.make[Nothing, Unit]
-          managed  = ZManaged.reserve(Reservation(latch.await, ZIO.unit))
+          managed  = ZManaged.reserve(Reservation(latch.await, _ => ZIO.unit))
           resource = managed.toResource[CIO]
           res <- IO {
                   Concurrent
