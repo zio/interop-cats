@@ -62,7 +62,7 @@ lazy val interopCatsJVM = interopCats.jvm
   .settings(
     libraryDependencies ++= Seq(
       "org.typelevel"              %% "cats-effect-laws"           % "2.0.0-M5" % Test,
-      "org.typelevel"              %% "cats-testkit"               % "2.0.0-M4" % Test,
+      "org.typelevel"              %% "cats-testkit"               % "2.0.0-RC1" % Test,
       "org.typelevel"              %% "cats-mtl-laws"              % "0.6.0"    % Test,
       "com.github.alexarchambault" %% s"scalacheck-shapeless_1.14" % "1.2.3"    % Test
     )
