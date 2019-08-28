@@ -1,27 +1,30 @@
 package zio.interop
 
-import cats.{ Eq, Monad }
+import cats.effect.concurrent.Deferred
 import cats.effect.laws.discipline.arbitrary._
 import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests }
 import cats.effect.laws.util.{ TestContext, TestInstances }
 import cats.effect.laws.{ AsyncLaws, ConcurrentEffectLaws, ConcurrentLaws, EffectLaws }
-import cats.effect.{ Concurrent, ConcurrentEffect, ContextShift, Effect }
+import cats.effect.{ Async, Concurrent, ConcurrentEffect, ContextShift, Effect }
 import cats.implicits._
 import cats.laws._
 import cats.laws.discipline._
+import cats.{ Eq, Monad }
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{ BeforeAndAfterAll, Matchers }
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.Discipline
-import zio._
 import zio.clock.Clock
 import zio.console.Console
 import zio.internal.PlatformLive
 import zio.interop.catz._
 import zio.random.Random
 import zio.system.System
+import zio.{ IO, _ }
+
+import scala.concurrent.Promise
 
 class catzSpec
     extends AnyFunSuite
@@ -145,8 +148,22 @@ trait AsyncLawsOverrides[F[_]] extends AsyncLaws[F] {
 }
 
 trait ConcurrentEffectLawsOverrides[F[_]] extends ConcurrentEffectLaws[F] {
-  override final def runCancelableIsSynchronous[A]: IsEq[F[Unit]] =
-    F.unit <-> F.unit // FIXME
+  import cats.effect.IO
+
+  override def runCancelableIsSynchronous[A]: IsEq[F[Unit]] = {
+    val lh = Deferred.uncancelable[F, Unit].flatMap { latch =>
+      val spawned = Promise[Unit]()
+      // Never ending task
+      val ff = F.cancelable[A](_ => { spawned.success(()); latch.complete(()) })
+      // Execute, then cancel
+      val token = F.delay(F.runCancelable(ff)(_ => IO.unit).unsafeRunSync()).flatMap { canceler =>
+        Async.fromFuture(F.pure(spawned.future)) >> canceler
+      }
+      F.liftIO(F.runAsync(token)(_ => IO.unit).toIO) *> latch.get
+    }
+    lh <-> F.unit
+  }
+
 }
 
 object EffectTestsOverrides {
