@@ -117,7 +117,7 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
   ): effect.SyncIO[Unit] =
     effect.SyncIO {
       rts.unsafeRunAsync(fa) { exit =>
-        cb(exit.toEither).unsafeRunAsyncAndForget()
+        cb(exit.toEither).unsafeRunAsync(_ => ())
       }
     }
 
@@ -128,7 +128,7 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
       rts.unsafeRun {
         RIO.interruptible(fa).fork.flatMap { f =>
           f.await
-            .flatMap(exit => IO.effect(cb(exit.toEither).unsafeRunAsyncAndForget()))
+            .flatMap(exit => IO.effect(cb(exit.toEither).unsafeRunAsync(_ => ())))
             .fork
             .const(f.interrupt.unit)
         }
