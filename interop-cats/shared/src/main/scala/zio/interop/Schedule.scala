@@ -16,7 +16,7 @@
 
 package zio.interop
 
-import cats.effect.ConcurrentEffect
+import cats.effect.{ Effect, LiftIO }
 import zio.ZSchedule.Decision
 import zio.clock.Clock
 import zio.duration.{ Duration => ZDuration }
@@ -29,7 +29,7 @@ import scala.concurrent.duration.Duration
 /**
  * @see zio.ZSchedule
  */
-final class Schedule[F[+_], -A, +B] private[interop] (private[interop] val underlying: ZSchedule[Env, A, B]) { self =>
+final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: ZSchedule[Env, A, B]) { self =>
   import Schedule.{ fromEffect, toEffect }
 
   /**
@@ -40,18 +40,18 @@ final class Schedule[F[+_], -A, +B] private[interop] (private[interop] val under
   /**
    * @see zio.ZSchedule.initial
    */
-  def initial(implicit R: Runtime[Env], F: ConcurrentEffect[F]): F[State] = toEffect(underlying.initial)
+  def initial(implicit R: Runtime[Env], F: LiftIO[F]): F[State] = toEffect(underlying.initial)
 
   /**
    * @see zio.ZSchedule.update
    */
-  def update(implicit R: Runtime[Env], F: ConcurrentEffect[F]): (A, State) => F[ZSchedule.Decision[State, B]] =
+  def update(implicit R: Runtime[Env], F: LiftIO[F]): (A, State) => F[ZSchedule.Decision[State, B]] =
     (a, s) => toEffect(underlying.update(a, s))
 
   /**
    * @see zio.ZSchedule.run
    */
-  final def run(as: Iterable[A])(implicit R: Runtime[Env], F: ConcurrentEffect[F]): F[List[(Duration, B)]] =
+  final def run(as: Iterable[A])(implicit R: Runtime[Env], F: LiftIO[F]): F[List[(Duration, B)]] =
     toEffect(underlying.run(as).map(_.map { case (d, b) => (d.asScala, b) }))
 
   /**
@@ -89,13 +89,13 @@ final class Schedule[F[+_], -A, +B] private[interop] (private[interop] val under
    */
   final def check[A1 <: A](
     test: (A1, B) => F[Boolean]
-  )(implicit R: Runtime[Any], F: ConcurrentEffect[F]): Schedule[F, A1, B] =
+  )(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A1, B] =
     new Schedule(underlying.check((a1, b) => fromEffect(test(a1, b)).orDie))
 
   /**
    * @see zio.ZSchedule.ensuring
    */
-  final def ensuring(finalizer: F[_])(implicit R: Runtime[Any], F: ConcurrentEffect[F]): Schedule[F, A, B] =
+  final def ensuring(finalizer: F[_])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A, B] =
     new Schedule(underlying.ensuring(fromEffect(finalizer).orDie))
 
   /**
@@ -234,7 +234,7 @@ final class Schedule[F[+_], -A, +B] private[interop] (private[interop] val under
    */
   final def reconsiderM[A1 <: A, C](
     f: (A1, ZSchedule.Decision[State, B]) => F[ZSchedule.Decision[State, C]]
-  )(implicit R: Runtime[Any], F: ConcurrentEffect[F]): Schedule[F, A1, C] =
+  )(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A1, C] =
     new Schedule(underlying.reconsiderM((a, d) => fromEffect(f(a, d)).orDie))
 
   /**
@@ -242,7 +242,7 @@ final class Schedule[F[+_], -A, +B] private[interop] (private[interop] val under
    */
   final def reconsider[A1 <: A, C](
     f: (A1, ZSchedule.Decision[State, B]) => ZSchedule.Decision[State, C]
-  )(implicit R: Runtime[Env], F: ConcurrentEffect[F]): Schedule[F, A1, C] =
+  )(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A1, C] =
     reconsiderM((a, d) => F.pure(f(a, d)))
 
   /**
@@ -250,7 +250,7 @@ final class Schedule[F[+_], -A, +B] private[interop] (private[interop] val under
    */
   final def onDecision[A1 <: A](
     f: (A1, ZSchedule.Decision[State, B]) => F[Unit]
-  )(implicit R: Runtime[Any], F: ConcurrentEffect[F]): Schedule[F, A1, B] =
+  )(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A1, B] =
     new Schedule(underlying.onDecision((a, d) => fromEffect(f(a, d)).orDie))
 
   /**
@@ -258,7 +258,7 @@ final class Schedule[F[+_], -A, +B] private[interop] (private[interop] val under
    */
   final def modifyDelay(
     f: (B, Duration) => F[Duration]
-  )(implicit R: Runtime[Env], F: ConcurrentEffect[F]): Schedule[F, A, B] =
+  )(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A, B] =
     new Schedule(underlying.modifyDelay((b, d) => fromEffect(f(b, d.asScala)).map(ZDuration.fromScala).orDie))
 
   /**
@@ -268,7 +268,7 @@ final class Schedule[F[+_], -A, +B] private[interop] (private[interop] val under
     f: (
       (A, State) => F[ZSchedule.Decision[State, B]]
     ) => (A1, State) => F[ZSchedule.Decision[State, B1]]
-  )(implicit R: Runtime[Env], F: ConcurrentEffect[F]): Schedule[F, A1, B1] =
+  )(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A1, B1] =
     Schedule(self.initial, f(self.update))
 
   /**
@@ -276,13 +276,13 @@ final class Schedule[F[+_], -A, +B] private[interop] (private[interop] val under
    */
   final def initialized[A1 <: A](
     f: F[State] => F[State]
-  )(implicit R: Runtime[Env], F: ConcurrentEffect[F]): Schedule[F, A1, B] =
+  )(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A1, B] =
     Schedule(f(self.initial), self.update)
 
   /**
    * @see zio.ZSchedule.delayed
    */
-  final def delayed(f: Duration => Duration)(implicit R: Runtime[Env], F: ConcurrentEffect[F]): Schedule[F, A, B] =
+  final def delayed(f: Duration => Duration)(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A, B] =
     modifyDelay((_, d) => F.pure(f(d)))
 
   /**
@@ -299,13 +299,13 @@ final class Schedule[F[+_], -A, +B] private[interop] (private[interop] val under
   /**
    * @see zio.ZSchedule.logInput
    */
-  final def logInput[A1 <: A](f: A1 => F[Unit])(implicit R: Runtime[Env], F: ConcurrentEffect[F]): Schedule[F, A1, B] =
+  final def logInput[A1 <: A](f: A1 => F[Unit])(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A1, B] =
     new Schedule(underlying.logInput(a1 => fromEffect(f(a1)).orDie))
 
   /**
    * @see zio.ZSchedule.logOutput
    */
-  final def logOutput(f: B => F[Unit])(implicit R: Runtime[Env], F: ConcurrentEffect[F]): Schedule[F, A, B] =
+  final def logOutput(f: B => F[Unit])(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A, B] =
     new Schedule(underlying.logOutput(a1 => fromEffect(f(a1)).orDie))
 
   /**
@@ -323,7 +323,7 @@ final class Schedule[F[+_], -A, +B] private[interop] (private[interop] val under
   /**
    * @see zio.ZSchedule.foldM
    */
-  final def foldM[Z](z: F[Z])(f: (Z, B) => F[Z])(implicit R: Runtime[Any], F: ConcurrentEffect[F]): Schedule[F, A, Z] =
+  final def foldM[Z](z: F[Z])(f: (Z, B) => F[Z])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A, Z] =
     new Schedule(underlying.foldM(fromEffect(z).orDie)((z, b) => fromEffect(f(z, b)).orDie))
 
   /**
@@ -345,23 +345,23 @@ final class Schedule[F[+_], -A, +B] private[interop] (private[interop] val under
   /**
    * @see zio.ZSchedule.first
    */
-  final def first[C](implicit F: ConcurrentEffect[F]): Schedule[F, (A, C), (B, C)] = self *** Schedule.identity[F, C]
+  final def first[C]: Schedule[F, (A, C), (B, C)] = self *** Schedule.identity[F, C]
 
   /**
    * @see zio.ZSchedule.second
    */
-  final def second[C](implicit F: ConcurrentEffect[F]): Schedule[F, (C, A), (C, B)] = Schedule.identity[F, C] *** self
+  final def second[C]: Schedule[F, (C, A), (C, B)] = Schedule.identity[F, C] *** self
 
   /**
    * @see zio.ZSchedule.left
    */
-  final def left[C](implicit F: ConcurrentEffect[F]): Schedule[F, Either[A, C], Either[B, C]] =
+  final def left[C]: Schedule[F, Either[A, C], Either[B, C]] =
     self +++ Schedule.identity[F, C]
 
   /**
    * @see zio.ZSchedule.right
    */
-  final def right[C](implicit F: ConcurrentEffect[F]): Schedule[F, Either[C, A], Either[C, B]] =
+  final def right[C]: Schedule[F, Either[C, A], Either[C, B]] =
     Schedule.identity[F, C] +++ self
 
   /**
@@ -385,20 +385,20 @@ final class Schedule[F[+_], -A, +B] private[interop] (private[interop] val under
 
 object Schedule {
   import zio.interop.catz._
-  private[interop] type Env = Random with Clock
+  private[Schedule] type Env = Random with Clock
 
-  private[interop] def toEffect[F[+_], R, A](zio: RIO[R, A])(implicit R: Runtime[R], F: ConcurrentEffect[F]): F[A] =
+  private def toEffect[F[+_], R, A](zio: RIO[R, A])(implicit R: Runtime[R], F: LiftIO[F]): F[A] =
     F.liftIO(taskEffectInstance.toIO(zio))
 
-  private[interop] def fromEffect[F[+_], R, A](
+  private def fromEffect[F[+_], R, A](
     eff: F[A]
-  )(implicit R: Runtime[R], F: ConcurrentEffect[F]): RIO[R, A] =
+  )(implicit R: Runtime[R], F: Effect[F]): RIO[R, A] =
     taskEffectInstance.liftIO[A](F.toIO(eff))
 
-  final def apply[F[+_]: ConcurrentEffect, S, A, B](
+  final def apply[F[+_], S, A, B](
     initial0: F[S],
     update0: (A, S) => F[ZSchedule.Decision[S, B]]
-  )(implicit R: Runtime[Env]): Schedule[F, A, B] =
+  )(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A, B] =
     new Schedule(new ZSchedule[Env, A, B] {
       type State = S
       val initial = fromEffect(initial0).orDie
@@ -408,49 +408,49 @@ object Schedule {
   /**
    * @see zio.ZSchedule.identity
    */
-  def identity[F[+_]: ConcurrentEffect, A]: Schedule[F, A, A] =
+  def identity[F[+_], A]: Schedule[F, A, A] =
     new Schedule(ZSchedule.identity[A])
 
   /**
    * @see zio.ZSchedule.succeed
    */
-  final def succeed[F[+_]: ConcurrentEffect, A](a: A): Schedule[F, Any, A] =
+  final def succeed[F[+_], A](a: A): Schedule[F, Any, A] =
     new Schedule(ZSchedule.succeed(a))
 
   /**
    * @see zio.ZSchedule.succeedLazy
    */
-  final def succeedLazy[F[+_]: ConcurrentEffect, A](a: => A): Schedule[F, Any, A] =
+  final def succeedLazy[F[+_], A](a: => A): Schedule[F, Any, A] =
     new Schedule(ZSchedule.succeedLazy(a))
 
   /**
    * @see zio.ZSchedule.fromFunction
    */
-  final def fromFunction[F[+_]: ConcurrentEffect, A, B](f: A => B): Schedule[F, A, B] =
+  final def fromFunction[F[+_], A, B](f: A => B): Schedule[F, A, B] =
     new Schedule(ZSchedule.fromFunction(f))
 
   /**
    * @see zio.ZSchedule.never
    */
-  final def never[F[+_]: ConcurrentEffect]: Schedule[F, Any, Nothing] =
+  final def never[F[+_]]: Schedule[F, Any, Nothing] =
     new Schedule(ZSchedule.never)
 
   /**
    * @see zio.ZSchedule.forever
    */
-  final def forever[F[+_]: ConcurrentEffect]: Schedule[F, Any, Int] =
+  final def forever[F[+_]]: Schedule[F, Any, Int] =
     new Schedule(ZSchedule.forever)
 
   /**
    * @see zio.ZSchedule.once
    */
-  final def once[F[+_]: ConcurrentEffect]: Schedule[F, Any, Unit] =
+  final def once[F[+_]]: Schedule[F, Any, Unit] =
     new Schedule(ZSchedule.once)
 
   /**
    * @see zio.ZSchedule.delayed
    */
-  final def delayed[F[+_]: ConcurrentEffect, A](
+  final def delayed[F[+_], A](
     s: Schedule[F, A, Duration]
   ): Schedule[F, A, Duration] =
     new Schedule(ZSchedule.delayed(s.underlying.map(ZDuration.fromScala)).map(_.asScala))
@@ -458,25 +458,25 @@ object Schedule {
   /**
    * @see zio.ZSchedule.collectAll
    */
-  final def collectAll[F[+_]: ConcurrentEffect, A]: Schedule[F, A, List[A]] =
+  final def collectAll[F[+_], A]: Schedule[F, A, List[A]] =
     new Schedule(ZSchedule.collectAll)
 
   /**
    * @see zio.ZSchedule.doWhile
    */
-  final def doWhile[F[+_]: ConcurrentEffect, A](f: A => Boolean): Schedule[F, A, A] =
+  final def doWhile[F[+_], A](f: A => Boolean): Schedule[F, A, A] =
     new Schedule(ZSchedule.doWhile(f))
 
   /**
    * @see zio.ZSchedule.doUntil[A](A=>Boolean)
    */
-  final def doUntil[F[+_]: ConcurrentEffect, A](f: A => Boolean): Schedule[F, A, A] =
+  final def doUntil[F[+_], A](f: A => Boolean): Schedule[F, A, A] =
     new Schedule(ZSchedule.doUntil(f))
 
   /**
    * @see zio.ZSchedule!.doUntil[A, B](PartialFunction[A,B])
    */
-  final def doUntil[F[+_]: ConcurrentEffect, A, B](
+  final def doUntil[F[+_], A, B](
     pf: PartialFunction[A, B]
   ): Schedule[F, A, Option[B]] =
     new Schedule(ZSchedule.doUntil(pf))
@@ -484,82 +484,82 @@ object Schedule {
   /**
    * @see zio.ZSchedule.logInput
    */
-  final def logInput[F[+_]: ConcurrentEffect, A](f: A => F[Unit])(implicit R: Runtime[Env]): Schedule[F, A, A] =
+  final def logInput[F[+_], A](f: A => F[Unit])(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A, A] =
     identity[F, A].logInput(f)
 
   /**
    * @see zio.ZSchedule.recurs
    */
-  final def recurs[F[+_]: ConcurrentEffect](n: Int): Schedule[F, Any, Int] =
+  final def recurs[F[+_]](n: Int): Schedule[F, Any, Int] =
     new Schedule(ZSchedule.recurs(n))
 
   /**
    * @see zio.ZSchedule.delay
    */
-  final def delay[F[+_]: ConcurrentEffect]: Schedule[F, Any, Duration] =
+  final def delay[F[+_]]: Schedule[F, Any, Duration] =
     new Schedule(ZSchedule.delay.map(_.asScala))
 
   /**
    * @see zio.ZSchedule.decision
    */
-  final def decision[F[+_]: ConcurrentEffect]: Schedule[F, Any, Boolean] =
+  final def decision[F[+_]]: Schedule[F, Any, Boolean] =
     new Schedule(ZSchedule.decision)
 
   /**
    * @see zio.ZSchedule.unfold
    */
-  final def unfold[F[+_]: ConcurrentEffect, A](a: => A)(f: A => A): Schedule[F, Any, A] =
+  final def unfold[F[+_], A](a: => A)(f: A => A): Schedule[F, Any, A] =
     new Schedule(ZSchedule.unfold(a)(f))
 
   /**
    * @see zio.ZSchedule.unfoldM
    */
-  final def unfoldM[F[+_]: ConcurrentEffect, A](a: F[A])(f: A => F[A])(implicit R: Runtime[Env]): Schedule[F, Any, A] =
+  final def unfoldM[F[+_], A](a: F[A])(f: A => F[A])(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, Any, A] =
     Schedule[F, A, Any, A](
       a,
-      (_: Any, a: A) => ConcurrentEffect[F].map(f(a))(a => Decision.cont(ZDuration.Zero, a, a))
+      (_: Any, a1: A) => F.map(f(a1))(a => Decision.cont(ZDuration.Zero, a, a))
     )
 
   /**
    * @see zio.ZSchedule.spaced
    */
-  final def spaced[F[+_]: ConcurrentEffect](interval: Duration): Schedule[F, Any, Int] =
+  final def spaced[F[+_]](interval: Duration): Schedule[F, Any, Int] =
     new Schedule(ZSchedule.spaced(ZDuration.fromScala(interval)))
 
   /**
    * @see zio.ZSchedule.fibonacci
    */
-  final def fibonacci[F[+_]: ConcurrentEffect](one: Duration): Schedule[F, Any, Duration] =
+  final def fibonacci[F[+_]](one: Duration): Schedule[F, Any, Duration] =
     new Schedule(ZSchedule.fibonacci(ZDuration.fromScala(one)).map(_.asScala))
 
   /**
    * @see zio.ZSchedule.linear
    */
-  final def linear[F[+_]: ConcurrentEffect](base: Duration): Schedule[F, Any, Duration] =
+  final def linear[F[+_]](base: Duration): Schedule[F, Any, Duration] =
     new Schedule(ZSchedule.linear(ZDuration.fromScala(base)).map(_.asScala))
 
   /**
    * @see zio.ZSchedule.exponential
    */
-  final def exponential[F[+_]: ConcurrentEffect](base: Duration, factor: Double = 2.0): Schedule[F, Any, Duration] =
+  final def exponential[F[+_]](base: Duration, factor: Double = 2.0): Schedule[F, Any, Duration] =
     new Schedule(ZSchedule.exponential(ZDuration.fromScala(base), factor).map(_.asScala))
 
   /**
    * @see zio.ZSchedule.elapsed
    */
-  final def elapsed[F[+_]: ConcurrentEffect]: Schedule[F, Any, Duration] =
+  final def elapsed[F[+_]]: Schedule[F, Any, Duration] =
     new Schedule(ZSchedule.elapsed.map(_.asScala))
 
   /**
    * @see zio.ZSchedule.duration
    */
-  final def duration[F[+_]: ConcurrentEffect](duration: Duration): Schedule[F, Any, Duration] =
+  final def duration[F[+_]](duration: Duration): Schedule[F, Any, Duration] =
     new Schedule(ZSchedule.duration(ZDuration.fromScala(duration)).map(_.asScala))
 
   /**
    * @see zio.ZSchedule.fixed
    */
-  final def fixed[F[+_]: ConcurrentEffect](interval: Duration): Schedule[F, Any, Int] =
+  final def fixed[F[+_]](interval: Duration): Schedule[F, Any, Int] =
     new Schedule(ZSchedule.fixed(ZDuration.fromScala(interval)))
 
 }
