@@ -126,12 +126,14 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
   ): effect.SyncIO[effect.CancelToken[RIO[R, ?]]] =
     effect.SyncIO {
       rts.unsafeRun {
-        RIO.interruptible(fa).fork.flatMap { f =>
-          f.await
-            .flatMap(exit => IO.effect(cb(exit.toEither).unsafeRunAsync(_ => ())))
-            .fork
-            .const(f.interrupt.unit)
-        }
+        RIO.unit
+          .bracketExit(
+            (_, exit: Exit[Throwable, A]) => RIO.effectTotal(cb(exit.toEither).unsafeRunAsync(_ => ())),
+            _ => fa
+          )
+          .interruptible
+          .fork
+          .map(_.interrupt.unit)
       }
     }
 
@@ -162,12 +164,7 @@ private class CatsConcurrent[R] extends CatsEffect[R] with Concurrent[RIO[R, ?]]
     }
 
   override final def race[A, B](fa: RIO[R, A], fb: RIO[R, B]): RIO[R, Either[A, B]] =
-    racePair(fa, fb).flatMap {
-      case Left((a, fiberB)) =>
-        fiberB.cancel.const(Left(a))
-      case Right((fiberA, b)) =>
-        fiberA.cancel.const(Right(b))
-    }
+    fa.map(Left(_)).raceAttempt(fb.map(Right(_)))
 
   override final def start[A](fa: RIO[R, A]): RIO[R, effect.Fiber[RIO[R, ?], A]] =
     RIO.interruptible(fa).fork.map(toFiber)
