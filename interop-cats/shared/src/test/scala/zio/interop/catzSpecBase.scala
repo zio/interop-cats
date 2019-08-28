@@ -4,7 +4,6 @@ import cats.Eq
 import cats.effect.laws.util.{ TestContext, TestInstances }
 import cats.implicits._
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
-import org.scalatest.TestRegistration
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.typelevel.discipline.Laws

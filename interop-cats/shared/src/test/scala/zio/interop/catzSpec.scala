@@ -10,7 +10,6 @@ import cats.implicits._
 import cats.laws._
 import cats.laws.discipline._
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
-import org.scalatest.funsuite.AnyFunSuite
 import zio.interop.catz._
 import zio.{ IO, _ }
 
