@@ -62,7 +62,7 @@ abstract class CatsInstances extends CatsInstances1 {
   }
 
   implicit def zioTimer[R <: Clock, E]: effect.Timer[ZIO[R, E, ?]] = new effect.Timer[ZIO[R, E, ?]] {
-    override def clock: cats.effect.Clock[ZIO[R, E, ?]] = new effect.Clock[ZIO[R, E, ?]] {
+    override def clock: effect.Clock[ZIO[R, E, ?]] = new effect.Clock[ZIO[R, E, ?]] {
       override def monotonic(unit: TimeUnit): ZIO[R, E, Long] =
         zio.clock.nanoTime.map(unit.convert(_, NANOSECONDS))
 
@@ -128,7 +128,10 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
       rts.unsafeRun {
         RIO.unit
           .bracketExit(
-            (_, exit: Exit[Throwable, A]) => RIO.effectTotal(cb(exit.toEither).unsafeRunAsync(_ => ())),
+            (_, exit: Exit[Throwable, A]) =>
+              RIO.effectTotal {
+                effect.IO.suspend(cb(exit.toEither)).unsafeRunAsync(_ => ())
+              },
             _ => fa
           )
           .interruptible
@@ -149,7 +152,7 @@ private class CatsConcurrent[R] extends CatsEffect[R] with Concurrent[RIO[R, ?]]
       override final val join: RIO[R, A]      = f.join
     }
 
-  override final def liftIO[A](ioa: cats.effect.IO[A]): RIO[R, A] =
+  override final def liftIO[A](ioa: effect.IO[A]): RIO[R, A] =
     Concurrent.liftIO(ioa)(this)
 
   override final def cancelable[A](k: (Either[Throwable, A] => Unit) => effect.CancelToken[RIO[R, ?]]): RIO[R, A] =
@@ -201,7 +204,7 @@ private class CatsEffect[R] extends CatsMonadError[R, Throwable] with effect.Asy
     RIO.effectAsyncM(kk => k(e => kk(RIO.fromEither(e))).orDie)
 
   override final def suspend[A](thunk: => RIO[R, A]): RIO[R, A] =
-    RIO.flatten(RIO.effect(thunk))
+    RIO.effectSuspend(thunk)
 
   override final def delay[A](thunk: => A): RIO[R, A] =
     RIO.effect(thunk)
