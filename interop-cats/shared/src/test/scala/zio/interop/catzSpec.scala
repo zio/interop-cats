@@ -1,83 +1,32 @@
 package zio.interop
 
+import cats.Monad
 import cats.effect.concurrent.Deferred
 import cats.effect.laws.discipline.arbitrary._
 import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests }
-import cats.effect.laws.util.{ TestContext, TestInstances }
 import cats.effect.laws.{ AsyncLaws, ConcurrentEffectLaws, ConcurrentLaws, EffectLaws }
 import cats.effect.{ Async, Concurrent, ConcurrentEffect, ContextShift, Effect }
 import cats.implicits._
 import cats.laws._
 import cats.laws.discipline._
-import cats.{ Eq, Monad }
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{ BeforeAndAfterAll, Matchers }
-import org.typelevel.discipline.Laws
-import org.typelevel.discipline.scalatest.Discipline
-import zio.clock.Clock
-import zio.console.Console
-import zio.internal.PlatformLive
 import zio.interop.catz._
-import zio.random.Random
-import zio.system.System
 import zio.{ IO, _ }
 
 import scala.concurrent.Promise
 
-class catzSpec
-    extends AnyFunSuite
-    with BeforeAndAfterAll
-    with Matchers
-    with GeneratorDrivenPropertyChecks
-    with Discipline
-    with TestInstances
-    with GenIO {
-
-  type Env = Clock with Console with System with Random
-
-  implicit def rts(implicit tc: TestContext): Runtime[Env] = new DefaultRuntime {
-    override val Platform = PlatformLive.fromExecutionContext(tc).withReportFailure(_ => ())
-  }
-
-  implicit val zioEqNoCause: Eq[Cause[Nothing]] =
-    Eq.fromUniversalEquals
-
-  implicit def zioEqIO[E: Eq, A: Eq](implicit tc: TestContext): Eq[IO[E, A]] =
-    Eq.by(_.either)
-
-  implicit def zioEqUIO[A: Eq](implicit tc: TestContext): Eq[UIO[A]] =
-    Eq.by(uio => taskEffectInstance.toIO(uio.sandbox.either))
-
-  implicit def zioEqParIO[E: Eq, A: Eq](implicit tc: TestContext): Eq[ParIO[Any, E, A]] =
-    Eq.by(Par.unwrap(_))
-
-  implicit def zioEqZManaged[E: Eq, A: Eq](implicit tc: TestContext): Eq[ZManaged[Any, E, A]] =
-    Eq.by(_.reserve.flatMap(_.acquire).either)
-
-  implicit def zioArbitrary[R: Cogen, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZIO[R, E, A]] =
-    Arbitrary(Arbitrary.arbitrary[R => IO[E, A]].map(ZIO.environment[R].flatMap(_)))
-
-  implicit def ioArbitrary[E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[IO[E, A]] =
-    Arbitrary(Gen.oneOf(genIO[E, A], genLikeTrans(genIO[E, A]), genIdentityTrans(genIO[E, A])))
-
-  implicit def ioParArbitrary[R, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ParIO[R, E, A]] =
-    Arbitrary(Arbitrary.arbitrary[IO[E, A]].map(Par.apply))
-
-  implicit def zManagedArbitrary[R, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZManaged[R, E, A]] =
-    Arbitrary(Arbitrary.arbitrary[IO[E, A]].map(ZManaged.fromEffect(_)))
+class catzSpec extends AnyFunSuite with catzSpecInstances {
 
   def genUIO[A: Arbitrary]: Gen[UIO[A]] =
     Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
 
-  def checkAllAsync(name: String, f: TestContext => Laws#RuleSet): Unit =
-    checkAll(name, f(TestContext()))
-
-  checkAllAsync(
-    "ConcurrentEffect[Task]",
-    implicit tc => ConcurrentEffectTestsOverrides[Task].concurrentEffect[Int, Int, Int]
-  )
+  (1 to 10).foreach { i =>
+    checkAllAsync(
+      s"ConcurrentEffect[Task] N:$i",
+      implicit tc => ConcurrentEffectTestsOverrides[Task].concurrentEffect[Int, Int, Int]
+    )
+  }
   checkAllAsync("Effect[Task]", implicit tc => EffectTestsOverrides[Task].effect[Int, Int, Int])
   checkAllAsync("Concurrent[Task]", implicit tc => ConcurrentTestsOverrides[Task].concurrent[Int, Int, Int])
   checkAllAsync("MonadError[IO[Int, ?]]", implicit tc => MonadErrorTests[IO[Int, ?], Int].monadError[Int, Int, Int])
