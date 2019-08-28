@@ -1,2 +1,5 @@
--Xss2M
--Xmx2g
+-Xss5M
+-XX:ReservedCodeCacheSize=256m
+-Xmx4G
+-XX:MaxMetaspaceSize=3G
+-XX:MaxInlineLevel=18
