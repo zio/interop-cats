@@ -3,12 +3,11 @@ package zio.interop
 import cats.implicits._
 import cats.mtl.laws.discipline._
 import cats.mtl.{ ApplicativeAsk, ApplicativeHandle, ApplicativeLocal, FunctorRaise }
-import org.scalatest.funsuite.AnyFunSuite
 import zio._
 import zio.interop.catz._
 import zio.interop.catz.mtl._
 
-class catzMtlSpec extends AnyFunSuite with catzSpecInstances {
+class catzMtlSpec extends catzSpecBase {
   type Ctx   = String
   type Error = String
 

@@ -5,6 +5,7 @@ import cats.effect.laws.util.{ TestContext, TestInstances }
 import cats.implicits._
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import org.scalatest.TestRegistration
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.Discipline
@@ -16,12 +17,13 @@ import zio.random.Random
 import zio.system.System
 import zio.{ Cause, DefaultRuntime, IO, Runtime, UIO, ZIO, ZManaged }
 
-private[interop] trait catzSpecInstances
-    extends GeneratorDrivenPropertyChecks
+private[interop] trait catzSpecBase
+    extends AnyFunSuite
+    with GeneratorDrivenPropertyChecks
     with Discipline
     with TestInstances
     with GenIOInteropCats
-    with LP { self: TestRegistration =>
+    with catzSpecBaseLowPriority {
 
   type Env = Clock with Console with System with Random
 
@@ -63,7 +65,7 @@ private[interop] trait catzSpecInstances
 
 }
 
-private[interop] trait LP { this: catzSpecInstances =>
+private[interop] trait catzSpecBaseLowPriority { this: catzSpecBase =>
 
   implicit def zioEq[R: Arbitrary, E, A: Eq](implicit tc: TestContext): Eq[ZIO[R, E, A]] = {
     def run(r: R, zio: ZIO[R, E, A]) = taskEffectInstance.toIO(zio.provide(r).sandbox.either)

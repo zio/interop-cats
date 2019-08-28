@@ -16,7 +16,7 @@ import zio.{ IO, _ }
 
 import scala.concurrent.Promise
 
-class catzSpec extends AnyFunSuite with catzSpecInstances {
+class catzSpec extends catzSpecBase {
 
   def genUIO[A: Arbitrary]: Gen[UIO[A]] =
     Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
