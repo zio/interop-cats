@@ -89,7 +89,7 @@ sealed abstract class CatsInstances1 extends CatsInstances2 {
   implicit def taskConcurrentInstance[R]: effect.Concurrent[RIO[R, ?]] =
     new CatsConcurrent[R]
 
-  implicit def parallelInstance[R, E]: Parallel[ZIO[R, E, ?], ParIO[R, E, ?]] =
+  implicit def parallelInstance[R, E]: Parallel.Aux[ZIO[R, E, ?], ParIO[R, E, ?]] =
     new CatsParallel[R, E](monadErrorInstance)
 
   implicit def commutativeApplicativeInstance[R, E]: CommutativeApplicative[ParIO[R, E, ?]] =
@@ -258,8 +258,9 @@ private class CatsBifunctor[R] extends Bifunctor[ZIO[R, ?, ?]] {
     fab.bimap(f, g)
 }
 
-private class CatsParallel[R, E](final override val monad: Monad[ZIO[R, E, ?]])
-    extends Parallel[ZIO[R, E, ?], ParIO[R, E, ?]] {
+private class CatsParallel[R, E](final override val monad: Monad[ZIO[R, E, ?]]) extends Parallel[ZIO[R, E, ?]] {
+
+  final override type F[A] = ParIO[R, E, A]
 
   final override val applicative: Applicative[ParIO[R, E, ?]] =
     new CatsParApplicative[R, E]
