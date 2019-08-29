@@ -16,12 +16,10 @@ class catzMtlSpec extends catzSpecBase {
     implicit tc => ApplicativeAskTests[ZIO[Ctx, Error, ?], Ctx].applicativeAsk[Ctx]
   )
 
-  (1 to 50).foreach { i =>
-    checkAllAsync(
-      s"ApplicativeLocal[ZIO[Ctx, Error, ?]] N:$i",
-      implicit tc => ApplicativeLocalTests[ZIO[Ctx, Error, ?], Ctx].applicativeLocal[Ctx, Int]
-    )
-  }
+  checkAllAsync(
+    s"ApplicativeLocal[ZIO[Ctx, Error, ?]]",
+    implicit tc => ApplicativeLocalTests[ZIO[Ctx, Error, ?], Ctx].applicativeLocal[Ctx, Int]
+  )
 
   checkAllAsync(
     "FunctorRaise[ZIO[Ctx, Error, ?]]",
