@@ -1,7 +1,6 @@
 package zio.interop
 
 import cats.Monad
-import cats.effect.concurrent.Deferred
 import cats.effect.laws.discipline.arbitrary._
 import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests }
 import cats.effect.laws.{ AsyncLaws, ConcurrentEffectLaws, ConcurrentLaws, EffectLaws }
@@ -93,19 +92,15 @@ trait AsyncLawsOverrides[F[_]] extends AsyncLaws[F] {
   import cats.effect.ExitCase.{ Completed, Error }
 
   override def bracketReleaseIsCalledOnCompletedOrError[A, B](fa: F[A], b: B) = {
-    val lh = Deferred.uncancelable[F, B].flatMap { promise =>
-      val br = F.bracketCase(F.delay(promise)) { _ =>
-        fa
+    val lh = F.asyncF[B] { cb =>
+      F.bracketCase(F.pure(cb)) { _ =>
+        fa.as(())
       } {
-        case (r, Completed | Error(_)) => r.complete(b)
-        case _                         => F.unit
+        case (cb, Completed | Error(_)) => F.delay(cb(Right(b)))
+        case _ =>  F.unit
       }
-      // Start and forget
-      // we attempt br because even if fa fails, we expect the release function
-      // to run and set the promise.
-      F.asyncF[Unit](cb => F.delay(cb(Right(()))) *> br.attempt.as(())) *> promise.get
     }
-    lh <-> fa.attempt.as(b)
+    lh <-> F.pure(b)
   }
 
 }
