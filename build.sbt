@@ -48,16 +48,17 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .settings(
     libraryDependencies ++= Seq(
       "dev.zio"       %%% "zio"                  % "1.0.0-RC11-1",
-      "org.typelevel" %%% "cats-effect"          % "2.0.0-M5" % Optional,
+      "org.typelevel" %%% "cats-effect"          % "2.0.0-RC2" % Optional,
       "org.typelevel" %%% "cats-mtl-core"        % "0.6.0" % Optional,
       "co.fs2"        %%% "fs2-core"             % "1.1.0-M1" % Test,
       "dev.zio"       %%% "core-tests"           % "1.0.0-RC11-1" % Test classifier "tests",
       "org.specs2"    %%% "specs2-core"          % "4.7.0" % Test,
       "org.specs2"    %%% "specs2-scalacheck"    % "4.7.0" % Test,
       "org.specs2"    %%% "specs2-matcher-extra" % "4.7.0" % Test,
-      "org.typelevel" %%% "cats-effect-laws"     % "2.0.0-M5" % Test,
-      "org.typelevel" %%% "cats-testkit"         % "2.0.0-M4" % Test,
-      "org.typelevel" %%% "cats-mtl-laws"        % "0.6.0" % Test
+      "org.typelevel" %%% "cats-testkit"         % "2.0.0-RC2" % Test,
+      "org.typelevel" %%% "cats-effect-laws"     % "2.0.0-RC2" % Test,
+      "org.typelevel" %%% "cats-mtl-laws"        % "0.6.0" % Test,
+      "org.typelevel" %%% "discipline-scalatest" % "1.0.0-M1" % Test
     )
   )
 

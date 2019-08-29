@@ -31,7 +31,7 @@ class catzSpec extends catzSpecBase {
   checkAllAsync("SemigroupK[IO[Option[Unit], ?]]", implicit tc => SemigroupKTests[IO[Option[Unit], ?]].semigroupK[Int])
   checkAllAsync("SemigroupK[Task]", implicit tc => SemigroupKTests[Task].semigroupK[Int])
   checkAllAsync("Bifunctor[IO]", implicit tc => BifunctorTests[IO].bifunctor[Int, Int, Int, Int, Int, Int])
-  checkAllAsync("Parallel[Task, Task.Par]", implicit tc => ParallelTests[Task, Util.Par].parallel[Int, Int])
+  checkAllAsync("Parallel[Task]", implicit tc => ParallelTests[Task, Util.Par].parallel[Int, Int])
   checkAllAsync("Monad[UIO]", { implicit tc =>
     implicit def ioArbitrary[A: Arbitrary: Cogen]: Arbitrary[UIO[A]] = Arbitrary(genUIO[A])
     MonadTests[UIO].apply[Int, Int, Int]
@@ -60,6 +60,7 @@ class catzSpec extends catzSpecBase {
     Functor[RIO[String, ?]]
     Parallel[RIO[String, ?], ParIO[String, Throwable, ?]]
     SemigroupK[RIO[String, ?]]
+    implicitly[Parallel[RIO[String, ?]]]
     Apply[UIO]
     LiftIO[ZManaged[String, Throwable, ?]]
     MonadError[ZManaged[String, Throwable, ?], Throwable]
