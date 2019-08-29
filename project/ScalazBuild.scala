@@ -33,7 +33,7 @@ object ScalazBuild {
   val buildInfoSettings = Seq(
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
     buildInfoPackage := "zio",
-    buildInfoObject := "BuildInfo"
+    buildInfoObject := "BuildInfoInteropCats"
   )
 
   val optimizerOptions = {
