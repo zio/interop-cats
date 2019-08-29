@@ -32,12 +32,12 @@ addCommandAlias("testJVM", ";interopCatsJVM/test;interopCatsEffectJVM/test")
 addCommandAlias("testJS", ";interopCatsJS/test;interopCatsEffectJS/test")
 
 lazy val versionOf = new {
-  val cats                = "2.0.0-M4"
-  val catsEffect          = "2.0.0-M5"
+  val cats                = "2.0.0-RC2"
+  val catsEffect          = "2.0.0-RC2"
   val catsMtl             = "0.6.0"
+  val disciplineScalatest = "1.0.0-M1"
   val fs2                 = "1.1.0-M1"
   val kindProjector       = "0.10.3"
-  val scalacheckShapeless = "1.2.3"
   val scalajsJavaTime     = "0.2.5"
   val spec2               = "4.7.0"
   val zio                 = "1.0.0-RC11-1"
@@ -66,20 +66,15 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
       "dev.zio"       %%% "core-tests"           % versionOf.zio % Test classifier "tests",
       "org.specs2"    %%% "specs2-core"          % versionOf.spec2 % Test,
       "org.specs2"    %%% "specs2-scalacheck"    % versionOf.spec2 % Test,
-      "org.specs2"    %%% "specs2-matcher-extra" % versionOf.spec2 % Test
+      "org.specs2"    %%% "specs2-matcher-extra" % versionOf.spec2 % Test,
+      "org.typelevel" %%% "cats-testkit"         % versionOf.cats % Test,
+      "org.typelevel" %%% "cats-effect-laws"     % versionOf.cats % Test,
+      "org.typelevel" %%% "cats-mtl-laws"        % versionOf.catsMtl % Test,
+      "org.typelevel" %%% "discipline-scalatest" % versionOf.disciplineScalatest % Test
     )
   )
 
 lazy val interopCatsJVM = interopCats.jvm
-  .settings(
-    libraryDependencies ++= Seq(
-      "org.typelevel"              %% "cats-effect-laws"           % versionOf.catsEffect          % Test,
-      "org.typelevel"              %% "cats-testkit"               % versionOf.cats                % Test,
-      "org.typelevel"              %% "cats-mtl-laws"              % versionOf.catsMtl             % Test,
-      "com.github.alexarchambault" %% s"scalacheck-shapeless_1.14" % versionOf.scalacheckShapeless % Test
-    )
-  )
-
 lazy val interopCatsJS = interopCats.js
   .settings(
     libraryDependencies += "org.scala-js" %%% "scalajs-java-time" % versionOf.scalajsJavaTime % Test
@@ -103,8 +98,9 @@ lazy val interopCatsEffect =
 lazy val interopCatsEffectJVM =
   interopCatsEffect.jvm.settings(
     libraryDependencies ++= Seq(
-      "dev.zio"       %%% "core-tests"  % versionOf.zio  % Test classifier "tests",
-      "org.typelevel" %% "cats-testkit" % versionOf.cats % Test
+      "dev.zio"       %%% "core-tests"           % versionOf.zio                 % Test classifier "tests",
+      "org.typelevel" %% "cats-testkit"          % versionOf.cats                % Test,
+      "org.typelevel" %%% "discipline-scalatest" % versionOf.disciplineScalatest % Test
     )
   )
 lazy val interopCatsEffectJS = interopCatsEffect.js
