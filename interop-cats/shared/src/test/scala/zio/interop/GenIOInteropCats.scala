@@ -58,9 +58,9 @@ trait GenIOInteropCats {
       Gen.oneOf(
         genOfFlatMaps[E, A](io)(genSuccess[E, A]),
         genOfMaps[E, A](io),
+        genOfMapErrors[E, A](io),
         genOfRace[E, A](io),
-        genOfParallel[E, A](io)(genSuccess[E, A]),
-        genOfMapErrors[E, A](io)
+        genOfParallel[E, A](io)(genSuccess[E, A])
       )
     gen.flatMap(io => genTransformations(functions)(io))
   }
@@ -76,7 +76,7 @@ trait GenIOInteropCats {
         genOfIdentityMaps[E, A](io),
         genOfIdentityMapErrors[E, A](io),
         genOfRace[E, A](io),
-        genOfParallel[E, A](io)(genAsyncSuccess[E, A])
+        genOfParallel[E, A](io)(genSuccess[E, A])
       )
     gen.flatMap(io => genTransformations(functions)(io))
   }
@@ -113,18 +113,22 @@ trait GenIOInteropCats {
   private def genOfIdentityFlatMaps[E, A](io: IO[E, A]): Gen[IO[E, A]] =
     Gen.const(io.flatMap(a => IO.succeed(a)))
 
-  private def genOfRace[E, A](io: IO[E, A]): Gen[IO[E, A]] =
+  def genOfRace[E, A](io: IO[E, A]): Gen[IO[E, A]] =
     Gen.const(io.race(IO.never))
 
-  private def genOfParallel[E, A](io: IO[E, A])(gen: Gen[IO[E, A]]): Gen[IO[E, A]] =
+  def genOfParallel[E, A](io: IO[E, A])(gen: Gen[IO[E, A]]): Gen[IO[E, A]] =
     gen.map { parIo =>
-//      io.zipPar(parIo).map(_._1)
-      Promise.make[Nothing, Unit].flatMap { p =>
-        ZManaged
-          .fromEffect(parIo *> p.succeed(()))
-          .fork
-          .use_(p.await *> io)
-      }
+//    gen.map { _ =>
+//      io.zipPar(parIo.run).map(_._1)
+//      io
+      Promise
+        .make[Nothing, Unit]
+        .flatMap { p =>
+          ZManaged
+            .fromEffect(parIo *> p.succeed(()))
+            .fork
+            .use_(p.await *> io)
+        }
     }
 
 }

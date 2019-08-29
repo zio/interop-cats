@@ -1,6 +1,7 @@
 package zio.interop
 
 import cats.Monad
+import cats.effect.concurrent.Deferred
 import cats.effect.laws.discipline.arbitrary._
 import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests }
 import cats.effect.laws.{ AsyncLaws, ConcurrentEffectLaws, ConcurrentLaws, EffectLaws }
@@ -23,6 +24,12 @@ class catzSpec extends catzSpecBase {
     "ConcurrentEffect[Task]",
     implicit tc => ConcurrentEffectTestsOverrides[Task].concurrentEffect[Int, Int, Int]
   )
+  (1 to 10).foreach { i =>
+    checkAllAsync(
+      s"duplicate-N:$i",
+      implicit tc => ConcurrentEffectTestsOverrides[Task].concurrentEffect[Int, Int, Int]
+    )
+  }
   checkAllAsync("Effect[Task]", implicit tc => EffectTestsOverrides[Task].effect[Int, Int, Int])
   checkAllAsync("Concurrent[Task]", implicit tc => ConcurrentTestsOverrides[Task].concurrent[Int, Int, Int])
   checkAllAsync("MonadError[IO[Int, ?]]", implicit tc => MonadErrorTests[IO[Int, ?], Int].monadError[Int, Int, Int])
@@ -97,10 +104,12 @@ trait AsyncLawsOverrides[F[_]] extends AsyncLaws[F] {
         fa.as(())
       } {
         case (cb, Completed | Error(_)) => F.delay(cb(Right(b)))
-        case _ =>  F.unit
+        case _                          => F.unit
       }
     }
-    lh <-> F.pure(b)
+//    lh <-> F.pure(b)
+    F.pure(b) <-> lh
+//    lh <-> fa.attempt.as(b)
   }
 
 }

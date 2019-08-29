@@ -16,6 +16,9 @@ import zio.random.Random
 import zio.system.System
 import zio.{ Cause, DefaultRuntime, IO, Runtime, UIO, ZIO, ZManaged }
 
+import scala.concurrent.Future
+import scala.util.{ Failure, Success }
+
 private[interop] trait catzSpecBase
     extends AnyFunSuite
     with GeneratorDrivenPropertyChecks
@@ -34,6 +37,75 @@ private[interop] trait catzSpecBase
 
   implicit def zioEqCause[E]: Eq[Cause[E]] = zioEqCause0.asInstanceOf[Eq[Cause[E]]]
   private val zioEqCause0: Eq[Cause[Any]]  = Eq.fromUniversalEquals
+
+  /**
+   * Defines equality for `Future` references that can
+   * get interpreted by means of a [[TestContext]].
+   */
+  implicit override def eqFuture[A](implicit A: Eq[A], ec: TestContext): Eq[Future[A]] =
+    new Eq[Future[A]] {
+      def eqv(x: Future[A], y: Future[A]): Boolean = {
+        // Executes the whole pending queue of runnables
+        ec.tick()
+//        while (ec.tickOne()) {
+//          ec.tick(Duration.fromNanos(1000000000000L))
+//          ec.tick(Duration.fromNanos(1000000000000L))
+//          ec.tick(Duration.fromNanos(1000000000000L))
+//          ec.tick(Duration.fromNanos(1000000000000L))
+//          ec.tick(Duration.fromNanos(1000000000000L))
+//        }
+//        ec.tick(Duration.fromNanos(1000000000000L))
+//        ec.tick(Duration.fromNanos(1000000000000L))
+//        ec.tick(Duration.fromNanos(1000000000000L))
+//        ec.tick(Duration.fromNanos(1000000000000L))
+
+        //
+        //        (Await.result(x, FiniteDuration(2, TimeUnit.SECONDS)), Await.result(y, FiniteDuration(2, TimeUnit.SECONDS))) match {
+        //          case (a, b) => A.eqv(a, b)
+        //        }
+
+        val res = x.value match {
+          case None =>
+            y.value match {
+              case None =>
+                java.lang.System.out.println(s"Non-terminating tasks")
+                true
+              case Some(other) =>
+                java.lang.System.out.println(s"Tick mismatch 1 $other")
+                false
+            }
+          case Some(Success(a)) =>
+            y.value match {
+              case Some(Success(b)) =>
+                val res = A.eqv(a, b)
+                if (!res) java.lang.System.out.println(s"Result mismatch 2 $a $b")
+                res
+              case Some(Failure(_)) =>
+                java.lang.System.out.println("Success mismatch 2")
+                false
+              case _ =>
+                java.lang.System.out.println("Tick mismatch 2")
+                false
+            }
+          case Some(Failure(ex)) =>
+            y.value match {
+              case Some(Failure(ey)) =>
+                val res = eqThrowable.eqv(ex, ey)
+                if (!res) java.lang.System.out.println(s"Result mismatch 3 $ex $ey")
+                res
+              case Some(Success(_)) =>
+                java.lang.System.out.println("Success mismatch 3")
+                false
+              case _ =>
+                java.lang.System.out.println("Tick mismatch 3")
+                false
+            }
+        }
+
+        if (!res) java.lang.System.out.println("Mismatch")
+        res
+      }
+    }
 
   implicit def zioEqIO[E: Eq, A: Eq](implicit tc: TestContext): Eq[IO[E, A]] =
     Eq.by(_.either)
