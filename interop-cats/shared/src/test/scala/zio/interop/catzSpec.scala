@@ -21,7 +21,7 @@ class catzSpec extends catzSpecBase {
     Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
 
   checkAllAsync(
-    s"ConcurrentEffect[Task]",
+    "ConcurrentEffect[Task]",
     implicit tc => ConcurrentEffectTestsOverrides[Task].concurrentEffect[Int, Int, Int]
   )
   checkAllAsync("Effect[Task]", implicit tc => EffectTestsOverrides[Task].effect[Int, Int, Int])

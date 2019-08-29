@@ -12,12 +12,12 @@ class catzMtlSpec extends catzSpecBase {
   type Error = String
 
   checkAllAsync(
-    s"ApplicativeAsk[ZIO[Ctx, Error, ?]]",
+    "ApplicativeAsk[ZIO[Ctx, Error, ?]]",
     implicit tc => ApplicativeAskTests[ZIO[Ctx, Error, ?], Ctx].applicativeAsk[Ctx]
   )
 
   checkAllAsync(
-    s"ApplicativeLocal[ZIO[Ctx, Error, ?]]",
+    "ApplicativeLocal[ZIO[Ctx, Error, ?]]",
     implicit tc => ApplicativeLocalTests[ZIO[Ctx, Error, ?], Ctx].applicativeLocal[Ctx, Int]
   )
 
