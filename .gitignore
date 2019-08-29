@@ -1,6 +1,5 @@
 .bloop
 .metals
-.sbtopts
 project/.sbt
 project/travis-deploy-key
 project/secrets.tar.xz
