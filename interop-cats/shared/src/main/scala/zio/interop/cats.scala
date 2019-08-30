@@ -137,6 +137,7 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
 
   override final def toIO[A](fa: RIO[R, A]): effect.IO[A] =
     effect.ConcurrentEffect.toIOFromRunCancelable(fa)(this)
+//    effect.Effect.toIOFromRunAsync(fa)(this)
 }
 
 private class CatsConcurrent[R] extends CatsEffect[R] with Concurrent[RIO[R, ?]] {
@@ -198,11 +199,13 @@ private class CatsEffect[R] extends CatsMonadError[R, Throwable] with effect.Asy
     RIO.never
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => Unit): RIO[R, A] =
-    RIO.effectAsync { kk =>
+    RIO.effectAsyncMaybe { kk =>
       try {
         k(e => kk(RIO.fromEither(e)))
+        None
       } catch {
-        case e: Throwable => kk(RIO.fail(e))
+        case e: Throwable =>
+          Some(RIO.fail(e))
       }
     }
 
