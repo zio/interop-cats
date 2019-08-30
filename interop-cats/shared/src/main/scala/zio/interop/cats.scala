@@ -217,8 +217,9 @@ private class CatsEffect[R] extends CatsMonadError[R, Throwable] with effect.Asy
     for {
       p <- Promise.make[Throwable, A]
       r <- ZIO.runtime[R]
-      e <- ZIO.effectSuspend(register(k => r.unsafeRunAsync_(k.to(p)))).run
-      _ <- e.foldM(c => ZIO.effectTotal(r.Platform.reportFailure(c)), _ => ZIO.unit)
+      _ <- ZIO
+            .effectSuspend(register(k => r.unsafeRunAsync_(k.to(p))))
+            .catchAllCause(c => ZIO.effectTotal(r.Platform.reportFailure(c)))
       a <- p.await
     } yield a
 
