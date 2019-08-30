@@ -19,23 +19,32 @@ trait GenIOInteropCats {
   /**
    * Given a generator for `A`, produces a generator for `IO[E, A]` using the `IO.async` constructor.
    */
-  def genAsyncSuccess[E, A: Arbitrary]: Gen[IO[E, A]] =
+  def genAsyncSuccess[E, A: Arbitrary](implicit tc: TestContext0): Gen[IO[E, A]] =
 //    Arbitrary.arbitrary[A].map(a => IO.effectAsync[E, A](k => k(IO.succeed(a))))
 //    Arbitrary.arbitrary[A].map(a => IO.effectAsyncMaybe[E, A](_ => Some(IO.succeed(a))))
+    // race condition
+//    Arbitrary
+//      .arbitrary[A]
+//      .map(
+//        a =>
+//          IO.effectAsyncMaybe[E, A] { k =>
+//            tc.execute(() => k(IO.succeed(a)))
+//            None
+//          }
+//      )
+    // no race condition
     Arbitrary
       .arbitrary[A]
-      .map(
-        a =>
-          IO.effectAsyncMaybe[E, A] { k =>
-            k(IO.succeed(a))
-            None
-          }
-      )
+      .map { a =>
+        val _ = tc
+        catz.taskConcurrentInstance[Any].asyncF[A](k => ZIO.effectTotal(k(Right(a)))).asInstanceOf[IO[E, A]]
+      }
 
   /**
    * Randomly uses either `genSyncSuccess` or `genAsyncSuccess` with equal probability.
    */
-  def genSuccess[E, A: Arbitrary]: Gen[IO[E, A]] = Gen.oneOf(genSyncSuccess[E, A], genAsyncSuccess[E, A])
+  def genSuccess[E, A: Arbitrary](implicit tc: TestContext0): Gen[IO[E, A]] =
+    Gen.oneOf(genSyncSuccess[E, A], genAsyncSuccess[E, A])
 
   /**
    * Given a generator for `E`, produces a generator for `IO[E, A]` using the `IO.fail` constructor.
@@ -57,7 +66,7 @@ trait GenIOInteropCats {
   /**
    * Randomly uses either `genSuccess` or `genFailure` with equal probability.
    */
-  def genIO[E: Arbitrary, A: Arbitrary]: Gen[IO[E, A]] =
+  def genIO[E: Arbitrary, A: Arbitrary](implicit tc: TestContext0): Gen[IO[E, A]] =
     Gen.oneOf(genSuccess[E, A], genFailure[E, A])
 
   /**
@@ -65,7 +74,9 @@ trait GenIOInteropCats {
    * by using some random combination of the methods `map`, `flatMap`, `mapError`, and any other method that does not change
    * the success/failure of the value, but may change the value itself.
    */
-  def genLikeTrans[E: Arbitrary: Cogen, A: Arbitrary: Cogen](gen: Gen[IO[E, A]]): Gen[IO[E, A]] = {
+  def genLikeTrans[E: Arbitrary: Cogen, A: Arbitrary: Cogen](
+    gen: Gen[IO[E, A]]
+  )(implicit tc: TestContext0): Gen[IO[E, A]] = {
     val functions: IO[E, A] => Gen[IO[E, A]] = io =>
       Gen.oneOf(
         genOfFlatMaps[E, A](io)(genSuccess[E, A]),
@@ -85,7 +96,7 @@ trait GenIOInteropCats {
    * Given a generator for `IO[E, A]`, produces a sized generator for `IO[E, A]` which represents a transformation,
    * by using methods that can have no effect on the resulting value (e.g. `map(identity)`, `io.race(never)`, `io.par(io2).map(_._1)`).
    */
-  def genIdentityTrans[E, A: Arbitrary](gen: Gen[IO[E, A]]): Gen[IO[E, A]] = {
+  def genIdentityTrans[E, A: Arbitrary](gen: Gen[IO[E, A]])(implicit tc: TestContext0): Gen[IO[E, A]] = {
     val functions: IO[E, A] => Gen[IO[E, A]] = io =>
       Gen.oneOf(
         genOfIdentityFlatMaps[E, A](io),

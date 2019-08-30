@@ -1,16 +1,16 @@
 package zio.interop
 
 import cats.data.EitherT
-import cats.{ Eq, Monad }
 import cats.effect.concurrent.Deferred
 import cats.effect.laws.discipline.arbitrary._
-import cats.effect.laws.discipline.{ AsyncTests, ConcurrentEffectTests, ConcurrentTests, EffectTests, Parameters }
+import cats.effect.laws.discipline._
 import cats.effect.laws.{ AsyncLaws, ConcurrentEffectLaws, ConcurrentLaws, EffectLaws }
 import cats.effect.{ Async, Concurrent, ConcurrentEffect, ContextShift, Effect }
 import cats.implicits._
 import cats.laws._
 import cats.laws.discipline._
-import org.scalacheck.{ Arbitrary, Cogen, Gen, Prop }
+import cats.{ Eq, Monad }
+import org.scalacheck.{ Arbitrary, Cogen, Prop }
 import org.typelevel.discipline.Laws
 import zio.interop.catz._
 import zio.{ IO, _ }
@@ -18,9 +18,6 @@ import zio.{ IO, _ }
 import scala.concurrent.Promise
 
 class catzSpec extends catzSpecBase {
-
-  def genUIO[A: Arbitrary]: Gen[UIO[A]] =
-    Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
 
   checkAllAsync(
     "ConcurrentEffect[Task]",

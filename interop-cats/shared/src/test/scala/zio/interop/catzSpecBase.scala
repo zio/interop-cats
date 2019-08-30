@@ -1,7 +1,5 @@
 package zio.interop
 
-import java.util.concurrent.atomic.AtomicReference
-
 import cats.Eq
 import cats.effect.{ Bracket, Resource, SyncIO }
 import cats.implicits._
@@ -36,8 +34,6 @@ private[interop] trait catzSpecBase
   implicit def zioEqCause[E]: Eq[Cause[E]] = zioEqCause0.asInstanceOf[Eq[Cause[E]]]
   private val zioEqCause0: Eq[Cause[Any]]  = Eq.fromUniversalEquals
 
-  val counter = new AtomicReference(0)
-
   /**
    * Defines equality for `Future` references that can
    * get interpreted by means of a [[TestContext0]].
@@ -47,7 +43,7 @@ private[interop] trait catzSpecBase
       def eqv(x: Future[A], y: Future[A]): Boolean = {
         // Executes the whole pending queue of runnables
         ec.tick()
-//        while (ec.tickOne()) ec.tickOne()
+        do ec.tickOne() while (ec.tickOne())
 //        println(ec.state.tasks)
 //        while (ec.tickOne()) {
 //          ec.tick(concurrent.duration.Duration.fromNanos(1000000000000L))
@@ -70,7 +66,7 @@ private[interop] trait catzSpecBase
           case None =>
             y.value match {
               case None =>
-                if (counter.updateAndGet(_ + 1) > 31) {
+                if (ec.counter.updateAndGet(_ + 1) > 31) {
                   java.lang.System.out.println(s"More than 31 non-terminating tasks")
                   false
                 } else true
@@ -123,16 +119,25 @@ private[interop] trait catzSpecBase
   implicit def zioEqZManaged[E: Eq, A: Eq](implicit tc: TestContext0, rts: Runtime[Any]): Eq[ZManaged[Any, E, A]] =
     Eq.by(_.reserve.flatMap(_.acquire).either)
 
-  implicit def zioArbitrary[R: Cogen, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZIO[R, E, A]] =
+  def genUIO[A: Arbitrary](implicit tc: TestContext0): Gen[UIO[A]] =
+    Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
+
+  implicit def zioArbitrary[R: Cogen, E: Arbitrary: Cogen, A: Arbitrary: Cogen](
+    implicit tc: TestContext0
+  ): Arbitrary[ZIO[R, E, A]] =
     Arbitrary(Arbitrary.arbitrary[R => IO[E, A]].map(ZIO.environment[R].flatMap(_)))
 
-  implicit def ioArbitrary[E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[IO[E, A]] =
+  implicit def ioArbitrary[E: Arbitrary: Cogen, A: Arbitrary: Cogen](implicit tc: TestContext0): Arbitrary[IO[E, A]] =
     Arbitrary(Gen.oneOf(genIO[E, A], genLikeTrans(genIO[E, A]), genIdentityTrans(genIO[E, A])))
 
-  implicit def ioParArbitrary[R, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ParIO[R, E, A]] =
+  implicit def ioParArbitrary[R, E: Arbitrary: Cogen, A: Arbitrary: Cogen](
+    implicit tc: TestContext0
+  ): Arbitrary[ParIO[R, E, A]] =
     Arbitrary(Arbitrary.arbitrary[IO[E, A]].map(Par.apply))
 
-  implicit def zManagedArbitrary[R, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZManaged[R, E, A]] =
+  implicit def zManagedArbitrary[R, E: Arbitrary: Cogen, A: Arbitrary: Cogen](
+    implicit tc: TestContext0
+  ): Arbitrary[ZManaged[R, E, A]] =
     Arbitrary(Arbitrary.arbitrary[IO[E, A]].map(ZManaged.fromEffect(_)))
 
   def checkAllAsync(name: String, f: TestContext0 => Laws#RuleSet): Unit =

@@ -1,5 +1,7 @@
 package zio.interop
 
+import java.util.concurrent.atomic.AtomicReference
+
 import cats.effect._
 
 import scala.collection.immutable.SortedSet
@@ -110,6 +112,8 @@ final class TestContext0 private () extends ExecutionContext { self =>
   import TestContext0.{ State, Task }
 
   type T[-A] = Either[Throwable, A] => Unit
+
+  val counter = new AtomicReference(0)
 
   private[this] var stateRef = State(
     lastID = 0,
