@@ -10,7 +10,6 @@ import cats.effect.{ Async, Concurrent, ConcurrentEffect, ContextShift, Effect }
 import cats.implicits._
 import cats.laws._
 import cats.laws.discipline._
-import org.scalacheck.Prop.forAll
 import org.scalacheck.{ Arbitrary, Cogen, Gen, Prop }
 import org.typelevel.discipline.Laws
 import zio.interop.catz._
@@ -168,16 +167,20 @@ trait AsyncTestsOverrides[F[_]] extends AsyncTests[F] {
       override def props: Seq[(String, Prop)]         =
         // Activating the tests that detect non-termination only if allowed by Params,
         // because such tests might not be reasonable depending on evaluation model
-        (if (params.allowNonTerminationLaws)
-           default ++ Seq(
-             "asyncF raiseError is never"       -> forAll(laws.asyncFRaiseErrorIsNever[A] _),
-             "asyncF ignored callback is never" -> forAll(laws.asyncFIgnoredCallbackIsNever[A] _)
-           )
-         else
-           default) ++ Seq(
-          "async throw is raiseError"  -> forAll(laws.asyncThrowIsRaiseError[A] _),
-          "asyncF throw is raiseError" -> forAll(laws.asyncFThrowIsRaiseError[A] _)
-        )
+        {
+          import org.scalacheck.Prop.forAll
+          (if (params.allowNonTerminationLaws)
+             default ++ Seq(
+               "asyncF raiseError is never"       -> forAll(laws.asyncFRaiseErrorIsNever[A] _),
+               "asyncF ignored callback is never" -> forAll(laws.asyncFIgnoredCallbackIsNever[A] _)
+             )
+           else
+             default) ++ Seq(
+            "async throw is raiseError"  -> forAll(laws.asyncThrowIsRaiseError[A] _),
+            "asyncF throw is raiseError" -> forAll(laws.asyncFThrowIsRaiseError[A] _)
+          )
+        }
+//        default
     }
   }
 }

@@ -198,11 +198,12 @@ private class CatsEffect[R] extends CatsMonadError[R, Throwable] with effect.Asy
     RIO.never
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => Unit): RIO[R, A] =
-    RIO.effectAsync(kk => k(e => kk(RIO.fromEither(e))))
+//    RIO.effectAsync(kk => k(e => kk(RIO.fromEither(e))))
+    this.effectAsyncM(kk => RIO.effect(k(e => kk(RIO.fromEither(e)))))
 
   override final def asyncF[A](k: (Either[Throwable, A] => Unit) => RIO[R, Unit]): RIO[R, A] =
-    ZIO.effectAsyncM(kk => k(e => kk(RIO.fromEither(e))))
-//    this.effectAsyncM(kk => k(e => kk(RIO.fromEither(e))))
+//    ZIO.effectAsyncM(kk => k(e => kk(RIO.fromEither(e))))
+    this.effectAsyncM(kk => k(e => kk(RIO.fromEither(e))))
 
   /**
    * ZIO.effectAsyncM is broken/against asyncF laws
@@ -210,17 +211,15 @@ private class CatsEffect[R] extends CatsMonadError[R, Throwable] with effect.Asy
    *  – it must be ignored; current effectAsyncM creates a race condition as to
    *  what completes first – the callback or the returned IO failure)
    */
-  final def effectAsyncM[R, E, A](
-    register: (ZIO[R, E, A] => Unit) => ZIO[R, E, _]
-  ): ZIO[R, E, A] =
+  final def effectAsyncM[R, A](
+    register: (RIO[R, A] => Unit) => RIO[R, _]
+  ): RIO[R, A] =
     for {
-      p <- Promise.make[E, A]
+      p <- Promise.make[Throwable, A]
       r <- ZIO.runtime[R]
-      a <- ZIO.uninterruptibleMask { restore =>
-            val f = register(k => r.unsafeRunAsync_(k.to(p)))
-            restore(f).run *>
-              restore(p.await)
-          }
+      e <- ZIO.effectSuspend(register(k => r.unsafeRunAsync_(k.to(p)))).run
+      _ <- e.foldM(c => ZIO.effectTotal(r.Platform.reportFailure(c)), _ => ZIO.unit)
+      a <- p.await
     } yield a
 
   override final def suspend[A](thunk: => RIO[R, A]): RIO[R, A] =

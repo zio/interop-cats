@@ -60,9 +60,9 @@ trait GenIOInteropCats {
       Gen.oneOf(
         genOfFlatMaps[E, A](io)(genSuccess[E, A]),
         genOfMaps[E, A](io),
-        genOfMapErrors[E, A](io),
+        genOfMapErrors[E, A](io)
 //        genOfRace[E, A](io)
-        genOfParallel[E, A](io)(genSuccess[E, A])
+//        genOfParallel[E, A](io)(Gen.const(IO.succeed(null.asInstanceOf[A]): IO[E, A]))
       )
     gen.flatMap(io => genTransformations(functions)(io))
   }
@@ -121,7 +121,7 @@ trait GenIOInteropCats {
   def genOfParallel[E, A](io: IO[E, A])(gen: Gen[IO[E, A]]): Gen[IO[E, A]] =
     gen.map { parIo =>
 //    gen.map { _ =>
-      io.zipPar(parIo).map(_._1)
+      io.zipPar(parIo.run).map(_._1)
 //      io
 //      Promise
 //        .make[Nothing, Unit]
