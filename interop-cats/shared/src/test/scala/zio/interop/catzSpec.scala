@@ -1,15 +1,18 @@
 package zio.interop
 
-import cats.Monad
+import cats.data.EitherT
+import cats.{ Eq, Monad }
 import cats.effect.concurrent.Deferred
 import cats.effect.laws.discipline.arbitrary._
-import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests }
+import cats.effect.laws.discipline.{ AsyncTests, ConcurrentEffectTests, ConcurrentTests, EffectTests, Parameters }
 import cats.effect.laws.{ AsyncLaws, ConcurrentEffectLaws, ConcurrentLaws, EffectLaws }
 import cats.effect.{ Async, Concurrent, ConcurrentEffect, ContextShift, Effect }
 import cats.implicits._
 import cats.laws._
 import cats.laws.discipline._
-import org.scalacheck.{ Arbitrary, Cogen, Gen }
+import org.scalacheck.Prop.forAll
+import org.scalacheck.{ Arbitrary, Cogen, Gen, Prop }
+import org.typelevel.discipline.Laws
 import zio.interop.catz._
 import zio.{ IO, _ }
 
@@ -112,6 +115,71 @@ trait AsyncLawsOverrides[F[_]] extends AsyncLaws[F] {
 //    lh <-> fa.attempt.as(b)
   }
 
+  def asyncFRaiseErrorIsNever[A](e: Throwable) =
+    F.never[A] <-> F.asyncF[A](_ => F.raiseError(e))
+
+  def asyncFIgnoredCallbackIsNever[A](fa: F[Unit]) =
+    F.never[A] <-> F.asyncF[A](_ => fa)
+
+  def asyncThrowIsRaiseError[A](e: Throwable) =
+    F.async[A](_ => throw e) <-> F.raiseError(e)
+
+  def asyncFThrowIsRaiseError[A](e: Throwable) =
+    F.asyncF[A](_ => throw e) <-> F.raiseError(e)
+
+}
+
+trait AsyncTestsOverrides[F[_]] extends AsyncTests[F] {
+
+  override def laws: AsyncLawsOverrides[F]
+
+  override def async[A: Arbitrary: Eq, B: Arbitrary: Eq, C: Arbitrary: Eq](
+    implicit
+    ArbFA: Arbitrary[F[A]],
+    ArbFB: Arbitrary[F[B]],
+    ArbFC: Arbitrary[F[C]],
+    ArbFU: Arbitrary[F[Unit]],
+    ArbFAtoB: Arbitrary[F[A => B]],
+    ArbFBtoC: Arbitrary[F[B => C]],
+    ArbT: Arbitrary[Throwable],
+    CogenA: Cogen[A],
+    CogenB: Cogen[B],
+    CogenC: Cogen[C],
+    CogenT: Cogen[Throwable],
+    EqFA: Eq[F[A]],
+    EqFB: Eq[F[B]],
+    EqFC: Eq[F[C]],
+    EqFU: Eq[F[Unit]],
+    EqT: Eq[Throwable],
+    EqFEitherTU: Eq[F[Either[Throwable, Unit]]],
+    EqFEitherTA: Eq[F[Either[Throwable, A]]],
+    EqEitherTFTA: Eq[EitherT[F, Throwable, A]],
+    EqFABC: Eq[F[(A, B, C)]],
+    EqFInt: Eq[F[Int]],
+    iso: SemigroupalTests.Isomorphisms[F],
+    params: Parameters
+  ): RuleSet = {
+    val parent  = super.async[A, B, C]
+    val default = parent.props
+    new RuleSet {
+      override def name: String                       = parent.name
+      override def bases: Seq[(String, Laws#RuleSet)] = parent.bases
+      override def parents: Seq[RuleSet]              = parent.parents
+      override def props: Seq[(String, Prop)]         =
+        // Activating the tests that detect non-termination only if allowed by Params,
+        // because such tests might not be reasonable depending on evaluation model
+        (if (params.allowNonTerminationLaws)
+           default ++ Seq(
+             "asyncF raiseError is never"       -> forAll(laws.asyncFRaiseErrorIsNever[A] _),
+             "asyncF ignored callback is never" -> forAll(laws.asyncFIgnoredCallbackIsNever[A] _)
+           )
+         else
+           default) ++ Seq(
+          "async throw is raiseError"  -> forAll(laws.asyncThrowIsRaiseError[A] _),
+          "asyncF throw is raiseError" -> forAll(laws.asyncFThrowIsRaiseError[A] _)
+        )
+    }
+  }
 }
 
 trait ConcurrentEffectLawsOverrides[F[_]] extends ConcurrentEffectLaws[F] {
@@ -136,8 +204,8 @@ trait ConcurrentEffectLawsOverrides[F[_]] extends ConcurrentEffectLaws[F] {
 object EffectTestsOverrides {
 
   def apply[F[_]](implicit ev: Effect[F]): EffectTests[F] =
-    new EffectTests[F] {
-      def laws: EffectLaws[F] = new EffectLaws[F] with AsyncLawsOverrides[F] {
+    new EffectTests[F] with AsyncTestsOverrides[F] {
+      final val laws = new EffectLaws[F] with AsyncLawsOverrides[F] {
         override val F: Effect[F] = ev
       }
     }
@@ -146,8 +214,8 @@ object EffectTestsOverrides {
 object ConcurrentTestsOverrides {
 
   def apply[F[_]](implicit ev: Concurrent[F], cs: ContextShift[F]): ConcurrentTests[F] =
-    new ConcurrentTests[F] {
-      def laws: ConcurrentLaws[F] = new ConcurrentLaws[F] with AsyncLawsOverrides[F] {
+    new ConcurrentTests[F] with AsyncTestsOverrides[F] {
+      final val laws = new ConcurrentLaws[F] with AsyncLawsOverrides[F] {
         override val F: Concurrent[F]              = ev
         override val contextShift: ContextShift[F] = cs
       }
@@ -157,8 +225,8 @@ object ConcurrentTestsOverrides {
 object ConcurrentEffectTestsOverrides {
 
   def apply[F[_]](implicit ev: ConcurrentEffect[F], cs: ContextShift[F]): ConcurrentEffectTests[F] =
-    new ConcurrentEffectTests[F] {
-      def laws: ConcurrentEffectLaws[F] = new ConcurrentEffectLawsOverrides[F] with AsyncLawsOverrides[F] {
+    new ConcurrentEffectTests[F] with AsyncTestsOverrides[F] {
+      final val laws = new ConcurrentEffectLawsOverrides[F] with AsyncLawsOverrides[F] {
         override val F: ConcurrentEffect[F]        = ev
         override val contextShift: ContextShift[F] = cs
       }
