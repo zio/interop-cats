@@ -46,18 +46,18 @@ private[interop] trait catzSpecBase
     new Eq[Future[A]] {
       def eqv(x: Future[A], y: Future[A]): Boolean = {
         // Executes the whole pending queue of runnables
-        ec.tick()
-//        while (ec.tickOne()) {
-//          ec.tick(Duration.fromNanos(1000000000000L))
-//          ec.tick(Duration.fromNanos(1000000000000L))
-//          ec.tick(Duration.fromNanos(1000000000000L))
-//          ec.tick(Duration.fromNanos(1000000000000L))
-//          ec.tick(Duration.fromNanos(1000000000000L))
-//        }
-//        ec.tick(Duration.fromNanos(1000000000000L))
-//        ec.tick(Duration.fromNanos(1000000000000L))
-//        ec.tick(Duration.fromNanos(1000000000000L))
-//        ec.tick(Duration.fromNanos(1000000000000L))
+//        ec.tick()
+        while (ec.tickOne()) {
+          ec.tick(concurrent.duration.Duration.fromNanos(1000000000000L))
+          ec.tick(concurrent.duration.Duration.fromNanos(1000000000000L))
+          ec.tick(concurrent.duration.Duration.fromNanos(1000000000000L))
+          ec.tick(concurrent.duration.Duration.fromNanos(1000000000000L))
+          ec.tick(concurrent.duration.Duration.fromNanos(1000000000000L))
+        }
+        ec.tick(concurrent.duration.Duration.fromNanos(1000000000000L))
+        ec.tick(concurrent.duration.Duration.fromNanos(1000000000000L))
+        ec.tick(concurrent.duration.Duration.fromNanos(1000000000000L))
+        ec.tick(concurrent.duration.Duration.fromNanos(1000000000000L))
 
         //
         //        (Await.result(x, FiniteDuration(2, TimeUnit.SECONDS)), Await.result(y, FiniteDuration(2, TimeUnit.SECONDS))) match {
@@ -68,7 +68,7 @@ private[interop] trait catzSpecBase
           case None =>
             y.value match {
               case None =>
-                java.lang.System.out.println(s"Non-terminating tasks")
+//                java.lang.System.out.println(s"Non-terminating tasks")
                 true
               case Some(other) =>
                 java.lang.System.out.println(s"Tick mismatch 1 $other")

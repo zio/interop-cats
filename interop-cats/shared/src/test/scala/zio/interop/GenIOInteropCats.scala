@@ -13,7 +13,8 @@ trait GenIOInteropCats {
   /**
    * Given a generator for `A`, produces a generator for `IO[E, A]` using the `IO.point` constructor.
    */
-  def genSyncSuccess[E, A: Arbitrary]: Gen[IO[E, A]] = Arbitrary.arbitrary[A].map(IO.succeed[A](_))
+  def genSyncSuccess[E, A: Arbitrary]: Gen[IO[E, A]] =
+    Arbitrary.arbitrary[A].map(IO.succeed)
 
   /**
    * Given a generator for `A`, produces a generator for `IO[E, A]` using the `IO.async` constructor.
@@ -29,7 +30,8 @@ trait GenIOInteropCats {
   /**
    * Given a generator for `E`, produces a generator for `IO[E, A]` using the `IO.fail` constructor.
    */
-  def genSyncFailure[E: Arbitrary, A]: Gen[IO[E, A]] = Arbitrary.arbitrary[E].map(IO.fail[E])
+  def genSyncFailure[E: Arbitrary, A]: Gen[IO[E, A]] =
+    Arbitrary.arbitrary[E].map(IO.fail[E])
 
   /**
    * Given a generator for `E`, produces a generator for `IO[E, A]` using the `IO.async` constructor.
@@ -59,7 +61,7 @@ trait GenIOInteropCats {
         genOfFlatMaps[E, A](io)(genSuccess[E, A]),
         genOfMaps[E, A](io),
         genOfMapErrors[E, A](io),
-        genOfRace[E, A](io),
+//        genOfRace[E, A](io)
         genOfParallel[E, A](io)(genSuccess[E, A])
       )
     gen.flatMap(io => genTransformations(functions)(io))
@@ -74,9 +76,9 @@ trait GenIOInteropCats {
       Gen.oneOf(
         genOfIdentityFlatMaps[E, A](io),
         genOfIdentityMaps[E, A](io),
-        genOfIdentityMapErrors[E, A](io),
-        genOfRace[E, A](io),
-        genOfParallel[E, A](io)(genSuccess[E, A])
+        genOfIdentityMapErrors[E, A](io)
+//        genOfRace[E, A](io)
+//        genOfParallel[E, A](io)(genSuccess[E, A])
       )
     gen.flatMap(io => genTransformations(functions)(io))
   }
@@ -119,16 +121,16 @@ trait GenIOInteropCats {
   def genOfParallel[E, A](io: IO[E, A])(gen: Gen[IO[E, A]]): Gen[IO[E, A]] =
     gen.map { parIo =>
 //    gen.map { _ =>
-//      io.zipPar(parIo.run).map(_._1)
+      io.zipPar(parIo).map(_._1)
 //      io
-      Promise
-        .make[Nothing, Unit]
-        .flatMap { p =>
-          ZManaged
-            .fromEffect(parIo *> p.succeed(()))
-            .fork
-            .use_(p.await *> io)
-        }
+//      Promise
+//        .make[Nothing, Unit]
+//        .flatMap { p =>
+//          ZManaged
+//            .fromEffect(parIo *> p.succeed(()))
+//            .fork
+//            .use_(p.await *> io)
+//        }
     }
 
 }

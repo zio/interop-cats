@@ -201,8 +201,8 @@ private class CatsEffect[R] extends CatsMonadError[R, Throwable] with effect.Asy
     RIO.effectAsync(kk => k(e => kk(RIO.fromEither(e))))
 
   override final def asyncF[A](k: (Either[Throwable, A] => Unit) => RIO[R, Unit]): RIO[R, A] =
-//    ZIO.effectAsyncM(kk => k(e => kk(RIO.fromEither(e))))
-    this.effectAsyncM(kk => k(e => kk(RIO.fromEither(e))))
+    ZIO.effectAsyncM(kk => k(e => kk(RIO.fromEither(e))))
+//    this.effectAsyncM(kk => k(e => kk(RIO.fromEither(e))))
 
   /**
    * ZIO.effectAsyncM is broken/against asyncF laws
