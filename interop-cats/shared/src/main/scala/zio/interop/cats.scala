@@ -226,8 +226,22 @@ private class CatsEffect[R] extends CatsMonadError[R, Throwable] with effect.Asy
       p <- Promise.make[Throwable, A]
       r <- ZIO.runtime[R]
       f <- ZIO.effect(register(k => r.unsafeRunAsync_(k.to(p))))
-      _ <- f.catchAllCause(c => ZIO.effectTotal(r.Platform.reportFailure(c)))
-      a <- p.await
+      // fork such that we can continue BEFORE `f` returns (`asyncFTerminationIsOptional` law)
+      a <- ZIO.uninterruptibleMask(
+            restore =>
+              restore {
+                f
+                //
+//                .catchAllCause { c =>
+//                  System.out.println(c.prettyPrint)
+//                  p.halt(c)
+//                }
+              }.fork.flatMap { f =>
+                restore(p.await).onInterrupt(f.interrupt)
+              }
+          )
+//      _ <- f.catchAllCause(c => ZIO.effectTotal(r.Platform.reportFailure(c)))
+//      a <- p.await
     } yield a
 
   override final def suspend[A](thunk: => RIO[R, A]): RIO[R, A] =

@@ -37,7 +37,12 @@ trait GenIOInteropCats {
       .arbitrary[A]
       .map { a =>
         val _ = tc
+        // tick mismatch
+//        catz.taskConcurrentInstance[Any].async[A](k => k(Right(a))).asInstanceOf[IO[E, A]]
+        // also tick mismatch
         catz.taskConcurrentInstance[Any].asyncF[A](k => ZIO.effectTotal(k(Right(a)))).asInstanceOf[IO[E, A]]
+      // no tick mismatch because callback is called before fork is started...
+//        catz.taskConcurrentInstance[Any].asyncF[A](k => ZIO.succeed(k(Right(a)))).asInstanceOf[IO[E, A]]
       }
 
   /**

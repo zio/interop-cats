@@ -123,6 +123,9 @@ trait AsyncLawsOverrides[F[_]] extends AsyncLaws[F] {
   def asyncFThrowIsRaiseError[A](e: Throwable) =
     F.asyncF[A](_ => throw e) <-> F.raiseError(e)
 
+  def asyncFTerminationIsOptional[A](a: A) =
+    F.asyncF[A](k => F.delay(k(Right(a))) *> F.never) <-> F.pure(a)
+
 }
 
 trait AsyncTestsOverrides[F[_]] extends AsyncTests[F] {
@@ -173,8 +176,9 @@ trait AsyncTestsOverrides[F[_]] extends AsyncTests[F] {
              )
            else
              default) ++ Seq(
-            "async throw is raiseError"  -> forAll(laws.asyncThrowIsRaiseError[A] _),
-            "asyncF throw is raiseError" -> forAll(laws.asyncFThrowIsRaiseError[A] _)
+            "async throw is raiseError"         -> forAll(laws.asyncThrowIsRaiseError[A] _),
+            "asyncF throw is raiseError"        -> forAll(laws.asyncFThrowIsRaiseError[A] _),
+            "don't wait for asyncF to complete" -> forAll(laws.asyncFTerminationIsOptional[A] _)
           )
         }
 //        default
