@@ -198,8 +198,13 @@ private class CatsEffect[R] extends CatsMonadError[R, Throwable] with effect.Asy
     RIO.never
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => Unit): RIO[R, A] =
-//    RIO.effectAsync(kk => k(e => kk(RIO.fromEither(e))))
-    this.effectAsyncM(kk => RIO.effect(k(e => kk(RIO.fromEither(e)))))
+    RIO.effectAsync { kk =>
+      try {
+        k(e => kk(RIO.fromEither(e)))
+      } catch {
+        case e: Throwable => kk(RIO.fail(e))
+      }
+    }
 
   override final def asyncF[A](k: (Either[Throwable, A] => Unit) => RIO[R, Unit]): RIO[R, A] =
 //    ZIO.effectAsyncM(kk => k(e => kk(RIO.fromEither(e))))
@@ -217,9 +222,8 @@ private class CatsEffect[R] extends CatsMonadError[R, Throwable] with effect.Asy
     for {
       p <- Promise.make[Throwable, A]
       r <- ZIO.runtime[R]
-      _ <- ZIO
-            .effectSuspend(register(k => r.unsafeRunAsync_(k.to(p))))
-            .catchAllCause(c => ZIO.effectTotal(r.Platform.reportFailure(c)))
+      f <- ZIO.effect(register(k => r.unsafeRunAsync_(k.to(p))))
+      _ <- f.catchAllCause(c => ZIO.effectTotal(r.Platform.reportFailure(c)))
       a <- p.await
     } yield a
 
