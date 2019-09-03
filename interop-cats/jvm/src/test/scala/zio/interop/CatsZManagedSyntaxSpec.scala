@@ -178,7 +178,7 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout with Defau
                   Concurrent
                     .timeout(resource.use(_ => CIO.unit), FiniteDuration(0, TimeUnit.SECONDS))
                     .unsafeRunSync()
-                }.const(false) orElse UIO(true)
+                }.as(false) orElse UIO(true)
           _ <- latch.succeed(())
         } yield res must_=== true
       }
