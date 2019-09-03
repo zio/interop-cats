@@ -220,7 +220,7 @@ object STM {
   final def succeed[F[+_], A](a: A): STM[F, A] = new STM(ZSTM.succeed(a))
 
   final def succeedLazy[F[+_], A](a: => A): STM[F, A] =
-    new STM(ZSTM.succeedLazy(a))
+    new STM(ZSTM.succeed(a))
 
   final def unit[F[+_]]: STM[F, Unit] = succeed(())
 }

@@ -130,7 +130,7 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
           f.await
             .flatMap(exit => IO.effect(cb(exit.toEither).unsafeRunAsync(_ => ())))
             .fork
-            .const(f.interrupt.unit)
+            .as(f.interrupt.unit)
         }
       }
     }
@@ -164,9 +164,9 @@ private class CatsConcurrent[R] extends CatsEffect[R] with Concurrent[RIO[R, ?]]
   override final def race[A, B](fa: RIO[R, A], fb: RIO[R, B]): RIO[R, Either[A, B]] =
     racePair(fa, fb).flatMap {
       case Left((a, fiberB)) =>
-        fiberB.cancel.const(Left(a))
+        fiberB.cancel.as(Left(a))
       case Right((fiberA, b)) =>
-        fiberA.cancel.const(Right(b))
+        fiberA.cancel.as(Right(b))
     }
 
   override final def start[A](fa: RIO[R, A]): RIO[R, effect.Fiber[RIO[R, ?], A]] =

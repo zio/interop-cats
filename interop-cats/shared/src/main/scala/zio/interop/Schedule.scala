@@ -421,7 +421,7 @@ object Schedule {
    * @see zio.ZSchedule.succeedLazy
    */
   final def succeedLazy[F[+_], A](a: => A): Schedule[F, Any, A] =
-    new Schedule(ZSchedule.succeedLazy(a))
+    new Schedule(ZSchedule.succeed(a))
 
   /**
    * @see zio.ZSchedule.fromFunction
