@@ -420,6 +420,7 @@ object Schedule {
   /**
    * @see zio.ZSchedule.succeedLazy
    */
+  @deprecated("use succeed", "2.0.0.0")
   final def succeedLazy[F[+_], A](a: => A): Schedule[F, Any, A] =
     new Schedule(ZSchedule.succeed(a))
 
