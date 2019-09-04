@@ -40,7 +40,7 @@ lazy val versionOf = new {
   val kindProjector       = "0.10.3"
   val scalajsJavaTime     = "0.2.5"
   val spec2               = "4.7.0"
-  val zio                 = "1.0.0-RC11-1"
+  val zio                 = "1.0.0-RC12-1"
 }
 
 lazy val root = project
