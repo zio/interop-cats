@@ -31,18 +31,6 @@ addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck"
 addCommandAlias("testJVM", ";interopCatsJVM/test;interopCatsEffectJVM/test")
 addCommandAlias("testJS", ";interopCatsJS/test;interopCatsEffectJS/test")
 
-lazy val versionOf = new {
-  val cats                = "2.0.0-RC2"
-  val catsEffect          = "2.0.0-RC2"
-  val catsMtl             = "0.6.0"
-  val disciplineScalatest = "1.0.0-M1"
-  val fs2                 = "1.1.0-M1"
-  val kindProjector       = "0.10.3"
-  val scalajsJavaTime     = "0.2.5"
-  val spec2               = "4.7.0"
-  val zio                 = "1.0.0-RC12-1"
-}
-
 lazy val root = project
   .in(file("."))
   .enablePlugins(ScalaJSPlugin)
@@ -59,25 +47,24 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"       %%% "zio"                  % versionOf.zio,
-      "org.typelevel" %%% "cats-effect"          % versionOf.catsEffect % Optional,
-      "org.typelevel" %%% "cats-mtl-core"        % versionOf.catsMtl % Optional,
-      "co.fs2"        %%% "fs2-core"             % versionOf.fs2 % Test,
-      "dev.zio"       %%% "core-tests"           % versionOf.zio % Test classifier "tests",
-      "org.specs2"    %%% "specs2-core"          % versionOf.spec2 % Test,
-      "org.specs2"    %%% "specs2-scalacheck"    % versionOf.spec2 % Test,
-      "org.specs2"    %%% "specs2-matcher-extra" % versionOf.spec2 % Test,
-      "org.typelevel" %%% "cats-testkit"         % versionOf.cats % Test,
-      "org.typelevel" %%% "cats-effect-laws"     % versionOf.cats % Test,
-      "org.typelevel" %%% "cats-mtl-laws"        % versionOf.catsMtl % Test,
-      "org.typelevel" %%% "discipline-scalatest" % versionOf.disciplineScalatest % Test
+      "dev.zio"       %%% "zio"                  % "1.0.0-RC12-1",
+      "org.typelevel" %%% "cats-effect"          % "2.0.0-RC2" % Optional,
+      "org.typelevel" %%% "cats-mtl-core"        % "0.6.0" % Optional,
+      "co.fs2"        %%% "fs2-core"             % "1.1.0-M1" % Test,
+      "org.specs2"    %%% "specs2-core"          % "4.7.0" % Test,
+      "org.specs2"    %%% "specs2-scalacheck"    % "4.7.0" % Test,
+      "org.specs2"    %%% "specs2-matcher-extra" % "4.7.0" % Test,
+      "org.typelevel" %%% "cats-testkit"         % "2.0.0-RC2" % Test,
+      "org.typelevel" %%% "cats-effect-laws"     % "2.0.0-RC2" % Test,
+      "org.typelevel" %%% "cats-mtl-laws"        % "0.6.0" % Test,
+      "org.typelevel" %%% "discipline-scalatest" % "1.0.0-M1" % Test
     )
   )
 
 lazy val interopCatsJVM = interopCats.jvm
 lazy val interopCatsJS = interopCats.js
   .settings(
-    libraryDependencies += "org.scala-js" %%% "scalajs-java-time" % versionOf.scalajsJavaTime % Test
+    libraryDependencies += "org.scala-js" %%% "scalajs-java-time" % "0.2.5" % Test
   )
 
 lazy val interopCatsEffect =
@@ -88,19 +75,19 @@ lazy val interopCatsEffect =
     .settings(
       skip in publish := true,
       libraryDependencies ++= Seq(
-        "dev.zio"       %%% "zio"         % versionOf.zio,
-        "org.typelevel" %%% "cats-effect" % versionOf.catsEffect % Optional,
-        "org.specs2"    %%% "specs2-core" % versionOf.spec2 % Test,
-        compilerPlugin("org.typelevel" %% "kind-projector" % versionOf.kindProjector)
+        "dev.zio"       %%% "zio"         % "1.0.0-RC12-1",
+        "org.typelevel" %%% "cats-effect" % "2.0.0-RC2" % Optional,
+        "org.specs2"    %%% "specs2-core" % "4.7.0" % Test,
+        compilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
       )
     )
 
 lazy val interopCatsEffectJVM =
   interopCatsEffect.jvm.settings(
     libraryDependencies ++= Seq(
-      "dev.zio"       %%% "core-tests"           % versionOf.zio                 % Test classifier "tests",
-      "org.typelevel" %% "cats-testkit"          % versionOf.cats                % Test,
-      "org.typelevel" %%% "discipline-scalatest" % versionOf.disciplineScalatest % Test
+      "dev.zio"       %%% "core-tests"           % "1.0.0-RC12-1" % Test classifier "tests",
+      "org.typelevel" %% "cats-testkit"          % "2.0.0-RC2"    % Test,
+      "org.typelevel" %%% "discipline-scalatest" % "1.0.0-M1"     % Test
     )
   )
 lazy val interopCatsEffectJS = interopCatsEffect.js
