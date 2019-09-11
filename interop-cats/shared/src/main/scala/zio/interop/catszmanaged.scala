@@ -124,7 +124,7 @@ private class CatsZManagedMonad[R, E] extends Monad[ZManaged[R, E, ?]] {
   override def flatMap[A, B](fa: ZManaged[R, E, A])(f: A => ZManaged[R, E, B]): ZManaged[R, E, B] = fa.flatMap(f)
 
   override def tailRecM[A, B](a: A)(f: A => ZManaged[R, E, Either[A, B]]): ZManaged[R, E, B] =
-    ZManaged.succeedLazy(f(a)).flatMap(identity).flatMap {
+    ZManaged.suspend(f(a)).flatMap {
       case Left(nextA) => tailRecM(nextA)(f)
       case Right(b)    => ZManaged.succeed(b)
     }

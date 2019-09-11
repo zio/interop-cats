@@ -193,7 +193,7 @@ object STM {
     new STM(ZSTM.collectAll(i.map(_.underlying)))
 
   final def die[F[+_]](t: Throwable): STM[F, Nothing] =
-    succeedLazy(throw t)
+    succeed(throw t)
 
   final def dieMessage[F[+_]](m: String): STM[F, Nothing] =
     die(new RuntimeException(m))
@@ -219,8 +219,9 @@ object STM {
 
   final def succeed[F[+_], A](a: A): STM[F, A] = new STM(ZSTM.succeed(a))
 
+  @deprecated("use succeed", "2.0.0.0")
   final def succeedLazy[F[+_], A](a: => A): STM[F, A] =
-    new STM(ZSTM.succeedLazy(a))
+    new STM(ZSTM.succeed(a))
 
   final def unit[F[+_]]: STM[F, Unit] = succeed(())
 }
