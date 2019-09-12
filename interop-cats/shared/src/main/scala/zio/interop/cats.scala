@@ -63,7 +63,7 @@ abstract class CatsInstances extends CatsInstances1 {
   }
 
   implicit def zioTimer[R <: Clock, E]: effect.Timer[ZIO[R, E, *]] = new effect.Timer[ZIO[R, E, *]] {
-    override def clock: cats.effect.Clock[ZIO[R, E, *]] = new effect.Clock[ZIO[R, E, *]] {
+    override def clock: effect.Clock[ZIO[R, E, *]] = new effect.Clock[ZIO[R, E, *]] {
       override def monotonic(unit: TimeUnit): ZIO[R, E, Long] =
         zio.clock.nanoTime.map(unit.convert(_, NANOSECONDS))
 
@@ -129,12 +129,17 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
   ): effect.SyncIO[effect.CancelToken[RIO[R, *]]] =
     effect.SyncIO {
       rts.unsafeRun {
-        RIO.interruptible(fa).fork.flatMap { f =>
-          f.await
-            .flatMap(exit => IO.effect(cb(exit.toEither).unsafeRunAsync(_ => ())))
-            .fork
-            .as(f.interrupt.unit)
-        }
+        RIO.unit
+          .bracketExit(
+            (_, exit: Exit[Throwable, A]) =>
+              RIO.effectTotal {
+                effect.IO.suspend(cb(exit.toEither)).unsafeRunAsync(_ => ())
+              },
+            _ => fa
+          )
+          .interruptible
+          .fork
+          .map(_.interrupt.unit)
       }
     }
 
@@ -150,7 +155,7 @@ private class CatsConcurrent[R] extends CatsEffect[R] with Concurrent[RIO[R, *]]
       override final val join: RIO[R, A]      = f.join
     }
 
-  override final def liftIO[A](ioa: cats.effect.IO[A]): RIO[R, A] =
+  override final def liftIO[A](ioa: effect.IO[A]): RIO[R, A] =
     Concurrent.liftIO(ioa)(this)
 
   override final def cancelable[A](k: (Either[Throwable, A] => Unit) => effect.CancelToken[RIO[R, *]]): RIO[R, A] =
@@ -165,12 +170,7 @@ private class CatsConcurrent[R] extends CatsEffect[R] with Concurrent[RIO[R, *]]
     }
 
   override final def race[A, B](fa: RIO[R, A], fb: RIO[R, B]): RIO[R, Either[A, B]] =
-    racePair(fa, fb).flatMap {
-      case Left((a, fiberB)) =>
-        fiberB.cancel.as(Left(a))
-      case Right((fiberA, b)) =>
-        fiberA.cancel.as(Right(b))
-    }
+    fa.map(Left(_)).raceAttempt(fb.map(Right(_)))
 
   override final def start[A](fa: RIO[R, A]): RIO[R, effect.Fiber[RIO[R, *], A]] =
     RIO.interruptible(fa).fork.map(toFiber)
@@ -207,7 +207,7 @@ private class CatsEffect[R] extends CatsMonadError[R, Throwable] with effect.Asy
     RIO.effectAsyncM(kk => k(e => kk(RIO.fromEither(e))).orDie)
 
   override final def suspend[A](thunk: => RIO[R, A]): RIO[R, A] =
-    RIO.flatten(RIO.effect(thunk))
+    RIO.effectSuspend(thunk)
 
   override final def delay[A](thunk: => A): RIO[R, A] =
     RIO.effect(thunk)
