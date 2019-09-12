@@ -2,6 +2,7 @@ package zio.interop.test
 
 import cats.effect.IO
 import zio.duration._
+import zio.interop.catz.test._
 import zio.test._
 import zio.test.Assertion._
 import zio.test.TestAspect._
