@@ -20,7 +20,7 @@ object TestSpec
         timeout(0.milliseconds) {
           testF("ZIO interruption is tied to F interruption") {
             for {
-              result <- IO.never
+              _ <- IO.never
             } yield assert((), anything)
           }
         } @@ failure
