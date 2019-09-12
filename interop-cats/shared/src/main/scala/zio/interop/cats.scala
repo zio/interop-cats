@@ -15,6 +15,7 @@
  */
 
 package zio.interop
+import zio.interop.test.CatsTestFunctions
 
 import cats.arrow.ArrowChoice
 import cats.effect.{ Concurrent, ContextShift, ExitCase }
@@ -26,7 +27,8 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS, TimeUnit }
 
 object catz extends CatsPlatform {
-  object mtl extends CatsMtlPlatform
+  object mtl  extends CatsMtlPlatform
+  object test extends CatsTestFunctions
 }
 
 abstract class CatsPlatform extends CatsInstances with CatsZManagedInstances with CatsZManagedSyntax {
