@@ -35,7 +35,7 @@ object TestSpecUtils {
         test: ZIO[R, TestFailure[E], TestSuccess[S]]
       ): ZIO[R, TestFailure[E], TestSuccess[S]] =
         test.foldCauseM(
-          _ => ZIO.succeed(TestSuccess.Succeeded(AssertResult.unit)),
+          _ => ZIO.succeed(TestSuccess.Succeeded(BoolAlgebra.unit)),
           _ => ZIO.fail(TestFailure.Runtime(zio.Cause.die(new RuntimeException("expected failure"))))
         )
     }

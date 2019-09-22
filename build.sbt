@@ -1,6 +1,6 @@
 import sbtcrossproject.CrossPlugin.autoImport.crossProject
 import explicitdeps.ExplicitDepsPlugin.autoImport.moduleFilterRemoveValue
-import ScalazBuild._
+import BuildHelper._
 
 name := "interop-cats"
 
@@ -17,14 +17,16 @@ inThisBuild(
         url("http://degoes.net")
       )
     ),
+    pgpPassphrase := sys.env.get("PGP_PASSWORD").map(_.toArray),
     pgpPublicRing := file("/tmp/public.asc"),
     pgpSecretRing := file("/tmp/secret.asc"),
-    releaseEarlyWith := SonatypePublisher,
     scmInfo := Some(
       ScmInfo(url("https://github.com/zio/interop-cats/"), "scm:git:git@github.com:zio/interop-cats.git")
     )
   )
 )
+
+ThisBuild / publishTo := sonatypePublishToBundle.value
 
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
 addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
@@ -47,13 +49,13 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"       %%% "zio"                  % "1.0.0-RC12-1",
-      "dev.zio"       %%% "zio-streams"          % "1.0.0-RC12-1" % Optional,
-      "dev.zio"       %%% "zio-test"             % "1.0.0-RC12-1",
+      "dev.zio"       %%% "zio"                  % "1.0.0-RC13",
+      "dev.zio"       %%% "zio-streams"          % "1.0.0-RC13" % Optional,
+      "dev.zio"       %%% "zio-test"             % "1.0.0-RC13",
       "org.typelevel" %%% "cats-effect"          % "2.0.0" % Optional,
       "org.typelevel" %%% "cats-mtl-core"        % "0.7.0" % Optional,
-      "co.fs2"        %%% "fs2-core"             % "2.0.0" % Test,
-      "dev.zio"       %%% "zio-test-sbt"         % "1.0.0-RC12-1" % Test,
+      "co.fs2"        %%% "fs2-core"             % "2.0.1" % Test,
+      "dev.zio"       %%% "zio-test-sbt"         % "1.0.0-RC13" % Test,
       "org.specs2"    %%% "specs2-core"          % "4.7.1" % Test,
       "org.specs2"    %%% "specs2-scalacheck"    % "4.7.1" % Test,
       "org.specs2"    %%% "specs2-matcher-extra" % "4.7.1" % Test,
