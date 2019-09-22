@@ -1,6 +1,6 @@
 import sbtcrossproject.CrossPlugin.autoImport.crossProject
 import explicitdeps.ExplicitDepsPlugin.autoImport.moduleFilterRemoveValue
-import ScalazBuild._
+import BuildHelper._
 
 name := "interop-cats"
 
