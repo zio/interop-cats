@@ -68,7 +68,7 @@ private trait CatsMonad[R, E] extends Monad[ZStream[R, E, *]] with StackSafeMona
 
   override final def widen[A, B >: A](fa: ZStream[R, E, A]): ZStream[R, E, B] = fa
   override final def map2[A, B, Z](fa: ZStream[R, E, A], fb: ZStream[R, E, B])(f: (A, B) => Z): ZStream[R, E, Z] =
-    fa.zipWith(fb) { case (Some(a), Some(b)) => Some(f(a, b)); case _ => None }
+    fa.crossWith(fb)(f)
   override final def as[A, B](fa: ZStream[R, E, A], b: B): ZStream[R, E, B] = fa.as(b)
 }
 
