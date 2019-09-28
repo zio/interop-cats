@@ -16,8 +16,6 @@ package zio.stream.interop
  * limitations under the License.
  */
 
-import zio.interop.test.CatsTestFunctions
-
 import cats._
 import cats.arrow._
 import zio._
@@ -50,21 +48,23 @@ sealed abstract class CatsInstances3 {
     new CatsMonadError[R, E]
 }
 
-private class CatsAlternative[R, E] extends CatsMonoidK[R, E] with CatsApplicative[R, E]
+private class CatsAlternative[R, E]
+    extends CatsMonoidK[R, E]
+    with CatsApplicative[R, E]
+    with Alternative[ZStream[R, E, *]]
 
 private class CatsMonadError[R, E] extends CatsMonad[R, E] with MonadError[ZStream[R, E, *], E] {
   override final def handleErrorWith[A](fa: ZStream[R, E, A])(f: E => ZStream[R, E, A]): ZStream[R, E, A] =
     fa.catchAll(f)
   override final def raiseError[A](e: E): ZStream[R, E, A] = ZStream.fail(e)
 
-  override def attempt[A](fa: ZStream[R, E, A]): ZIO[R, E, Either[E, A]] = fa.either
+  override def attempt[A](fa: ZStream[R, E, A]): ZStream[R, E, Either[E, A]] = fa.either
 }
 
-private class CatsMonad[R, E]
-    extends CatsApplicative[R, E]
-    with Monad[ZStream[R, E, *]]
-    with StackSafeMonad[ZStream[R, E, *]] {
+private trait CatsMonad[R, E] extends Monad[ZStream[R, E, *]] with StackSafeMonad[ZStream[R, E, *]] {
   override final def flatMap[A, B](fa: ZStream[R, E, A])(f: A => ZStream[R, E, B]): ZStream[R, E, B] = fa.flatMap(f)
+  override final def pure[A](a: A): ZStream[R, E, A]                              = ZStream.succeed(a)
+  override final def map[A, B](fa: ZStream[R, E, A])(f: A => B): ZStream[R, E, B] = fa.map(f)
 
   override final def widen[A, B >: A](fa: ZStream[R, E, A]): ZStream[R, E, B] = fa
   override final def map2[A, B, Z](fa: ZStream[R, E, A], fb: ZStream[R, E, B])(f: (A, B) => Z): ZStream[R, E, Z] =
@@ -75,6 +75,8 @@ private class CatsMonad[R, E]
 private trait CatsApplicative[R, E] extends Applicative[ZStream[R, E, *]] {
   override final def pure[A](a: A): ZStream[R, E, A]                              = ZStream.succeed(a)
   override final def map[A, B](fa: ZStream[R, E, A])(f: A => B): ZStream[R, E, B] = fa.map(f)
+  override final def ap[A, B](ff: ZStream[R, E, A => B])(fa: ZStream[R, E, A]): ZStream[R, E, B] =
+    ff.crossWith(fa)(_(_))
 
   override final def unit: ZStream[R, E, Unit] = ZStream.unit
   override final def whenA[A](cond: Boolean)(f: => ZStream[R, E, A]): ZStream[R, E, Unit] =
@@ -89,7 +91,7 @@ private class CatsMonoidK[R, E] extends CatsSemigroupK[R, E] with MonoidK[ZStrea
   override final def empty[A]: ZStream[R, E, A] = ZStream.empty
 }
 
-private class CatsBifunctor[R] extends Bifunctor[ZStream[R, *, *]] {
+private trait CatsBifunctor[R] extends Bifunctor[ZStream[R, *, *]] {
   override final def bimap[A, B, C, D](fab: ZStream[R, A, B])(f: A => C, g: B => D): ZStream[R, C, D] =
     fab.bimap(f, g)
 }
