@@ -80,7 +80,7 @@ private trait CatsApplicative[R, E] extends Applicative[ZStream[R, E, *]] {
 
   override final def unit: ZStream[R, E, Unit] = ZStream.unit
   override final def whenA[A](cond: Boolean)(f: => ZStream[R, E, A]): ZStream[R, E, Unit] =
-    ZStream.fromEffect(ZIO.effectTotal(f).when(cond))
+    if (cond) f.as(()) else ZStream.unit
 }
 
 private class CatsSemigroupK[R, E] extends SemigroupK[ZStream[R, E, *]] {
