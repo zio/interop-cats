@@ -23,12 +23,12 @@ import zio.stream._
 
 object catz extends CatsInstances
 
-abstract class CatsInstances extends CatsInstances1 {
+sealed abstract class CatsInstances extends CatsInstances1 {
   implicit def alternativeInstance[R, E]: Alternative[ZStream[R, E, *]] =
     new CatsAlternative[R, E]
 }
 
-abstract class CatsInstances1 extends CatsInstances2 {
+sealed abstract class CatsInstances1 extends CatsInstances2 {
   implicit def monoidKInstance[R, E]: MonoidK[ZStream[R, E, *]] =
     new CatsMonoidK[R, E]
 
@@ -63,8 +63,8 @@ private class CatsMonadError[R, E] extends CatsMonad[R, E] with MonadError[ZStre
 
 private trait CatsMonad[R, E] extends Monad[ZStream[R, E, *]] with StackSafeMonad[ZStream[R, E, *]] {
   override final def flatMap[A, B](fa: ZStream[R, E, A])(f: A => ZStream[R, E, B]): ZStream[R, E, B] = fa.flatMap(f)
-  override final def pure[A](a: A): ZStream[R, E, A]                              = ZStream.succeed(a)
-  override final def map[A, B](fa: ZStream[R, E, A])(f: A => B): ZStream[R, E, B] = fa.map(f)
+  override final def pure[A](a: A): ZStream[R, E, A]                                                 = ZStream.succeed(a)
+  override final def map[A, B](fa: ZStream[R, E, A])(f: A => B): ZStream[R, E, B]                    = fa.map(f)
 
   override final def widen[A, B >: A](fa: ZStream[R, E, A]): ZStream[R, E, B] = fa
   override final def map2[A, B, Z](fa: ZStream[R, E, A], fb: ZStream[R, E, B])(f: (A, B) => Z): ZStream[R, E, Z] =
