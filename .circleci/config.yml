@@ -70,6 +70,16 @@ save_cache: &save_cache
           - "~/.cache"
           - "~/website/node_modules"
 
+install_nodejs: &install_nodejs
+  - run:
+      name: Install node.js
+      command: |
+        export NVM_DIR="/opt/circleci/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        nvm install
+        nvm use
+        node -v
+
 compile: &compile
   steps:
     - checkout
