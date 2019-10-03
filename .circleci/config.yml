@@ -68,17 +68,6 @@ save_cache: &save_cache
           - "~/.sbt"
           - "~/.m2"
           - "~/.cache"
-          - "~/website/node_modules"
-
-install_nodejs: &install_nodejs
-  - run:
-      name: Install node.js
-      command: |
-        export NVM_DIR="/opt/circleci/.nvm"
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-        nvm install
-        nvm use
-        node -v
 
 compile: &compile
   steps:
@@ -118,7 +107,6 @@ testJS: &testJS
     - checkout
     - <<: *load_cache
     - <<: *install_jdk
-    - <<: *install_nodejs
     - run:
         name: Run tests
         command: ./sbt ++${SCALA_VERSION}! testJS
