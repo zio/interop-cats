@@ -4,10 +4,10 @@ scala_211: &scala_211
   SCALA_VERSION: 2.11.12
 
 scala_212: &scala_212
-  SCALA_VERSION: 2.12.9
+  SCALA_VERSION: 2.12.10
 
 scala_213: &scala_213
-  SCALA_VERSION: 2.13.0
+  SCALA_VERSION: 2.13.1
 
 jdk_8: &jdk_8
   JDK_VERSION: 8
@@ -122,7 +122,7 @@ release: &release
           name: Fetch git tags
           command: git fetch --tags
       - <<: *load_cache
-      - run: 
+      - run:
           name: Write sonatype credentials
           command: echo "credentials += Credentials(\"Sonatype Nexus Repository Manager\", \"oss.sonatype.org\", \"${SONATYPE_USER}\", \"${SONATYPE_PASSWORD}\")" > ~/.sbt/1.0/sonatype.sbt
       - run:
