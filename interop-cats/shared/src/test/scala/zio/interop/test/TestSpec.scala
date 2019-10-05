@@ -3,12 +3,9 @@ package zio.interop.test
 import cats.effect.IO
 import zio.duration._
 import zio.interop.catz.test._
-import zio.test._
 import zio.test.Assertion._
 import zio.test.TestAspect._
-import zio.ZIO
-
-import TestSpecUtils._
+import zio.test._
 
 object TestSpec
     extends DefaultRunnableSpec(
@@ -27,16 +24,3 @@ object TestSpec
         } @@ failure
       )
     )
-
-object TestSpecUtils {
-  val failure: TestAspect[Nothing, Any, Nothing, Any, Unit, Unit] =
-    new TestAspect.PerTest[Nothing, Any, Nothing, Any, Unit, Unit] {
-      def perTest[R >: Nothing <: Any, E >: Nothing <: Any, S >: Unit <: Unit](
-        test: ZIO[R, TestFailure[E], TestSuccess[S]]
-      ): ZIO[R, TestFailure[E], TestSuccess[S]] =
-        test.foldCauseM(
-          _ => ZIO.succeed(TestSuccess.Succeeded(BoolAlgebra.unit)),
-          _ => ZIO.fail(TestFailure.Runtime(zio.Cause.die(new RuntimeException("expected failure"))))
-        )
-    }
-}
