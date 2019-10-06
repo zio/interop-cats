@@ -162,7 +162,7 @@ private class CatsConcurrent[R] extends CatsEffect[R] with Concurrent[RIO[R, *]]
 
   override final def cancelable[A](k: (Either[Throwable, A] => Unit) => effect.CancelToken[RIO[R, *]]): RIO[R, A] =
     RIO.accessM { r =>
-      RIO.effectAsyncInterrupt { kk =>
+      RIO.effectAsyncInterrupt[R, A] { kk =>
         val token: effect.CancelToken[Task] = {
           k(e => kk(RIO.fromEither(e))).provide(r)
         }
