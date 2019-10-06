@@ -1,6 +1,5 @@
 package zio.stream.interop
 
-import cats.Monad
 import cats.implicits._
 import cats.laws.discipline._
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
@@ -16,6 +15,10 @@ class catzSpec extends catzSpecZStreamBase with GenStreamInteropCats {
     "MonadError[Stream[Int, ?]]",
     implicit tc => MonadErrorTests[Stream[Int, ?], Int].monadError[Int, Int, Int]
   )
+  checkAllAsync(
+    "Parallel[Stream[Throwable, ?]]",
+    implicit tc => ParallelTests[Stream[Throwable, ?], ParStream[Any, Throwable, ?]].parallel[Int, Int]
+  )
   checkAllAsync("MonoidK[Stream[Int, ?]]", implicit tc => MonoidKTests[Stream[Int, ?]].monoidK[Int])
   checkAllAsync(
     "SemigroupK[Stream[Option[Unit], ?]]",
@@ -28,7 +31,7 @@ class catzSpec extends catzSpecZStreamBase with GenStreamInteropCats {
   checkAllAsync("Bifunctor[Stream]", implicit tc => BifunctorTests[Stream].bifunctor[Int, Int, Int, Int, Int, Int])
   checkAllAsync(
     "Monad[Stream[Nothing, ?]]", { implicit tc =>
-      implicit def ioArbitrary[A: Arbitrary: Cogen]: Arbitrary[Stream[Nothing, A]] = Arbitrary(genUStream[A])
+      implicit def streamArbitrary[A: Arbitrary: Cogen]: Arbitrary[Stream[Nothing, A]] = Arbitrary(genUStream[A])
       MonadTests[Stream[Nothing, ?]].apply[Int, Int, Int]
     }
   )
