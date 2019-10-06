@@ -16,6 +16,10 @@ class catzSpec extends catzSpecZStreamBase with GenStreamInteropCats {
     "MonadError[Stream[Int, ?]]",
     implicit tc => MonadErrorTests[Stream[Int, ?], Int].monadError[Int, Int, Int]
   )
+  checkAllAsync(
+    "Parallel[Stream[Throwable, ?]]",
+    implicit tc => ParallelTests[Stream[Throwable, ?], ParStream[Any, Throwable, ?]].parallel[Int, Int]
+  )
   checkAllAsync("MonoidK[Stream[Int, ?]]", implicit tc => MonoidKTests[Stream[Int, ?]].monoidK[Int])
   checkAllAsync(
     "SemigroupK[Stream[Option[Unit], ?]]",

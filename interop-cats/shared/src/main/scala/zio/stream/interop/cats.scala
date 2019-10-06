@@ -1,5 +1,3 @@
-package zio.stream.interop
-
 /*
  * Copyright 2017-2019 John A. De Goes and the ZIO Contributors
  *
@@ -15,6 +13,8 @@ package zio.stream.interop
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package zio.stream.interop
 
 import cats._
 import cats.arrow._
@@ -39,6 +39,9 @@ sealed abstract class CatsInstances1 extends CatsInstances2 {
 }
 
 sealed abstract class CatsInstances2 extends CatsInstances3 {
+  implicit def parallelInstance[R, E]: Parallel.Aux[ZStream[R, E, *], ParStream[R, E, *]] =
+    new CatsParallel[R, E](monadErrorInstance)
+
   implicit def semigroupKInstance[R, E: Semigroup]: SemigroupK[ZStream[R, E, *]] =
     new CatsSemigroupK[R, E]
 }
@@ -122,4 +125,50 @@ private class CatsArrow[E] extends ArrowChoice[ZStream[*, E, *]] {
 
   final override def choice[A, B, C](f: ZStream[A, E, C], g: ZStream[B, E, C]): ZStream[Either[A, B], E, C] =
     ZStream.fromEffect(ZIO.environment[Either[A, B]]).flatMap(_.fold(f.provide, g.provide))
+}
+
+private class CatsParallel[R, E](final override val monad: Monad[ZStream[R, E, *]]) extends Parallel[ZStream[R, E, *]] {
+
+  final override type F[A] = ParStream[R, E, A]
+
+  final override val applicative: Applicative[ParStream[R, E, *]] =
+    new CatsParApplicative[R, E]
+
+  final override val sequential: ParStream[R, E, *] ~> ZStream[R, E, *] =
+    new (ParStream[R, E, *] ~> ZStream[R, E, *]) {
+      def apply[A](fa: ParStream[R, E, A]): ZStream[R, E, A] = Par.unwrap(fa)
+    }
+
+  final override val parallel: ZStream[R, E, *] ~> ParStream[R, E, *] =
+    new (ZStream[R, E, *] ~> ParStream[R, E, *]) {
+      def apply[A](fa: ZStream[R, E, A]): ParStream[R, E, A] = Par(fa)
+    }
+}
+
+private class CatsParApplicative[R, E] extends CommutativeApplicative[ParStream[R, E, *]] {
+
+  private[this] def liftOption[A, B, C](f: (A, B) => C): (Option[A], Option[B]) => Option[C] =
+    (oa, ob) =>
+      (oa, ob) match {
+        case (Some(a), Some(b)) => Some(f(a, b))
+        case _                  => None
+      }
+
+  final override def pure[A](x: A): ParStream[R, E, A] =
+    Par(ZStream.succeed(x))
+
+  final override def map2[A, B, Z](fa: ParStream[R, E, A], fb: ParStream[R, E, B])(f: (A, B) => Z): ParStream[R, E, Z] =
+    Par(Par.unwrap(fa).zipWith(Par.unwrap(fb))(liftOption(f)))
+
+  final override def ap[A, B](ff: ParStream[R, E, A => B])(fa: ParStream[R, E, A]): ParStream[R, E, B] =
+    Par(Par.unwrap(ff).zipWith(Par.unwrap(fa))(liftOption(_(_))))
+
+  final override def product[A, B](fa: ParStream[R, E, A], fb: ParStream[R, E, B]): ParStream[R, E, (A, B)] =
+    Par(Par.unwrap(fa).zip(Par.unwrap(fb)))
+
+  final override def map[A, B](fa: ParStream[R, E, A])(f: A => B): ParStream[R, E, B] =
+    Par(Par.unwrap(fa).map(f))
+
+  final override def unit: ParStream[R, E, Unit] =
+    Par(ZStream.unit)
 }

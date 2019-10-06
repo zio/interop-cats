@@ -19,11 +19,18 @@ private[interop] trait catzSpecZStreamBase
   implicit def zstreamEqUStream[A: Eq](implicit tc: TestContext): Eq[Stream[Nothing, A]] =
     Eq.by(ustream => taskEffectInstance.toIO(ustream.runCollect.sandbox.either))
 
+  implicit def zstreamEqParIO[E: Eq, A: Eq](implicit tc: TestContext): Eq[ParStream[Any, E, A]] =
+    Eq.by(Par.unwrap(_))
+
   implicit def zstreamArbitrary[R: Cogen, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZStream[R, E, A]] =
     Arbitrary(Arbitrary.arbitrary[R => Stream[E, A]].map(ZStream.fromEffect(ZIO.environment[R]).flatMap(_)))
 
   implicit def streamArbitrary[E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[Stream[E, A]] =
     Arbitrary(Gen.oneOf(genStream[E, A], genLikeTrans(genStream[E, A]), genIdentityTrans(genStream[E, A])))
+
+  implicit def zstreamParArbitrary[R, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ParStream[R, E, A]] =
+    Arbitrary(Arbitrary.arbitrary[Stream[E, A]].map(Par.apply))
+
 }
 
 private[interop] trait catzSpecZStreamBaseLowPriority { self: catzSpecZStreamBase =>
