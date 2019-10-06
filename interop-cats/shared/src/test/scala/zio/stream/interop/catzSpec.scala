@@ -1,6 +1,5 @@
 package zio.stream.interop
 
-import cats.Monad
 import cats.implicits._
 import cats.laws.discipline._
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
@@ -32,7 +31,7 @@ class catzSpec extends catzSpecZStreamBase with GenStreamInteropCats {
   checkAllAsync("Bifunctor[Stream]", implicit tc => BifunctorTests[Stream].bifunctor[Int, Int, Int, Int, Int, Int])
   checkAllAsync(
     "Monad[Stream[Nothing, ?]]", { implicit tc =>
-      implicit def ioArbitrary[A: Arbitrary: Cogen]: Arbitrary[Stream[Nothing, A]] = Arbitrary(genUStream[A])
+      implicit def streamArbitrary[A: Arbitrary: Cogen]: Arbitrary[Stream[Nothing, A]] = Arbitrary(genUStream[A])
       MonadTests[Stream[Nothing, ?]].apply[Int, Int, Int]
     }
   )
