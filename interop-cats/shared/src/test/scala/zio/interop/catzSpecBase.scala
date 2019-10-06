@@ -15,11 +15,7 @@ import zio.random.Random
 import zio.system.System
 import zio.{ Cause, DefaultRuntime, IO, Runtime, UIO, ZIO }
 
-private[zio] trait catzSpecBase
-    extends AnyFunSuite
-    with Discipline
-    with TestInstances
-    with catzSpecBaseLowPriority {
+private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestInstances with catzSpecBaseLowPriority {
 
   type Env = Clock with Console with System with Random
 
