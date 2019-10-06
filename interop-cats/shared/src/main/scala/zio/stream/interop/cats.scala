@@ -113,8 +113,8 @@ private class CatsArrow[E] extends ArrowChoice[ZStream[*, E, *]] {
   final override def second[A, B, C](fa: ZStream[A, E, B]): ZStream[(C, A), E, (C, B)] =
     ZStream.fromEffect(ZIO.environment[(C, A)]).flatMap { case (c, a) => fa.provide(a).map((c, _)) }
   final override def split[A, B, C, D](f: ZStream[A, E, B], g: ZStream[C, E, D]): ZStream[(A, C), E, (B, D)] =
-    ZStream.fromEffect(ZIO.environment[(A, C)]).flatMap { case (a, c) => f.provide(a).zip(g.provide(c)) }
-  final override def merge[A, B, C](f: ZStream[A, E, B], g: ZStream[A, E, C]): ZStream[A, E, (B, C)] = f.zip(g)
+    ZStream.fromEffect(ZIO.environment[(A, C)]).flatMap { case (a, c) => f.provide(a).crossWith(g.provide(c))(_ -> _) }
+  final override def merge[A, B, C](f: ZStream[A, E, B], g: ZStream[A, E, C]): ZStream[A, E, (B, C)] = f.crossWith(g)(_ -> _)
 
   final override def lmap[A, B, C](fab: ZStream[A, E, B])(f: C => A): ZStream[C, E, B] = fab.provideSome(f)
   final override def rmap[A, B, C](fab: ZStream[A, E, B])(f: B => C): ZStream[A, E, C] = fab.map(f)
