@@ -4,8 +4,7 @@ import cats.Eq
 import cats.effect.laws.util.TestContext
 import cats.implicits._
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
-import zio.interop.catz.taskEffectInstance
-import zio.{ Cause, IO, UIO, ZIO, ZManaged }
+import zio.{ IO, ZIO, ZManaged }
 
 private[interop] trait catzSpecZIOBase extends catzSpecBase with GenIOInteropCats {
 

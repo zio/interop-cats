@@ -33,7 +33,7 @@ trait GenStreamInteropCats {
         genOfMaps[E, A](stream),
         genOfMapErrors[E, A](stream)
       )
-    gen.flatMap(stream => genTransformatstreamns(functstreamns)(stream))
+    gen.flatMap(stream => genTransformations(functstreamns)(stream))
   }
 
   /**
@@ -46,11 +46,11 @@ trait GenStreamInteropCats {
         genOfIdentityFlatMaps[E, A](stream),
         genOfIdentityMaps[E, A](stream),
         genOfIdentityMapErrors[E, A](stream)
-              )
-    gen.flatMap(stream => genTransformatstreamns(functstreamns)(stream))
+      )
+    gen.flatMap(stream => genTransformations(functstreamns)(stream))
   }
 
-  private def genTransformatstreamns[E, A](
+  private def genTransformations[E, A](
     functstreamnGen: Stream[E, A] => Gen[Stream[E, A]]
   )(stream: Stream[E, A]): Gen[Stream[E, A]] =
     Gen.sized { size =>

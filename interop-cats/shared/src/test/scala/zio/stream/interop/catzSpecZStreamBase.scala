@@ -1,7 +1,7 @@
 package zio.stream.interop
 
 import cats.Eq
-import cats.effect.laws.util.{ TestContext, TestInstances }
+import cats.effect.laws.util.TestContext
 import cats.implicits._
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.interop.catz.taskEffectInstance
