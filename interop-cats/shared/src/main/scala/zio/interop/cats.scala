@@ -35,7 +35,7 @@ abstract class CatsPlatform extends CatsInstances with CatsZManagedInstances wit
   val console: interop.console.cats.type = interop.console.cats
 
   trait CatsApp extends App {
-    implicit val runtime: Runtime[Environment] = this
+    implicit val runtime: Runtime[ZEnv] = this
   }
 
   object implicits {
