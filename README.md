@@ -1,6 +1,7 @@
 # Interop Cats Effect
 
 [![CircleCI][ci-badge]][ci-url]
+[![Release Artifacts][Badge-SonatypeReleases]][Link-SonatypeReleases]
 
 This library provides instances required by Cats Effect.
 
@@ -46,3 +47,5 @@ val allUsers: List[User] = unsafeRun(loadUsers.compile.toList)
 
 [ci-badge]: https://circleci.com/gh/zio/interop-cats/tree/master.svg?style=svg
 [ci-url]: https://circleci.com/gh/zio/interop-cats/tree/master
+[Link-SonatypeReleases]: https://oss.sonatype.org/content/repositories/releases/dev/zio/zio-interop-cats_2.12/
+[Badge-SonatypeReleases]: https://img.shields.io/nexus/r/https/oss.sonatype.org/dev.zio/zio-interop-cats_2.12.svg
