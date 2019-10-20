@@ -80,6 +80,18 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
 
 }
 
+trait CatsEffectZManagedInstances {
+
+  implicit def liftIOZManagedInstances[R](
+    implicit ev: LiftIO[ZIO[R, Throwable, ?]]
+  ): LiftIO[ZManaged[R, Throwable, ?]] =
+    new LiftIO[ZManaged[R, Throwable, ?]] {
+      override def liftIO[A](ioa: CIO[A]): ZManaged[R, Throwable, A] =
+        ZManaged.fromEffect(ev.liftIO(ioa))
+    }
+
+}
+
 trait CatsZManagedInstances extends CatsZManagedInstances1 {
 
   implicit def monadErrorZManagedInstances[R, E]: MonadError[ZManaged[R, E, ?], E] =
@@ -90,14 +102,6 @@ trait CatsZManagedInstances extends CatsZManagedInstances1 {
       override def empty: ZManaged[R, E, A] = ZManaged.succeed(ev.empty)
 
       override def combine(x: ZManaged[R, E, A], y: ZManaged[R, E, A]): ZManaged[R, E, A] = x.zipWith(y)(ev.combine)
-    }
-
-  implicit def liftIOZManagedInstances[R, A](
-    implicit ev: LiftIO[ZIO[R, Throwable, ?]]
-  ): LiftIO[ZManaged[R, Throwable, ?]] =
-    new LiftIO[ZManaged[R, Throwable, ?]] {
-      override def liftIO[A](ioa: CIO[A]): ZManaged[R, Throwable, A] =
-        ZManaged.fromEffect(ev.liftIO(ioa))
     }
 
 }

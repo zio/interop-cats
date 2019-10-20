@@ -5,7 +5,7 @@
 
 This library provides instances required by Cats Effect.
 
-## `IO` Cats Effect's instances
+## `ZIO` Cats Effect instances
 
 **ZIO** integrates with Typelevel libraries by providing an instance of `ConcurrentEffect` for `IO` as required, for instance, by `fs2`, `doobie` and `http4s`. Actually, I lied a little bit, it is not possible to implement `ConcurrentEffect` for any error type since `ConcurrentEffect` extends `MonadError` of `Throwable`.
 
@@ -17,6 +17,22 @@ For convenience we have defined an alias as follow:
 
 Therefore, we provide an instance of `ConcurrentEffect[Task]`.
 
+## ConcurrentEffect
+
+In order to get a `ConcurrentEffect[Task]` or `ConcurrentEffect[RIO[R, *]]` we need an implicit `Runtime[R]` in scope. The easiest way to get it is using `ZIO.runtime`:
+
+```scala
+import cats.effect._
+import zio._
+import zio.interop.catz._
+
+def getCE = {
+  ZIO.runtime.map { implicit r: Runtime[Any] =>
+    val F: ConcurrentEffect[Task] = implicitly
+  }
+}
+```
+
 ### Timer
 
 In order to get a `cats.effect.Timer[Task]` instance we need an extra import:
@@ -26,6 +42,16 @@ import zio.interop.catz.implicits._
 ```
 
 The reason it is not provided by the default "interop" import is that it makes testing programs that require timing capabilities hard so an extra import wherever needed makes reasoning about it much easier.
+
+### cats-core
+
+If you only need instances for `cats-core` typeclasses, not `cats-effect` import `zio.interop.catz.core._`:
+
+````scala
+import zio.interop.catz.core._
+````
+
+Note that this library only has an `Optional` dependency on cats-effect – if you or your libraries don't depend on it, this library will not add it to the classpath.
 
 ### Example
 
