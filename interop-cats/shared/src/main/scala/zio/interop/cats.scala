@@ -26,12 +26,17 @@ import zio.clock.Clock
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS, TimeUnit }
 
-object catz extends CatsPlatform {
+object catz extends CatsEffectPlatform {
+  object core extends CatsPlatform
   object mtl  extends CatsMtlPlatform
   object test extends CatsTestFunctions
 }
 
-abstract class CatsPlatform extends CatsInstances with CatsZManagedInstances with CatsZManagedSyntax {
+abstract class CatsEffectPlatform
+    extends CatsEffectInstances
+    with CatsEffectZManagedInstances
+    with CatsZManagedInstances
+    with CatsZManagedSyntax {
   val console: interop.console.cats.type = interop.console.cats
 
   trait CatsApp extends App {
@@ -55,7 +60,10 @@ abstract class CatsPlatform extends CatsInstances with CatsZManagedInstances wit
   }
 }
 
-abstract class CatsInstances extends CatsInstances1 {
+abstract class CatsPlatform extends CatsInstances with CatsZManagedInstances
+
+abstract class CatsEffectInstances extends CatsInstances with CatsEffectInstances1 {
+
   implicit def zioContextShift[R, E]: ContextShift[ZIO[R, E, *]] = new ContextShift[ZIO[R, E, *]] {
     override def shift: ZIO[R, E, Unit] =
       ZIO.yieldNow
@@ -80,6 +88,15 @@ abstract class CatsInstances extends CatsInstances1 {
   implicit def taskEffectInstance[R](implicit runtime: Runtime[R]): effect.ConcurrentEffect[RIO[R, *]] =
     new CatsConcurrentEffect[R](runtime)
 
+}
+
+sealed trait CatsEffectInstances1 {
+  implicit def taskConcurrentInstance[R]: effect.Concurrent[RIO[R, *]] =
+    new CatsConcurrent[R]
+}
+
+abstract class CatsInstances extends CatsInstances1 {
+
   implicit def monoidKInstance[R, E: Monoid]: MonoidK[ZIO[R, E, *]] =
     new CatsMonoidK[R, E]
 
@@ -90,9 +107,6 @@ abstract class CatsInstances extends CatsInstances1 {
 }
 
 sealed abstract class CatsInstances1 extends CatsInstances2 {
-
-  implicit def taskConcurrentInstance[R]: effect.Concurrent[RIO[R, *]] =
-    new CatsConcurrent[R]
 
   implicit def parallelInstance[R, E]: Parallel.Aux[ZIO[R, E, *], ParIO[R, E, *]] =
     new CatsParallel[R, E](monadErrorInstance)
