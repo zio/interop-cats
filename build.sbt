@@ -30,8 +30,8 @@ ThisBuild / publishTo := sonatypePublishToBundle.value
 
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
 addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
-addCommandAlias("testJVM", ";interopCatsJVM/test")
-addCommandAlias("testJS", ";interopCatsJS/test")
+addCommandAlias("testJVM", ";interopCatsJVM/test;coreOnlyTestJVM/test")
+addCommandAlias("testJS", ";interopCatsJS/test;coreOnlyTestJS/test")
 
 lazy val root = project
   .in(file("."))
