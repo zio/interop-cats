@@ -1,6 +1,6 @@
-import sbtcrossproject.CrossPlugin.autoImport.crossProject
-import explicitdeps.ExplicitDepsPlugin.autoImport.moduleFilterRemoveValue
 import BuildHelper._
+import explicitdeps.ExplicitDepsPlugin.autoImport.moduleFilterRemoveValue
+import sbtcrossproject.CrossPlugin.autoImport.crossProject
 
 name := "interop-cats"
 
@@ -30,8 +30,8 @@ ThisBuild / publishTo := sonatypePublishToBundle.value
 
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
 addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
-addCommandAlias("testJVM", ";interopCatsJVM/test")
-addCommandAlias("testJS", ";interopCatsJS/test")
+addCommandAlias("testJVM", ";interopCatsJVM/test;coreOnlyTestJVM/test")
+addCommandAlias("testJS", ";interopCatsJS/test;coreOnlyTestJS/test")
 
 lazy val root = project
   .in(file("."))
@@ -69,6 +69,25 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
 
 lazy val interopCatsJVM = interopCats.jvm
 lazy val interopCatsJS = interopCats.js
+  .settings(
+    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.0.0-RC3" % Test
+  )
+
+lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
+  .in(file("core-only-test"))
+  .dependsOn(interopCats)
+  .settings(stdSettings("core-only-test"))
+  .settings(skip in publish := true)
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.typelevel" %%% "cats-core"    % "2.0.0"      % Test,
+      "dev.zio"       %%% "zio-test-sbt" % "1.0.0-RC15" % Test
+    )
+  )
+  .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
+
+lazy val coreOnlyTestJVM = coreOnlyTest.jvm
+lazy val coreOnlyTestJS = coreOnlyTest.js
   .settings(
     libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.0.0-RC3" % Test
   )

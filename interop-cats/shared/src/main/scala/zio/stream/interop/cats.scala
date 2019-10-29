@@ -21,33 +21,35 @@ import cats.arrow._
 import zio._
 import zio.stream._
 
-object catz extends CatsInstances
+object catz extends CatsInstances {
+  object core extends CatsInstances
+}
 
 sealed abstract class CatsInstances extends CatsInstances1 {
-  implicit def alternativeInstance[R, E]: Alternative[ZStream[R, E, *]] =
+  implicit def zstreamAlternativeInstance[R, E]: Alternative[ZStream[R, E, *]] =
     new CatsAlternative[R, E]
 }
 
 sealed abstract class CatsInstances1 extends CatsInstances2 {
-  implicit def monoidKInstance[R, E]: MonoidK[ZStream[R, E, *]] =
+  implicit def zstreamMonoidKInstance[R, E]: MonoidK[ZStream[R, E, *]] =
     new CatsMonoidK[R, E]
 
-  implicit def bifunctorInstance[R]: Bifunctor[ZStream[R, *, *]] =
+  implicit def zstreamBifunctorInstance[R]: Bifunctor[ZStream[R, *, *]] =
     new CatsBifunctor[R] {}
 
-  implicit def zioArrowInstance[E]: ArrowChoice[ZStream[*, E, *]] = new CatsArrow[E]
+  implicit def zstreamArrowInstance[E]: ArrowChoice[ZStream[*, E, *]] = new CatsArrow[E]
 }
 
 sealed abstract class CatsInstances2 extends CatsInstances3 {
-  implicit def parallelInstance[R, E]: Parallel.Aux[ZStream[R, E, *], ParStream[R, E, *]] =
-    new CatsParallel[R, E](monadErrorInstance)
+  implicit def zstreamParallelInstance[R, E]: Parallel.Aux[ZStream[R, E, *], ParStream[R, E, *]] =
+    new CatsParallel[R, E](zstreamMonadErrorInstance)
 
-  implicit def semigroupKInstance[R, E: Semigroup]: SemigroupK[ZStream[R, E, *]] =
+  implicit def zstreamSemigroupKInstance[R, E: Semigroup]: SemigroupK[ZStream[R, E, *]] =
     new CatsSemigroupK[R, E]
 }
 
 sealed abstract class CatsInstances3 {
-  implicit def monadErrorInstance[R, E]: MonadError[ZStream[R, E, *], E] =
+  implicit def zstreamMonadErrorInstance[R, E]: MonadError[ZStream[R, E, *], E] =
     new CatsMonadError[R, E]
 }
 
