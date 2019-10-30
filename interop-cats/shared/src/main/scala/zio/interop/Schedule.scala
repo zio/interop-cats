@@ -17,19 +17,16 @@
 package zio.interop
 
 import cats.effect.{ Effect, LiftIO }
-import zio.ZSchedule.Decision
-import zio.clock.Clock
 import zio.duration.{ Duration => ZDuration }
-import zio.interop.Schedule.Env
-import zio.random.Random
-import zio.{ RIO, Runtime, ZSchedule }
+import zio.{ RIO, Runtime, ZEnv, ZSchedule }
 
 import scala.concurrent.duration.Duration
+import zio.ZIO
 
 /**
  * @see zio.ZSchedule
  */
-final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: ZSchedule[Env, A, B]) { self =>
+final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: ZSchedule[ZEnv, A, B]) { self =>
   import Schedule.{ fromEffect, toEffect }
 
   /**
@@ -40,25 +37,19 @@ final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: Z
   /**
    * @see zio.ZSchedule.initial
    */
-  def initial(implicit R: Runtime[Env], F: LiftIO[F]): F[State] = toEffect(underlying.initial)
+  def initial(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[State] = toEffect(underlying.initial)
+
+  /**
+   * @see zio.ZSchedule.extract
+   */
+  val extract: (A, State) => B =
+    (a, s) => underlying.extract(a, s)
 
   /**
    * @see zio.ZSchedule.update
    */
-  def update(implicit R: Runtime[Env], F: LiftIO[F]): (A, State) => F[ZSchedule.Decision[State, B]] =
-    (a, s) => toEffect(underlying.update(a, s))
-
-  /**
-   * @see zio.ZSchedule.run
-   */
-  final def run(as: Iterable[A])(implicit R: Runtime[Env], F: LiftIO[F]): F[List[(Duration, B)]] =
-    toEffect(underlying.run(as).map(_.map { case (d, b) => (d.asScala, b) }))
-
-  /**
-   * @see zio.ZSchedule.unary_!
-   */
-  final def unary_! : Schedule[F, A, B] =
-    new Schedule(!underlying)
+  def update(implicit R: Runtime[ZEnv], F: LiftIO[F]): (A, State) => F[Either[Unit, State]] =
+    (a, s) => toEffect(underlying.update(a, s).either)
 
   /**
    * @see zio.ZSchedule.map
@@ -123,20 +114,10 @@ final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: Z
     new Schedule(underlying.untilInput(f))
 
   /**
-   * @see zio.ZSchedule.combineWith
-   */
-  final def combineWith[A1 <: A, C](
-    that: Schedule[F, A1, C]
-  )(g: (Boolean, Boolean) => Boolean, f: (Duration, Duration) => Duration): Schedule[F, A1, (B, C)] = {
-    val fz: (ZDuration, ZDuration) => ZDuration = (d1, d2) => ZDuration.fromScala(f(d1.asScala, d2.asScala))
-    new Schedule(underlying.combineWith(that.underlying)(g, fz))
-  }
-
-  /**
    * @see zio.ZSchedule.&&
    */
   final def &&[A1 <: A, C](that: Schedule[F, A1, C]): Schedule[F, A1, (B, C)] =
-    combineWith(that)(_ && _, _ max _)
+    new Schedule(self.underlying && that.underlying)
 
   /**
    * @see zio.ZSchedule.both
@@ -189,7 +170,7 @@ final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: Z
    * @see zio.ZSchedule.||
    */
   final def ||[A1 <: A, C](that: Schedule[F, A1, C]): Schedule[F, A1, (B, C)] =
-    combineWith(that)(_ || _, _ min _)
+    new Schedule(self.underlying || that.underlying)
 
   /**
    * @see zio.ZSchedule.either
@@ -230,26 +211,10 @@ final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: Z
   final def unit: Schedule[F, A, Unit] = const(())
 
   /**
-   * @see zio.ZSchedule.reconsiderM
-   */
-  final def reconsiderM[A1 <: A, C](
-    f: (A1, ZSchedule.Decision[State, B]) => F[ZSchedule.Decision[State, C]]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A1, C] =
-    new Schedule(underlying.reconsiderM((a, d) => fromEffect(f(a, d)).orDie))
-
-  /**
-   * @see zio.ZSchedule.reconsider
-   */
-  final def reconsider[A1 <: A, C](
-    f: (A1, ZSchedule.Decision[State, B]) => ZSchedule.Decision[State, C]
-  )(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A1, C] =
-    reconsiderM((a, d) => F.pure(f(a, d)))
-
-  /**
    * @see zio.ZSchedule.onDecision
    */
   final def onDecision[A1 <: A](
-    f: (A1, ZSchedule.Decision[State, B]) => F[Unit]
+    f: (A1, State) => F[Unit]
   )(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A1, B] =
     new Schedule(underlying.onDecision((a, d) => fromEffect(f(a, d)).orDie))
 
@@ -258,31 +223,31 @@ final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: Z
    */
   final def modifyDelay(
     f: (B, Duration) => F[Duration]
-  )(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A, B] =
+  )(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, B] =
     new Schedule(underlying.modifyDelay((b, d) => fromEffect(f(b, d.asScala)).map(ZDuration.fromScala).orDie))
 
   /**
    * @see zio.ZSchedule.updated
    */
-  final def updated[A1 <: A, B1](
+  final def updated[A1 <: A](
     f: (
-      (A, State) => F[ZSchedule.Decision[State, B]]
-    ) => (A1, State) => F[ZSchedule.Decision[State, B1]]
-  )(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A1, B1] =
-    Schedule(self.initial, f(self.update))
+      (A, State) => F[Either[Unit, State]]
+    ) => (A1, State) => F[Either[Unit, State]]
+  )(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A1, B] =
+    Schedule(self.initial, f(self.update), self.extract)
 
   /**
    * @see zio.ZSchedule.initialized
    */
   final def initialized[A1 <: A](
     f: F[State] => F[State]
-  )(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A1, B] =
-    Schedule(f(self.initial), self.update)
+  )(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A1, B] =
+    Schedule(f(self.initial), self.update, self.extract)
 
   /**
    * @see zio.ZSchedule.delayed
    */
-  final def delayed(f: Duration => Duration)(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A, B] =
+  final def delayed(f: Duration => Duration)(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, B] =
     modifyDelay((_, d) => F.pure(f(d)))
 
   /**
@@ -299,13 +264,13 @@ final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: Z
   /**
    * @see zio.ZSchedule.logInput
    */
-  final def logInput[A1 <: A](f: A1 => F[Unit])(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A1, B] =
+  final def logInput[A1 <: A](f: A1 => F[Unit])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A1, B] =
     new Schedule(underlying.logInput(a1 => fromEffect(f(a1)).orDie))
 
   /**
    * @see zio.ZSchedule.logOutput
    */
-  final def logOutput(f: B => F[Unit])(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A, B] =
+  final def logOutput(f: B => F[Unit])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, B] =
     new Schedule(underlying.logOutput(a1 => fromEffect(f(a1)).orDie))
 
   /**
@@ -319,12 +284,6 @@ final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: Z
    */
   final def fold[Z](z: Z)(f: (Z, B) => Z): Schedule[F, A, Z] =
     new Schedule(underlying.fold(z)(f))
-
-  /**
-   * @see zio.ZSchedule.foldM
-   */
-  final def foldM[Z](z: F[Z])(f: (Z, B) => F[Z])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A, Z] =
-    new Schedule(underlying.foldM(fromEffect(z).orDie)((z, b) => fromEffect(f(z, b)).orDie))
 
   /**
    * @see zio.ZSchedule.>>>
@@ -385,7 +344,6 @@ final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: Z
 
 object Schedule {
   import zio.interop.catz._
-  private[Schedule] type Env = Random with Clock
 
   private def toEffect[F[+_], R, A](zio: RIO[R, A])(implicit R: Runtime[R], F: LiftIO[F]): F[A] =
     F.liftIO(taskEffectInstance.toIO(zio))
@@ -397,12 +355,15 @@ object Schedule {
 
   final def apply[F[+_], S, A, B](
     initial0: F[S],
-    update0: (A, S) => F[ZSchedule.Decision[S, B]]
-  )(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A, B] =
-    new Schedule(new ZSchedule[Env, A, B] {
+    update0: (A, S) => F[Either[Unit, S]],
+    extract0: (A, S) => B
+  )(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, B] =
+    new Schedule(new ZSchedule[ZEnv, A, B] {
       type State = S
       val initial = fromEffect(initial0).orDie
-      val update  = (a: A, s: State) => fromEffect(update0(a, s)).orDie
+      val update: (A, S) => ZIO[Any, Unit, S] = (a: A, s: S) =>
+        fromEffect(update0(a, s)).orDie.flatMap(ZIO.fromEither(_))
+      val extract: (A, S) => B = extract0
     })
 
   /**
@@ -449,14 +410,6 @@ object Schedule {
     new Schedule(ZSchedule.once)
 
   /**
-   * @see zio.ZSchedule.delayed
-   */
-  final def delayed[F[+_], A](
-    s: Schedule[F, A, Duration]
-  ): Schedule[F, A, Duration] =
-    new Schedule(ZSchedule.delayed(s.underlying.map(ZDuration.fromScala)).map(_.asScala))
-
-  /**
    * @see zio.ZSchedule.collectAll
    */
   final def collectAll[F[+_], A]: Schedule[F, A, List[A]] =
@@ -485,7 +438,7 @@ object Schedule {
   /**
    * @see zio.ZSchedule.logInput
    */
-  final def logInput[F[+_], A](f: A => F[Unit])(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, A, A] =
+  final def logInput[F[+_], A](f: A => F[Unit])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, A] =
     identity[F, A].logInput(f)
 
   /**
@@ -493,18 +446,6 @@ object Schedule {
    */
   final def recurs[F[+_]](n: Int): Schedule[F, Any, Int] =
     new Schedule(ZSchedule.recurs(n))
-
-  /**
-   * @see zio.ZSchedule.delay
-   */
-  final def delay[F[+_]]: Schedule[F, Any, Duration] =
-    new Schedule(ZSchedule.delay.map(_.asScala))
-
-  /**
-   * @see zio.ZSchedule.decision
-   */
-  final def decision[F[+_]]: Schedule[F, Any, Boolean] =
-    new Schedule(ZSchedule.decision)
 
   /**
    * @see zio.ZSchedule.unfold
@@ -515,10 +456,11 @@ object Schedule {
   /**
    * @see zio.ZSchedule.unfoldM
    */
-  final def unfoldM[F[+_], A](a: F[A])(f: A => F[A])(implicit R: Runtime[Env], F: Effect[F]): Schedule[F, Any, A] =
+  final def unfoldM[F[+_], A](a: F[A])(f: A => F[A])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, Any, A] =
     Schedule[F, A, Any, A](
       a,
-      (_: Any, a1: A) => F.map(f(a1))(a => Decision.cont(ZDuration.Zero, a, a))
+      (_: Any, a: A) => F.map(f(a))(Right(_)),
+      (_: Any, a: A) => a
     )
 
   /**
