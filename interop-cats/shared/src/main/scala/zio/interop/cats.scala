@@ -101,9 +101,13 @@ abstract class CatsInstances extends CatsInstances1 {
     new CatsMonoidK[R, E]
 
   implicit def bifunctorInstance[R]: Bifunctor[ZIO[R, *, *]] =
-    new CatsBifunctor[R] {}
+    new CatsBifunctor[R]
 
-  implicit def zioArrowInstance[E]: ArrowChoice[ZIO[*, E, *]] = new CatsArrow[E]
+  implicit val rioArrowInstance: ArrowChoice[RIO] =
+    new CatsArrow[Throwable]
+
+  implicit def zioArrowInstance[E]: ArrowChoice[ZIO[*, E, *]] =
+    new CatsArrow[E]
 }
 
 sealed abstract class CatsInstances1 extends CatsInstances2 {
