@@ -106,6 +106,9 @@ abstract class CatsInstances extends CatsInstances1 {
   implicit val rioArrowInstance: ArrowChoice[RIO] =
     new CatsArrow[Throwable]
 
+  implicit val urioArrowInstance: ArrowChoice[URIO] =
+    new CatsArrow[Nothing]
+
   implicit def zioArrowInstance[E]: ArrowChoice[ZIO[*, E, *]] =
     new CatsArrow[E]
 }
