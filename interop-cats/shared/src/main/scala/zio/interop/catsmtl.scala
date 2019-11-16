@@ -28,7 +28,7 @@ abstract class CatsMtlInstances {
     new DefaultApplicativeLocal[ZIO[R, E, ?], R] {
       val applicative: Applicative[ZIO[R, E, ?]]              = ev
       def ask: ZIO[R, Nothing, R]                             = ZIO.environment
-      def local[A](f: R => R)(fa: ZIO[R, E, A]): ZIO[R, E, A] = ZIO.accessM(f andThen fa.provide)
+      def local[A](f: R => R)(fa: ZIO[R, E, A]): ZIO[R, E, A] = ZIO.accessM(fa provide f(_))
     }
 
   implicit def zioApplicativeHandle[R, E](implicit ev: Applicative[ZIO[R, E, ?]]): ApplicativeHandle[ZIO[R, E, ?], E] =
