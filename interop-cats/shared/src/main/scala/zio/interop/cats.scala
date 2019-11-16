@@ -15,13 +15,13 @@
  */
 
 package zio.interop
-import zio.interop.test.CatsTestFunctions
 
 import cats.arrow.ArrowChoice
 import cats.effect.{ Concurrent, ContextShift, ExitCase }
 import cats.{ effect, _ }
 import zio._
 import zio.clock.Clock
+import zio.interop.test.CatsTestFunctions
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS, TimeUnit }
@@ -44,17 +44,19 @@ abstract class CatsEffectPlatform
   }
 
   object implicits {
-    implicit def ioTimer[E]: effect.Timer[IO[E, *]] =
-      new effect.Timer[IO[E, *]] {
-        override def clock: effect.Clock[IO[E, *]] = new effect.Clock[IO[E, *]] {
-          override def monotonic(unit: TimeUnit): IO[E, Long] =
+    implicit final def ioTimer[E]: effect.Timer[IO[E, *]] = ioTimer0.asInstanceOf[effect.Timer[IO[E, *]]]
+
+    private[this] implicit val ioTimer0: effect.Timer[IO[Any, *]] =
+      new effect.Timer[IO[Any, *]] {
+        override final def clock: effect.Clock[IO[Any, *]] = new effect.Clock[IO[Any, *]] {
+          override final def monotonic(unit: TimeUnit): IO[Any, Long] =
             Clock.Live.clock.nanoTime.map(unit.convert(_, NANOSECONDS))
 
-          override def realTime(unit: TimeUnit): IO[E, Long] =
+          override final def realTime(unit: TimeUnit): IO[Any, Long] =
             Clock.Live.clock.currentTime(unit)
         }
 
-        override def sleep(duration: FiniteDuration): IO[E, Unit] =
+        override final def sleep(duration: FiniteDuration): IO[Any, Unit] =
           Clock.Live.clock.sleep(zio.duration.Duration.fromNanos(duration.toNanos))
       }
   }
@@ -64,66 +66,88 @@ abstract class CatsPlatform extends CatsInstances with CatsZManagedInstances
 
 abstract class CatsEffectInstances extends CatsInstances with CatsEffectInstances1 {
 
-  implicit def zioContextShift[R, E]: ContextShift[ZIO[R, E, *]] = new ContextShift[ZIO[R, E, *]] {
-    override def shift: ZIO[R, E, Unit] =
-      ZIO.yieldNow
+  implicit final def zioContextShift[R, E]: ContextShift[ZIO[R, E, *]] =
+    zioContextShift0.asInstanceOf[ContextShift[ZIO[R, E, *]]]
 
-    override def evalOn[A](ec: ExecutionContext)(fa: ZIO[R, E, A]): ZIO[R, E, A] =
-      fa.on(ec)
-  }
+  implicit final def zioTimer[R <: Clock, E]: effect.Timer[ZIO[R, E, *]] =
+    zioTimer0.asInstanceOf[effect.Timer[ZIO[R, E, *]]]
 
-  implicit def zioTimer[R <: Clock, E]: effect.Timer[ZIO[R, E, *]] = new effect.Timer[ZIO[R, E, *]] {
-    override def clock: effect.Clock[ZIO[R, E, *]] = new effect.Clock[ZIO[R, E, *]] {
-      override def monotonic(unit: TimeUnit): ZIO[R, E, Long] =
-        zio.clock.nanoTime.map(unit.convert(_, NANOSECONDS))
+  implicit final def taskEffectInstance[R](implicit runtime: Runtime[R]): effect.ConcurrentEffect[RIO[R, *]] =
+    new CatsConcurrentEffect[R](runtime)
 
-      override def realTime(unit: TimeUnit): ZIO[R, E, Long] =
-        zio.clock.currentTime(unit)
+  private[this] final val zioContextShift0: ContextShift[ZIO[Any, Any, *]] =
+    new ContextShift[ZIO[Any, Any, *]] {
+      override final def shift: ZIO[Any, Any, Unit]                                              = ZIO.yieldNow
+      override final def evalOn[A](ec: ExecutionContext)(fa: ZIO[Any, Any, A]): ZIO[Any, Any, A] = fa.on(ec)
     }
 
-    override def sleep(duration: FiniteDuration): ZIO[R, E, Unit] =
+  private[this] final val zioTimer0: effect.Timer[ZIO[Clock, Any, *]] = new effect.Timer[ZIO[Clock, Any, *]] {
+    override final def clock: effect.Clock[ZIO[Clock, Any, *]] = zioCatsClock0
+    override final def sleep(duration: FiniteDuration): ZIO[Clock, Any, Unit] =
       zio.clock.sleep(zio.duration.Duration.fromNanos(duration.toNanos))
   }
 
-  implicit def taskEffectInstance[R](implicit runtime: Runtime[R]): effect.ConcurrentEffect[RIO[R, *]] =
-    new CatsConcurrentEffect[R](runtime)
+  private[this] final val zioCatsClock0: effect.Clock[ZIO[Clock, Any, *]] = new effect.Clock[ZIO[Clock, Any, *]] {
+    override final def monotonic(unit: TimeUnit): ZIO[Clock, Any, Long] =
+      zio.clock.nanoTime.map(unit.convert(_, NANOSECONDS))
+    override final def realTime(unit: TimeUnit): ZIO[Clock, Any, Long] =
+      zio.clock.currentTime(unit)
+  }
 
 }
 
 sealed trait CatsEffectInstances1 {
-  implicit def taskConcurrentInstance[R]: effect.Concurrent[RIO[R, *]] =
-    new CatsConcurrent[R]
+  implicit final def taskConcurrentInstance[R]: effect.Concurrent[RIO[R, *]] =
+    taskConcurrentInstance0.asInstanceOf[effect.Concurrent[RIO[R, *]]]
+
+  private[this] final val taskConcurrentInstance0: effect.Concurrent[RIO[Any, *]] = new CatsConcurrent[Any]
 }
 
 abstract class CatsInstances extends CatsInstances1 {
 
-  implicit def monoidKInstance[R, E: Monoid]: MonoidK[ZIO[R, E, *]] =
+  implicit final def monoidKInstance[R, E: Monoid]: MonoidK[ZIO[R, E, *]] =
     new CatsMonoidK[R, E]
 
-  implicit def bifunctorInstance[R]: Bifunctor[ZIO[R, *, *]] =
-    new CatsBifunctor[R] {}
+  implicit final def bifunctorInstance[R]: Bifunctor[ZIO[R, *, *]] =
+    bifunctorInstance0.asInstanceOf[Bifunctor[ZIO[R, *, *]]]
 
-  implicit def zioArrowInstance[E]: ArrowChoice[ZIO[*, E, *]] = new CatsArrow[E]
+  implicit final def zioArrowInstance[E]: ArrowChoice[ZIO[*, E, *]] =
+    zioArrowInstance0.asInstanceOf[ArrowChoice[ZIO[*, E, *]]]
+
+  private[this] final val bifunctorInstance0: Bifunctor[ZIO[Any, *, *]]  = new CatsBifunctor[Any]
+  private[this] final val zioArrowInstance0: ArrowChoice[ZIO[*, Any, *]] = new CatsArrow[Any]
 }
 
 sealed abstract class CatsInstances1 extends CatsInstances2 {
 
-  implicit def parallelInstance[R, E]: Parallel.Aux[ZIO[R, E, *], ParIO[R, E, *]] =
-    new CatsParallel[R, E](monadErrorInstance)
+  implicit final def parallelInstance[R, E]: Parallel.Aux[ZIO[R, E, *], ParIO[R, E, *]] =
+    parallelInstance0.asInstanceOf[Parallel.Aux[ZIO[R, E, *], ParIO[R, E, *]]]
 
-  implicit def commutativeApplicativeInstance[R, E]: CommutativeApplicative[ParIO[R, E, *]] =
-    new CatsParApplicative[R, E]
+  implicit final def commutativeApplicativeInstance[R, E]: CommutativeApplicative[ParIO[R, E, *]] =
+    commutativeApplicativeInstance0.asInstanceOf[CommutativeApplicative[ParIO[R, E, *]]]
 
-  implicit def semigroupKInstance[R, E: Semigroup]: SemigroupK[ZIO[R, E, *]] =
+  implicit final def semigroupKInstance[R, E: Semigroup]: SemigroupK[ZIO[R, E, *]] =
     new CatsSemigroupK[R, E]
+
+  private[this] final val parallelInstance0: Parallel.Aux[ZIO[Any, Any, *], ParIO[Any, Any, *]] =
+    new CatsParallel[Any, Any](monadErrorInstance)
+
+  private[this] final val commutativeApplicativeInstance0: CommutativeApplicative[ParIO[Any, Any, *]] =
+    new CatsParApplicative[Any, Any]
 }
 
 sealed abstract class CatsInstances2 {
-  implicit def monadErrorInstance[R, E]: MonadError[ZIO[R, E, *], E] =
-    new CatsMonadError[R, E]
+  implicit final def monadErrorInstance[R, E]: MonadError[ZIO[R, E, *], E] =
+    monadErrorInstance0.asInstanceOf[MonadError[ZIO[R, E, *], E]]
 
-  implicit def semigroupKLossyInstance[R, E]: SemigroupK[ZIO[R, E, *]] =
-    new CatsSemigroupKLossy[R, E]
+  implicit final def semigroupKLossyInstance[R, E]: SemigroupK[ZIO[R, E, *]] =
+    semigroupKLossyInstance0.asInstanceOf[SemigroupK[ZIO[R, E, *]]]
+
+  private[this] final val monadErrorInstance0: MonadError[ZIO[Any, Any, *], Any] =
+    new CatsMonadError[Any, Any]
+
+  private[this] final val semigroupKLossyInstance0: SemigroupK[ZIO[Any, Any, *]] =
+    new CatsSemigroupKLossy[Any, Any]
 }
 
 private class CatsConcurrentEffect[R](rts: Runtime[R])
