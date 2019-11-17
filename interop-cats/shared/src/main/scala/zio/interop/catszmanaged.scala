@@ -37,6 +37,7 @@ trait CatsZManagedSyntax {
 }
 
 final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resource[ZIO[R, E, ?], A]) extends AnyVal {
+
   /**
    * Convert a cats Resource into a ZManaged.
    * Beware that unhandled error during release of the resource will result in the fiber dying.
