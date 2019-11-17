@@ -16,6 +16,24 @@
 
 package zio
 
+import cats.effect.ExitCase
+
 package object interop {
   type ParIO[-R, +E, +A] = Par.T[R, E, A]
+
+  @inline private[interop] final def exitToExitCase(exit: Exit[Any, Any]): ExitCase[Throwable] = exit match {
+    case Exit.Success(_)                          => ExitCase.Completed
+    case Exit.Failure(cause) if cause.interrupted => ExitCase.Canceled
+    case Exit.Failure(cause) =>
+      cause.failureOrCause match {
+        case Left(t: Throwable) => ExitCase.Error(t)
+        case _                  => ExitCase.Error(FiberFailure(cause))
+      }
+  }
+
+  @inline private[interop] final def exitCaseToExit[E](exitCase: ExitCase[E]): Exit[E, Unit] = exitCase match {
+    case ExitCase.Completed => Exit.unit
+    case ExitCase.Error(e)  => Exit.fail(e)
+    case ExitCase.Canceled  => Exit.interrupt
+  }
 }
