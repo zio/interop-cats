@@ -116,7 +116,7 @@ abstract class CatsInstances extends CatsInstances1 {
 
   implicit final def urioArrowInstance: ArrowChoice[URIO] =
     zioArrowInstance0.asInstanceOf[ArrowChoice[URIO]]
-  
+
   implicit final def zioArrowInstance[E]: ArrowChoice[ZIO[*, E, *]] =
     zioArrowInstance0.asInstanceOf[ArrowChoice[ZIO[*, E, *]]]
 
