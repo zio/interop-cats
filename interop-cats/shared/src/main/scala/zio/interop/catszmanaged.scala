@@ -37,13 +37,15 @@ trait CatsZManagedSyntax {
 }
 
 final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resource[ZIO[R, E, ?], A]) extends AnyVal {
+  /**
+   * Convert a cats Resource into a ZManaged.
+   * Beware that unhandled error during release of the resource will result in the fiber dying.
+   */
   def toManagedZIO: ZManaged[R, E, A] = {
     def go[A1](res: Resource[ZIO[R, E, ?], A1]): ZManaged[R, E, A1] =
       res match {
         case Allocate(resource) =>
-          ZManaged(resource.map {
-            case (a, r) => Reservation(ZIO.succeed(a), e => r(exitToExitCase(e)).orDie)
-          })
+          ZManaged(resource.map { case (a, r) => Reservation(ZIO.succeed(a), e => r(exitToExitCase(e)).orDie) })
         case Bind(source, fs) =>
           go(source).flatMap(s => go(fs(s)))
         case Suspend(resource) =>
@@ -55,20 +57,6 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
 }
 
 final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) extends AnyVal {
-
-  def toManagedZIO[R, E <: Throwable](implicit ev: Resource[F, A] <:< Resource[ZIO[R, E, ?], A]): ZManaged[R, E, A] = {
-    def go[A1](res: Resource[ZIO[R, E, ?], A1]): ZManaged[R, E, A1] =
-      res match {
-        case Allocate(resource) =>
-          ZManaged(resource.map { case (a, r) => Reservation(ZIO.succeed(a), e => r(exitToExitCase(e)).orDie) })
-        case Bind(source, fs) =>
-          go(source).flatMap(s => go(fs(s)))
-        case Suspend(resource) =>
-          ZManaged.unwrap(resource.map(go))
-      }
-
-    go(ev(resource))
-  }
 
   /**
    * Convert a cats Resource into a ZManaged.
