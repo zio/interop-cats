@@ -172,7 +172,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
 
   override final def cancelable[A](k: (Either[Throwable, A] => Unit) => effect.CancelToken[RIO[R, *]]): RIO[R, A] =
     RIO.effectAsyncInterrupt[R, A] { kk =>
-      val token = k(e => kk(RIO.fromEither(e)))
+      val token = k(kk apply _.fold(ZIO.fail, ZIO.succeed))
       Left(token.orDie)
     }
 
@@ -195,10 +195,10 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     RIO.never
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => Unit): RIO[R, A] =
-    RIO.effectAsync(kk => k(e => kk(RIO.fromEither(e))))
+    RIO.effectAsync(kk => k(kk apply _.fold(ZIO.fail, ZIO.succeed)))
 
   override final def asyncF[A](k: (Either[Throwable, A] => Unit) => RIO[R, Unit]): RIO[R, A] =
-    RIO.effectAsyncM(kk => k(e => kk(RIO.fromEither(e))).orDie)
+    RIO.effectAsyncM(kk => k(kk apply _.fold(ZIO.fail, ZIO.succeed)).orDie)
 
   override final def suspend[A](thunk: => RIO[R, A]): RIO[R, A] =
     RIO.effectSuspend(thunk)
