@@ -92,6 +92,16 @@ class catzSpec extends catzSpecZIOBase {
     Monad[UIO]
   }
 
+  object concurrentEffectSyntaxTest {
+    import cats.effect.syntax.all._
+
+    Task.concurrentEffectWith { implicit CE =>
+      Task(List(1, 2).parTraverseN(5L) { _ =>
+        Task(())
+      }).start
+    }
+  }
+
   object syntaxTest {
     def rioDimap(rio: RIO[Int, String]): RIO[String, Int]      = rio.dimap[String, Int](_.length)(_.length)
     def rioBimap(rio: RIO[Int, String]): ZIO[Int, String, Int] = rio.bimap(_.getMessage, _.length)

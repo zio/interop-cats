@@ -36,7 +36,9 @@ abstract class CatsEffectPlatform
     extends CatsEffectInstances
     with CatsEffectZManagedInstances
     with CatsZManagedInstances
-    with CatsZManagedSyntax {
+    with CatsZManagedSyntax
+    with CatsConcurrentEffectSyntax {
+
   val console: interop.console.cats.type = interop.console.cats
 
   trait CatsApp extends App {
@@ -58,6 +60,7 @@ abstract class CatsEffectPlatform
           Clock.Live.clock.sleep(zio.duration.Duration.fromNanos(duration.toNanos))
       }
   }
+
 }
 
 abstract class CatsPlatform extends CatsInstances with CatsZManagedInstances
