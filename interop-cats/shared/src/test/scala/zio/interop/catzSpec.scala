@@ -91,6 +91,16 @@ class catzSpec extends catzSpecZIOBase {
     Timer[UIO]
     Monad[UIO]
   }
+
+  object concurrentEffectSyntaxTest {
+    import cats.effect.syntax.all._
+
+    Task.concurrentEffectWith { implicit CE =>
+      Task(List(1, 2).parTraverseN(5L) { _ =>
+        Task(())
+      }).start
+    }
+  }
 }
 
 trait AsyncLawsOverrides[F[_]] extends AsyncLaws[F] {
