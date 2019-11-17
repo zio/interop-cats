@@ -91,6 +91,12 @@ class catzSpec extends catzSpecZIOBase {
     Timer[UIO]
     Monad[UIO]
   }
+
+  object syntaxTest {
+    def rioDimap(rio: RIO[Int, String]): RIO[String, Int]      = rio.dimap[String, Int](_.length)(_.length)
+    def rioBimap(rio: RIO[Int, String]): ZIO[Int, String, Int] = rio.bimap(_.getMessage, _.length)
+    def urioDimap(rio: URIO[Int, String]): URIO[String, Int]   = rio.dimap[String, Int](_.length)(_.length)
+  }
 }
 
 trait AsyncLawsOverrides[F[_]] extends AsyncLaws[F] {
