@@ -167,8 +167,8 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
     cb: Either[Throwable, A] => effect.IO[Unit]
   ): effect.SyncIO[Unit] =
     effect.SyncIO {
-      rts.unsafeRunAsync(fa) { exit =>
-        cb(exit.toEither).unsafeRunAsync(_ => ())
+      rts.unsafeRunAsync(fa.run) { exit =>
+        cb(exit.flatMap(identity).toEither).unsafeRunAsync(_ => ())
       }
     }
 
@@ -187,7 +187,7 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
           )
           .interruptible
           .nonDaemon
-          .fork
+          .forkInternal
           .daemon
           .map(_.interrupt.unit)
       }
