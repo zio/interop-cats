@@ -3,7 +3,7 @@ package zio.interop
 import cats.Eq
 import cats.effect.laws.util.{ TestContext, TestInstances }
 import cats.implicits._
-import org.scalacheck.{ Arbitrary }
+import org.scalacheck.Arbitrary
 import org.scalatest.funsuite.AnyFunSuite
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.Discipline
@@ -20,7 +20,7 @@ private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestIns
   type Env = Clock with Console with System with Random
 
   implicit def rts(implicit tc: TestContext): Runtime[Env] = new DefaultRuntime {
-    override val Platform = PlatformLive
+    override val platform = PlatformLive
       .fromExecutor(Executor.fromExecutionContext(Int.MaxValue)(tc))
       .withReportFailure(_ => ())
   }
