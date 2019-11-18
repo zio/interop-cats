@@ -33,6 +33,20 @@ def getCE = {
 }
 ```
 
+`Task.concurrentEffectWith` method can automate this pattern:
+
+```scala
+import cats.effect._
+import zio._
+import zio.interop.catz._
+
+def fork = {
+  Task.concurrentEffectWith { implicit CE =>
+    CE.start(Task(println("Started task")))
+  }
+}
+```
+
 ### Timer
 
 In order to get a `cats.effect.Timer[Task]` instance we need an extra import:

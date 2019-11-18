@@ -19,7 +19,7 @@ package interop
 
 import cats.arrow.FunctionK
 import cats.effect.Resource.{ Allocate, Bind, Suspend }
-import cats.effect.{ Async, Effect, ExitCase, LiftIO, Resource, IO => CIO }
+import cats.effect.{ Async, Effect, LiftIO, Resource, IO => CIO }
 import cats.{ Applicative, Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
 
 trait CatsZManagedSyntax {
@@ -28,9 +28,33 @@ trait CatsZManagedSyntax {
   implicit final def catsIOResourceSyntax[F[_], A](resource: Resource[F, A]): CatsIOResourceSyntax[F, A] =
     new CatsIOResourceSyntax(resource)
 
+  implicit final def zioResourceSyntax[R, E <: Throwable, A](r: Resource[ZIO[R, E, ?], A]): ZIOResourceSyntax[R, E, A] =
+    new ZIOResourceSyntax(r)
+
   implicit final def zManagedSyntax[R, E, A](managed: ZManaged[R, E, A]): ZManagedSyntax[R, E, A] =
     new ZManagedSyntax(managed)
 
+}
+
+final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resource[ZIO[R, E, ?], A]) extends AnyVal {
+
+  /**
+   * Convert a cats Resource into a ZManaged.
+   * Beware that unhandled error during release of the resource will result in the fiber dying.
+   */
+  def toManagedZIO: ZManaged[R, E, A] = {
+    def go[A1](res: Resource[ZIO[R, E, ?], A1]): ZManaged[R, E, A1] =
+      res match {
+        case Allocate(resource) =>
+          ZManaged(resource.map { case (a, r) => Reservation(ZIO.succeed(a), e => r(exitToExitCase(e)).orDie) })
+        case Bind(source, fs) =>
+          go(source).flatMap(s => go(fs(s)))
+        case Suspend(resource) =>
+          ZManaged.unwrap(resource.map(go))
+      }
+
+    go(resource)
+  }
 }
 
 final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) extends AnyVal {
@@ -39,32 +63,20 @@ final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) 
    * Convert a cats Resource into a ZManaged.
    * Beware that unhandled error during release of the resource will result in the fiber dying.
    */
-  def toManaged[R](implicit l: LiftIO[ZIO[R, Throwable, ?]], ev: Effect[F]): ZManaged[R, Throwable, A] = {
-    def convert[A1](resource: Resource[CIO, A1]): ZManaged[R, Throwable, A1] =
+  def toManaged[R](implicit L: LiftIO[ZIO[R, Throwable, ?]], F: Effect[F]): ZManaged[R, Throwable, A] = {
+    def go[A1](resource: Resource[CIO, A1]): ZManaged[R, Throwable, A1] =
       resource match {
         case Allocate(res) =>
-          ZManaged.unwrap(
-            l.liftIO(res.bracketCase {
-                case (a, r) =>
-                  CIO.delay(
-                    ZManaged
-                      .reserve(Reservation(ZIO.succeed(a), _ => l.liftIO(r(ExitCase.Completed)).orDie.uninterruptible))
-                  )
-              } {
-                case (_, ExitCase.Completed) =>
-                  CIO.unit
-                case ((_, release), ec) =>
-                  release(ec)
-              })
-              .uninterruptible
-          )
+          ZManaged(L.liftIO(res.map {
+            case (a, r) => Reservation(ZIO.succeed(a), e => L.liftIO(r(exitToExitCase(e))).orDie)
+          }))
         case Bind(source, fs) =>
-          convert(source).flatMap(s => convert(fs(s)))
+          go(source).flatMap(s => go(fs(s)))
         case Suspend(res) =>
-          ZManaged.unwrap(l.liftIO(res).map(convert))
+          ZManaged.unwrap(L.liftIO(res).map(go))
       }
 
-    convert(resource.mapK(FunctionK.lift(ev.toIO)))
+    go(resource.mapK(FunctionK.lift(F.toIO)))
   }
 }
 
@@ -72,7 +84,7 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
 
   def toResourceZIO(implicit ev: Applicative[ZIO[R, E, ?]]): Resource[ZIO[R, E, ?], A] =
     Resource
-      .make(managed.reserve)(_.release(Exit.unit).unit)
+      .makeCase(managed.reserve)((r, e) => r.release(exitCaseToExit(e)).unit)
       .evalMap(_.acquire)
 
   def toResource[F[_]](implicit F: Async[F], ev: Effect[ZIO[R, E, ?]]): Resource[F, A] =
