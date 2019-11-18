@@ -18,7 +18,7 @@ package zio.interop
 
 import cats.effect.{ Effect, LiftIO }
 import zio.duration.{ Duration => ZDuration }
-import zio.{ RIO, Runtime, ZEnv, ZSchedule }
+import zio.{ RIO, Runtime, ZEnv, Schedule => ZSchedule }
 
 import scala.concurrent.duration.Duration
 import zio.ZIO
@@ -214,7 +214,7 @@ final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: Z
    * @see zio.ZSchedule.onDecision
    */
   final def onDecision[A1 <: A](
-    f: (A1, State) => F[Unit]
+    f: (A1, Option[State]) => F[Any]
   )(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A1, B] =
     new Schedule(underlying.onDecision((a, d) => fromEffect(f(a, d)).orDie))
 
@@ -262,16 +262,16 @@ final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: Z
     new Schedule(underlying.jittered(min, max))
 
   /**
-   * @see zio.ZSchedule.logInput
+   * @see zio.ZSchedule.tapInput
    */
-  final def logInput[A1 <: A](f: A1 => F[Unit])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A1, B] =
-    new Schedule(underlying.logInput(a1 => fromEffect(f(a1)).orDie))
+  final def tapInput[A1 <: A](f: A1 => F[Unit])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A1, B] =
+    new Schedule(underlying.tapInput(a1 => fromEffect(f(a1)).orDie))
 
   /**
-   * @see zio.ZSchedule.logOutput
+   * @see zio.ZSchedule.tapOutput
    */
-  final def logOutput(f: B => F[Unit])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, B] =
-    new Schedule(underlying.logOutput(a1 => fromEffect(f(a1)).orDie))
+  final def tapOutput(f: B => F[Unit])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, B] =
+    new Schedule(underlying.tapOutput(a1 => fromEffect(f(a1)).orDie))
 
   /**
    * @see zio.ZSchedule.collectAll
@@ -436,10 +436,10 @@ object Schedule {
     new Schedule(ZSchedule.doUntil(pf))
 
   /**
-   * @see zio.ZSchedule.logInput
+   * @see zio.ZSchedule.tapInput
    */
-  final def logInput[F[+_], A](f: A => F[Unit])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, A] =
-    identity[F, A].logInput(f)
+  final def tapInput[F[+_], A](f: A => F[Unit])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, A] =
+    identity[F, A].tapInput(f)
 
   /**
    * @see zio.ZSchedule.recurs

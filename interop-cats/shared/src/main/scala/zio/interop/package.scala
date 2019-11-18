@@ -34,6 +34,6 @@ package object interop {
   @inline private[interop] final def exitCaseToExit[E](exitCase: ExitCase[E]): Exit[E, Unit] = exitCase match {
     case ExitCase.Completed => Exit.unit
     case ExitCase.Error(e)  => Exit.fail(e)
-    case ExitCase.Canceled  => Exit.interrupt
+    case ExitCase.Canceled  => Exit.interrupt(Fiber.Id.None)
   }
 }
