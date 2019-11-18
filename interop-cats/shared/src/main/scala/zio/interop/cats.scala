@@ -186,6 +186,7 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
             _ => fa
           )
           .interruptible
+          .nonDaemon
           .fork
           .daemon
           .map(_.interrupt.unit)
@@ -217,7 +218,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     fa.map(Left(_)).raceAttempt(fb.map(Right(_)))
 
   override final def start[A](fa: RIO[R, A]): RIO[R, effect.Fiber[RIO[R, *], A]] =
-    RIO.interruptible(fa).fork.daemon.map(toFiber)
+    RIO.interruptible(fa).nonDaemon.fork.daemon.map(toFiber)
 
   override final def racePair[A, B](
     fa: RIO[R, A],
