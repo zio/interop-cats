@@ -19,7 +19,7 @@ package interop
 
 import cats.arrow.FunctionK
 import cats.effect.Resource.{ Allocate, Bind, Suspend }
-import cats.effect.{ Async, Effect, LiftIO, Resource, IO => CIO }
+import cats.effect.{ Async, Effect, LiftIO, Resource, Sync, IO => CIO }
 import cats.{ Applicative, Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
 
 trait CatsZManagedSyntax {
@@ -102,6 +102,9 @@ trait CatsEffectZManagedInstances {
         ZManaged.fromEffect(ev.liftIO(ioa))
     }
 
+  implicit def syncZManagedInstances[R]: Sync[ZManaged[R, Throwable, ?]] =
+    new CatsZManagedSync[R]
+
 }
 
 trait CatsZManagedInstances extends CatsZManagedInstances1 {
@@ -159,4 +162,37 @@ private class CatsZManagedMonadError[R, E] extends CatsZManagedMonad[R, E] with 
 private class CatsZManagedSemigroupK[R, E] extends SemigroupK[ZManaged[R, E, ?]] {
   override def combineK[A](x: ZManaged[R, E, A], y: ZManaged[R, E, A]): ZManaged[R, E, A] =
     x.orElse(y)
+}
+
+private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] with Sync[ZManaged[R, Throwable, ?]] {
+
+  override final def delay[A](thunk: => A): ZManaged[R, Throwable, A] = ZManaged.fromEffect(ZIO.effect(thunk))
+
+  override final def suspend[A](thunk: => zio.ZManaged[R, Throwable, A]): zio.ZManaged[R, Throwable, A] =
+    ZManaged.unwrap(ZIO.effect(thunk))
+
+  override def bracketCase[A, B](
+    acquire: zio.ZManaged[R, Throwable, A]
+  )(
+    use: A => zio.ZManaged[R, Throwable, B]
+  )(
+    release: (A, cats.effect.ExitCase[Throwable]) => zio.ZManaged[R, Throwable, Unit]
+  ): zio.ZManaged[R, Throwable, B] =
+    ZManaged.fromEffect {
+      ZIO.uninterruptibleMask { restore =>
+        for {
+          res <- acquire.reserve
+          fin = res.release
+          a   <- res.acquire.onError(c => fin(Exit.halt(c)))
+          b <- restore(use(a).use(ZIO.succeed)).run.flatMap { exit =>
+                for {
+                  innerReleaseExit <- release(a, exitToExitCase(exit)).use_(ZIO.unit).run
+                  outerReleaseExit <- fin(exit).run
+                  b                <- ZIO.done(exit <* innerReleaseExit <* outerReleaseExit)
+                } yield b
+              }
+        } yield b
+
+      }
+    }
 }
