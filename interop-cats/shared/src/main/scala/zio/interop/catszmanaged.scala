@@ -178,21 +178,36 @@ private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] w
   )(
     release: (A, cats.effect.ExitCase[Throwable]) => zio.ZManaged[R, Throwable, Unit]
   ): zio.ZManaged[R, Throwable, B] =
-    ZManaged.fromEffect {
-      ZIO.uninterruptibleMask { restore =>
-        for {
-          res <- acquire.reserve
-          fin = res.release
-          a   <- res.acquire.onError(c => fin(Exit.halt(c)))
-          b <- restore(use(a).use(ZIO.succeed)).run.flatMap { exit =>
-                for {
-                  innerReleaseExit <- release(a, exitToExitCase(exit)).use_(ZIO.unit).run
-                  outerReleaseExit <- fin(exit).run
-                  b                <- ZIO.done(exit <* innerReleaseExit <* outerReleaseExit)
-                } yield b
-              }
-        } yield b
-
+    ZManaged {
+      Ref.make[List[Exit[_, _] => URIO[R, _]]](Nil).map { finalizers =>
+        Reservation(
+          ZIO.uninterruptibleMask { restore =>
+            for {
+              a <- for {
+                    resA <- acquire.reserve
+                    _    <- finalizers.update(resA.release :: _)
+                    a    <- restore(resA.acquire)
+                  } yield a
+              exitB <- (for {
+                        resB <- use(a).reserve
+                        _    <- finalizers.update(resB.release :: _)
+                        b    <- restore(resB.acquire)
+                      } yield b).run
+              _ <- for {
+                    resC <- release(a, exitToExitCase(exitB)).reserve
+                    _    <- finalizers.update(resC.release :: _)
+                    _    <- restore(resC.acquire)
+                  } yield ()
+              b <- ZIO.done(exitB)
+            } yield b
+          },
+          exitU =>
+            for {
+              fs    <- finalizers.get
+              exits <- ZIO.foreach(fs)(_(exitU).run)
+              _     <- ZIO.done(Exit.collectAll(exits).getOrElse(Exit.unit))
+            } yield ()
+        )
       }
     }
 }
