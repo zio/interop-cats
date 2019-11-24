@@ -189,7 +189,7 @@ private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] w
                     a    <- restore(resA.acquire)
                   } yield a
               exitB <- (for {
-                        resB <- use(a).reserve
+                        resB <- restore(use(a).reserve.uninterruptible)
                         _    <- finalizers.update(resB.release :: _)
                         b    <- restore(resB.acquire)
                       } yield b).run
