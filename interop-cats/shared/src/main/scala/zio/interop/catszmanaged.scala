@@ -19,7 +19,7 @@ package interop
 
 import cats.arrow.FunctionK
 import cats.effect.Resource.{ Allocate, Bind, Suspend }
-import cats.effect.{ Async, Effect, LiftIO, Resource, IO => CIO }
+import cats.effect.{ Async, Effect, LiftIO, Resource, Sync, IO => CIO }
 import cats.{ Applicative, Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
 
 trait CatsZManagedSyntax {
@@ -102,6 +102,9 @@ trait CatsEffectZManagedInstances {
         ZManaged.fromEffect(ev.liftIO(ioa))
     }
 
+  implicit def syncZManagedInstances[R]: Sync[ZManaged[R, Throwable, ?]] =
+    new CatsZManagedSync[R]
+
 }
 
 trait CatsZManagedInstances extends CatsZManagedInstances1 {
@@ -159,4 +162,52 @@ private class CatsZManagedMonadError[R, E] extends CatsZManagedMonad[R, E] with 
 private class CatsZManagedSemigroupK[R, E] extends SemigroupK[ZManaged[R, E, ?]] {
   override def combineK[A](x: ZManaged[R, E, A], y: ZManaged[R, E, A]): ZManaged[R, E, A] =
     x.orElse(y)
+}
+
+private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] with Sync[ZManaged[R, Throwable, ?]] {
+
+  override final def delay[A](thunk: => A): ZManaged[R, Throwable, A] = ZManaged.fromEffect(ZIO.effect(thunk))
+
+  override final def suspend[A](thunk: => zio.ZManaged[R, Throwable, A]): zio.ZManaged[R, Throwable, A] =
+    ZManaged.unwrap(ZIO.effect(thunk))
+
+  override def bracketCase[A, B](
+    acquire: zio.ZManaged[R, Throwable, A]
+  )(
+    use: A => zio.ZManaged[R, Throwable, B]
+  )(
+    release: (A, cats.effect.ExitCase[Throwable]) => zio.ZManaged[R, Throwable, Unit]
+  ): zio.ZManaged[R, Throwable, B] =
+    ZManaged {
+      Ref.make[List[Exit[_, _] => URIO[R, _]]](Nil).map { finalizers =>
+        Reservation(
+          ZIO.uninterruptibleMask { restore =>
+            for {
+              a <- for {
+                    resA <- acquire.reserve
+                    _    <- finalizers.update(resA.release :: _)
+                    a    <- restore(resA.acquire)
+                  } yield a
+              exitB <- (for {
+                        resB <- restore(use(a).reserve.uninterruptible)
+                        _    <- finalizers.update(resB.release :: _)
+                        b    <- restore(resB.acquire)
+                      } yield b).run
+              _ <- for {
+                    resC <- release(a, exitToExitCase(exitB)).reserve
+                    _    <- finalizers.update(resC.release :: _)
+                    _    <- restore(resC.acquire)
+                  } yield ()
+              b <- ZIO.done(exitB)
+            } yield b
+          },
+          exitU =>
+            for {
+              fs    <- finalizers.get
+              exits <- ZIO.foreach(fs)(_(exitU).run)
+              _     <- ZIO.done(Exit.collectAll(exits).getOrElse(Exit.unit))
+            } yield ()
+        )
+      }
+    }
 }

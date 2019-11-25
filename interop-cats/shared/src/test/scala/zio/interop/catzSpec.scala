@@ -3,7 +3,7 @@ package zio.interop
 import cats.Monad
 import cats.effect.concurrent.Deferred
 import cats.effect.laws.discipline.arbitrary._
-import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests }
+import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests, SyncTests }
 import cats.effect.laws.{ AsyncLaws, ConcurrentEffectLaws, ConcurrentLaws, EffectLaws }
 import cats.effect.{ Async, Concurrent, ConcurrentEffect, ContextShift, Effect }
 import cats.implicits._
@@ -49,6 +49,7 @@ class catzSpec extends catzSpecZIOBase {
     "MonadError[ZManaged]",
     implicit tc => MonadErrorTests[ZManaged[Any, Int, ?], Int].monadError[Int, Int, Int]
   )
+  checkAllAsync("Sync[ZManaged]", implicit tc => SyncTests[ZManaged[Any, Throwable, ?]].sync[Int, Int, Int])
 
   object summoningInstancesTest {
     import cats._
@@ -72,6 +73,7 @@ class catzSpec extends catzSpecZIOBase {
     Applicative[ZManaged[String, Throwable, ?]]
     Functor[ZManaged[String, Throwable, ?]]
     SemigroupK[ZManaged[String, Throwable, ?]]
+    Sync[ZManaged[String, Throwable, ?]]
 
     def concurrentEffect[R: Runtime] = ConcurrentEffect[RIO[R, ?]]
     def effect[R: Runtime]           = Effect[RIO[R, ?]]
