@@ -21,7 +21,6 @@ import cats.effect.{ Concurrent, ContextShift, ExitCase }
 import cats.{ effect, _ }
 import zio._
 import zio.clock.Clock
-import zio.interop.test.CatsTestFunctions
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS, TimeUnit }
@@ -29,7 +28,6 @@ import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS, TimeUnit }
 object catz extends CatsEffectPlatform {
   object core extends CatsPlatform
   object mtl  extends CatsMtlPlatform
-  object test extends CatsTestFunctions
 }
 
 abstract class CatsEffectPlatform

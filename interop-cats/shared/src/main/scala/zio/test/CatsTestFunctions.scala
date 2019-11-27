@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package zio.interop.test
+package zio.test.interop
 
 import cats.effect.Effect
 import zio.interop.catz.taskEffectInstance
