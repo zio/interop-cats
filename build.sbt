@@ -62,7 +62,7 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
       "org.typelevel" %%% "cats-testkit"         % "2.0.0" % Test,
       "org.typelevel" %%% "cats-effect-laws"     % "2.0.0" % Test,
       "org.typelevel" %%% "cats-mtl-laws"        % "0.7.0" % Test,
-      "org.typelevel" %%% "discipline-scalatest" % "1.0.0-RC1" % Test
+      "org.typelevel" %%% "discipline-scalatest" % "1.0.0-RC4" % Test
     )
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
