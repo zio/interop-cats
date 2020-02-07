@@ -26,8 +26,6 @@ inThisBuild(
   )
 )
 
-ThisBuild / publishTo := sonatypePublishToBundle.value
-
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
 addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
 addCommandAlias("testJVM", ";interopCatsJVM/test;coreOnlyTestJVM/test")
@@ -56,9 +54,9 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
       "org.typelevel" %%% "cats-mtl-core"        % "0.7.0" % Optional,
       "co.fs2"        %%% "fs2-core"             % "2.1.0" % Test,
       "dev.zio"       %%% "zio-test-sbt"         % "1.0.0-RC17" % Test,
-      "org.specs2"    %%% "specs2-core"          % "4.8.1" % Test,
-      "org.specs2"    %%% "specs2-scalacheck"    % "4.8.1" % Test,
-      "org.specs2"    %%% "specs2-matcher-extra" % "4.8.1" % Test,
+      "org.specs2"    %%% "specs2-core"          % "4.8.3" % Test,
+      "org.specs2"    %%% "specs2-scalacheck"    % "4.8.3" % Test,
+      "org.specs2"    %%% "specs2-matcher-extra" % "4.8.3" % Test,
       "org.typelevel" %%% "cats-testkit"         % "2.0.0" % Test,
       "org.typelevel" %%% "cats-effect-laws"     % "2.0.0" % Test,
       "org.typelevel" %%% "cats-mtl-laws"        % "0.7.0" % Test,
