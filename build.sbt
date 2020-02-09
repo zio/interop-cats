@@ -40,20 +40,22 @@ lazy val root = project
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
+val zioVersion = "1.0.0-RC18"
 lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .in(file("interop-cats"))
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-interop-cats"))
   .settings(buildInfoSettings)
   .settings(
+    resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
     libraryDependencies ++= Seq(
-      "dev.zio"       %%% "zio"                  % "1.0.0-RC17",
-      "dev.zio"       %%% "zio-streams"          % "1.0.0-RC17" % Optional,
-      "dev.zio"       %%% "zio-test"             % "1.0.0-RC17" % Optional,
+      "dev.zio"       %%% "zio"                  % zioVersion,
+      "dev.zio"       %%% "zio-streams"          % zioVersion % Optional,
+      "dev.zio"       %%% "zio-test"             % zioVersion % Optional,
       "org.typelevel" %%% "cats-effect"          % "2.0.0" % Optional,
       "org.typelevel" %%% "cats-mtl-core"        % "0.7.0" % Optional,
       "co.fs2"        %%% "fs2-core"             % "2.1.0" % Test,
-      "dev.zio"       %%% "zio-test-sbt"         % "1.0.0-RC17" % Test,
+      "dev.zio"       %%% "zio-test-sbt"         % zioVersion % Test,
       "org.specs2"    %%% "specs2-core"          % "4.8.3" % Test,
       "org.specs2"    %%% "specs2-scalacheck"    % "4.8.3" % Test,
       "org.specs2"    %%% "specs2-matcher-extra" % "4.8.3" % Test,
@@ -79,7 +81,7 @@ lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   .settings(
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core"    % "2.0.0"      % Test,
-      "dev.zio"       %%% "zio-test-sbt" % "1.0.0-RC17" % Test
+      "dev.zio"       %%% "zio-test-sbt" % zioVersion % Test
     )
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))

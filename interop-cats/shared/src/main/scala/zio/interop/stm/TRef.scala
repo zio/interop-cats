@@ -54,12 +54,12 @@ class TRef[F[+_], A] private (val underlying: ZTRef[A]) extends AnyVal {
   /**
    * See [[zio.stm.TRef#update]]
    */
-  final def update(f: A => A): STM[F, A] = new STM(underlying.update(f))
+  final def update(f: A => A): STM[F, A] = new STM(underlying.updateAndGet(f))
 
   /**
    * See [[zio.stm.TRef#updateSome]]
    */
-  final def updateSome(f: PartialFunction[A, A]): STM[F, A] = new STM(underlying.updateSome(f))
+  final def updateSome(f: PartialFunction[A, A]): STM[F, A] = new STM(underlying.updateSomeAndGet(f))
 }
 
 object TRef {

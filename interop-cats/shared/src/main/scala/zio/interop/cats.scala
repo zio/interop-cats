@@ -17,13 +17,13 @@
 package zio.interop
 
 import cats.arrow.ArrowChoice
-import cats.effect.{ Concurrent, ContextShift, ExitCase }
-import cats.{ effect, _ }
+import cats.effect.{Concurrent, ContextShift, ExitCase}
+import cats.{effect, _}
 import zio._
 import zio.clock.Clock
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS, TimeUnit }
+import scala.concurrent.duration.{FiniteDuration, NANOSECONDS, TimeUnit}
 
 object catz extends CatsEffectPlatform {
   object core extends CatsPlatform
@@ -40,7 +40,7 @@ abstract class CatsEffectPlatform
   val console: interop.console.cats.type = interop.console.cats
 
   trait CatsApp extends App {
-    implicit val runtime: Runtime[ZEnv] = this
+    implicit val runtime: Runtime[Unit] = this
   }
 
   object implicits {
@@ -50,14 +50,14 @@ abstract class CatsEffectPlatform
       new effect.Timer[IO[Any, *]] {
         override final def clock: effect.Clock[IO[Any, *]] = new effect.Clock[IO[Any, *]] {
           override final def monotonic(unit: TimeUnit): IO[Any, Long] =
-            Clock.Live.clock.nanoTime.map(unit.convert(_, NANOSECONDS))
+            zio.clock.nanoTime.map(unit.convert(_, NANOSECONDS)).provideLayer(ZEnv.live)
 
           override final def realTime(unit: TimeUnit): IO[Any, Long] =
-            Clock.Live.clock.currentTime(unit)
+            zio.clock.currentTime(unit).provideLayer(ZEnv.live)
         }
 
         override final def sleep(duration: FiniteDuration): IO[Any, Unit] =
-          Clock.Live.clock.sleep(zio.duration.Duration.fromNanos(duration.toNanos))
+          zio.clock.sleep(zio.duration.Duration.fromNanos(duration.toNanos)).provideLayer(ZEnv.live)
       }
   }
 
@@ -184,9 +184,7 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
             _ => fa
           )
           .interruptible
-          .nonDaemon
-          .forkInternal
-          .daemon
+          .forkDaemon
           .map(_.interrupt.unit)
       }
     }
@@ -208,33 +206,33 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
 
   override final def cancelable[A](k: (Either[Throwable, A] => Unit) => effect.CancelToken[RIO[R, *]]): RIO[R, A] =
     RIO.effectAsyncInterrupt[R, A] { kk =>
-      val token = k(kk apply _.fold(ZIO.fail, ZIO.succeed))
+      val token = k(kk apply _.fold(ZIO.failNow, ZIO.succeedNow))
       Left(token.orDie)
     }
 
   override final def race[A, B](fa: RIO[R, A], fb: RIO[R, B]): RIO[R, Either[A, B]] =
-    fa.map(Left(_)).raceAttempt(fb.map(Right(_)))
+    fa.map(Left(_)) raceFirst fb.map(Right(_))
 
   override final def start[A](fa: RIO[R, A]): RIO[R, effect.Fiber[RIO[R, *], A]] =
-    RIO.interruptible(fa).nonDaemon.fork.daemon.map(toFiber)
+    RIO.interruptible(fa).forkDaemon.map(toFiber)
 
   override final def racePair[A, B](
     fa: RIO[R, A],
     fb: RIO[R, B]
   ): RIO[R, Either[(A, effect.Fiber[RIO[R, *], B]), (effect.Fiber[RIO[R, *], A], B)]] =
     (fa raceWith fb)(
-      { case (l, f) => l.fold(f.interrupt *> RIO.halt(_), RIO.succeed).map(lv => Left((lv, toFiber(f)))) },
-      { case (r, f) => r.fold(f.interrupt *> RIO.halt(_), RIO.succeed).map(rv => Right((toFiber(f), rv))) }
+      { case (l, f) => l.fold(f.interrupt *> RIO.halt(_), RIO.succeedNow).map(lv => Left((lv, toFiber(f)))) },
+      { case (r, f) => r.fold(f.interrupt *> RIO.halt(_), RIO.succeedNow).map(rv => Right((toFiber(f), rv))) }
     )
 
   override final def never[A]: RIO[R, A] =
     RIO.never
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => Unit): RIO[R, A] =
-    RIO.effectAsync(kk => k(kk apply _.fold(ZIO.fail, ZIO.succeed)))
+    RIO.effectAsync(kk => k(kk apply _.fold(ZIO.failNow, ZIO.succeedNow)))
 
   override final def asyncF[A](k: (Either[Throwable, A] => Unit) => RIO[R, Unit]): RIO[R, A] =
-    RIO.effectAsyncM(kk => k(kk apply _.fold(ZIO.fail, ZIO.succeed)).orDie)
+    RIO.effectAsyncM(kk => k(kk apply _.fold(ZIO.failNow, ZIO.succeedNow)).orDie)
 
   override final def suspend[A](thunk: => RIO[R, A]): RIO[R, A] =
     RIO.effectSuspend(thunk)

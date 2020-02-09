@@ -3,10 +3,10 @@ package zio.interop
 import cats.effect.{ Concurrent, Resource }
 import org.specs2.Specification
 import org.specs2.specification.AroundTimeout
-import zio.{ DefaultRuntime, Promise, Task }
+import zio.{ Runtime, Promise, Task }
 import zio.interop.catz._
 
-class CatsInteropSpec extends Specification with AroundTimeout with DefaultRuntime {
+class CatsInteropSpec extends Specification with AroundTimeout {
 
   def is = s2"""
       Resource
@@ -21,7 +21,7 @@ class CatsInteropSpec extends Specification with AroundTimeout with DefaultRunti
       _        <- resource.use(_ => p.await)
     } yield 0
 
-    unsafeRun(io) must be_===(0)
+    Runtime.default.unsafeRun(io) must be_===(0)
   }
 
 }
