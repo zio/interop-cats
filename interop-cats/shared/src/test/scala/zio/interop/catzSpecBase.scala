@@ -13,7 +13,7 @@ import zio.internal.{ Executor, Platform }
 import zio.interop.catz.taskEffectInstance
 import zio.random.Random
 import zio.system.System
-import zio.{ Cause, IO, Runtime, UIO, ZIO, ZEnv }
+import zio.{ Cause, IO, Runtime, UIO, ZEnv, ZIO }
 
 private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestInstances with catzSpecBaseLowPriority {
 
