@@ -67,7 +67,7 @@ class ZioWithFs2Spec(implicit ee: ExecutionEnv) extends Specification with Aroun
         _ <- started.await
         _ <- fail.succeed(())
         _ <- released.await
-      } yield ()).timeout(10.seconds)
+      } yield ()).timeout(10.seconds).provideLayer(ZEnv.live)
     } must beSome(())
 
   def bracketTerminate =
@@ -88,7 +88,7 @@ class ZioWithFs2Spec(implicit ee: ExecutionEnv) extends Specification with Aroun
         _ <- started.await
         _ <- terminate.succeed(())
         _ <- released.await
-      } yield ()).timeout(10.seconds)
+      } yield ()).timeout(10.seconds).provideLayer(ZEnv.live)
     } must beSome(())
 
   def bracketInterrupt =
@@ -106,7 +106,7 @@ class ZioWithFs2Spec(implicit ee: ExecutionEnv) extends Specification with Aroun
         _ <- started.await
         _ <- f.interrupt
         _ <- released.await
-      } yield ()).timeout(10.seconds)
+      } yield ()).timeout(10.seconds).provideLayer(ZEnv.live)
     } must beSome(())
 
   def testCaseJoin[F[_]: Concurrent]: F[List[Int]] = {

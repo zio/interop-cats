@@ -7,20 +7,20 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
-object TestSpec
-    extends DefaultRunnableSpec(
-      suite("TestSpec")(
-        testF("arbitrary effects can be tested") {
+object TestSpec extends DefaultRunnableSpec {
+  val spec =
+    suite("TestSpec")(
+      testF("arbitrary effects can be tested") {
+        for {
+          result <- IO("Hello from Cats!")
+        } yield assert(result)(equalTo("Hello from Cats!"))
+      },
+      timeout(0.milliseconds) {
+        testF("ZIO interruption is tied to F interruption") {
           for {
-            result <- IO("Hello from Cats!")
-          } yield assert(result, equalTo("Hello from Cats!"))
-        },
-        timeout(0.milliseconds) {
-          testF("ZIO interruption is tied to F interruption") {
-            for {
-              _ <- IO.never
-            } yield assert((), anything)
-          }
-        } @@ failure
-      )
+            _ <- IO.never
+          } yield assert(())(anything)
+        }
+      } @@ failure
     )
+}

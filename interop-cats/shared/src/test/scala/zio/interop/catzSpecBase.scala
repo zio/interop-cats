@@ -9,20 +9,22 @@ import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.Discipline
 import zio.clock.Clock
 import zio.console.Console
-import zio.internal.{ Executor, PlatformLive }
+import zio.internal.{ Executor, Platform }
 import zio.interop.catz.taskEffectInstance
 import zio.random.Random
 import zio.system.System
-import zio.{ Cause, DefaultRuntime, IO, Runtime, UIO, ZIO }
+import zio.{ Cause, IO, Runtime, UIO, ZIO, ZEnv }
 
 private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestInstances with catzSpecBaseLowPriority {
 
   type Env = Clock with Console with System with Random
 
-  implicit def rts(implicit tc: TestContext): Runtime[Env] = new DefaultRuntime {
-    override val platform = PlatformLive
+  implicit def rts(implicit tc: TestContext): Runtime[Env] = new Runtime[Env] {
+    override val platform = Platform
       .fromExecutor(Executor.fromExecutionContext(Int.MaxValue)(tc))
       .withReportFailure(_ => ())
+
+    override val environment: Env = Runtime.unsafeFromLayer(ZEnv.live, platform).environment
   }
 
   implicit def zioEqCause[E]: Eq[Cause[E]] = zioEqCause0.asInstanceOf[Eq[Cause[E]]]

@@ -7,6 +7,9 @@ import sbtbuildinfo._
 import BuildInfoKeys._
 
 object BuildHelper {
+
+  val zioVersion = "1.0.0-RC17+385-240a27d8-SNAPSHOT"
+
   val testDeps        = Seq("org.scalacheck"  %% "scalacheck"   % "1.14.3" % "test")
   val compileOnlyDeps = Seq("com.github.ghik" %% "silencer-lib" % "1.4.2"  % "provided")
 

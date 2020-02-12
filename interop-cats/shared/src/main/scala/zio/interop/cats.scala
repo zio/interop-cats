@@ -21,6 +21,7 @@ import cats.effect.{ Concurrent, ContextShift, ExitCase }
 import cats.{ effect, _ }
 import zio._
 import zio.clock.Clock
+import zio.internal.Platform
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS, TimeUnit }
@@ -40,24 +41,25 @@ abstract class CatsEffectPlatform
   val console: interop.console.cats.type = interop.console.cats
 
   trait CatsApp extends App {
-    implicit val runtime: Runtime[ZEnv] = this
+    implicit val runtime: Runtime[ZEnv] =
+      Runtime.unsafeFromLayer(ZEnv.live, Platform.default)
   }
 
   object implicits {
     implicit final def ioTimer[E]: effect.Timer[IO[E, *]] = ioTimer0.asInstanceOf[effect.Timer[IO[E, *]]]
 
-    private[this] implicit val ioTimer0: effect.Timer[IO[Any, *]] =
-      new effect.Timer[IO[Any, *]] {
-        override final def clock: effect.Clock[IO[Any, *]] = new effect.Clock[IO[Any, *]] {
-          override final def monotonic(unit: TimeUnit): IO[Any, Long] =
-            Clock.Live.clock.nanoTime.map(unit.convert(_, NANOSECONDS))
+    private[this] implicit val ioTimer0: effect.Timer[ZIO[Clock, Any, *]] =
+      new effect.Timer[ZIO[Clock, Any, *]] {
+        override final def clock: effect.Clock[ZIO[Clock, Any, *]] = new effect.Clock[ZIO[Clock, Any, *]] {
+          override final def monotonic(unit: TimeUnit): ZIO[Clock, Any, Long] =
+            zio.clock.nanoTime.map(unit.convert(_, NANOSECONDS))
 
-          override final def realTime(unit: TimeUnit): IO[Any, Long] =
-            Clock.Live.clock.currentTime(unit)
+          override final def realTime(unit: TimeUnit): ZIO[Clock, Any, Long] =
+            zio.clock.currentTime(unit)
         }
 
-        override final def sleep(duration: FiniteDuration): IO[Any, Unit] =
-          Clock.Live.clock.sleep(zio.duration.Duration.fromNanos(duration.toNanos))
+        override final def sleep(duration: FiniteDuration): ZIO[Clock, Any, Unit] =
+          zio.clock.sleep(zio.duration.Duration.fromNanos(duration.toNanos))
       }
   }
 
@@ -185,7 +187,7 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
           )
           .interruptible
           .nonDaemon
-          .forkInternal
+          .forkWithErrorHandler(_ => ZIO.unit)
           .daemon
           .map(_.interrupt.unit)
       }
@@ -208,7 +210,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
 
   override final def cancelable[A](k: (Either[Throwable, A] => Unit) => effect.CancelToken[RIO[R, *]]): RIO[R, A] =
     RIO.effectAsyncInterrupt[R, A] { kk =>
-      val token = k(kk apply _.fold(ZIO.fail, ZIO.succeed))
+      val token = k(kk apply _.fold(ZIO.failNow, ZIO.succeedNow))
       Left(token.orDie)
     }
 
@@ -223,18 +225,18 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     fb: RIO[R, B]
   ): RIO[R, Either[(A, effect.Fiber[RIO[R, *], B]), (effect.Fiber[RIO[R, *], A], B)]] =
     (fa raceWith fb)(
-      { case (l, f) => l.fold(f.interrupt *> RIO.halt(_), RIO.succeed).map(lv => Left((lv, toFiber(f)))) },
-      { case (r, f) => r.fold(f.interrupt *> RIO.halt(_), RIO.succeed).map(rv => Right((toFiber(f), rv))) }
+      { case (l, f) => l.fold(f.interrupt *> RIO.halt(_), RIO.succeedNow).map(lv => Left((lv, toFiber(f)))) },
+      { case (r, f) => r.fold(f.interrupt *> RIO.halt(_), RIO.succeedNow).map(rv => Right((toFiber(f), rv))) }
     )
 
   override final def never[A]: RIO[R, A] =
     RIO.never
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => Unit): RIO[R, A] =
-    RIO.effectAsync(kk => k(kk apply _.fold(ZIO.fail, ZIO.succeed)))
+    RIO.effectAsync(kk => k(kk apply _.fold(ZIO.failNow, ZIO.succeedNow)))
 
   override final def asyncF[A](k: (Either[Throwable, A] => Unit) => RIO[R, Unit]): RIO[R, A] =
-    RIO.effectAsyncM(kk => k(kk apply _.fold(ZIO.fail, ZIO.succeed)).orDie)
+    RIO.effectAsyncM(kk => k(kk apply _.fold(ZIO.failNow, ZIO.succeedNow)).orDie)
 
   override final def suspend[A](thunk: => RIO[R, A]): RIO[R, A] =
     RIO.effectSuspend(thunk)

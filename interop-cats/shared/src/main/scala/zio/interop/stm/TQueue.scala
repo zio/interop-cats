@@ -36,7 +36,7 @@ class TQueue[F[+_], A] private (val underlying: ZTQueue[A]) extends AnyVal {
   /**
    * See [[zio.stm.TQueue#offerAll]]
    */
-  final def offerAll(as: List[A]): STM[F, Unit] = new STM(underlying.offerAll(as))
+  final def offerAll(as: Iterable[A]): STM[F, Iterable[A]] = new STM(underlying.offerAll(as))
 
   /**
    * See [[zio.stm.TQueue#poll]]
@@ -65,6 +65,6 @@ class TQueue[F[+_], A] private (val underlying: ZTQueue[A]) extends AnyVal {
 }
 
 object TQueue {
-  final def make[F[+_], A](capacity: Int): STM[F, TQueue[F, A]] =
-    new STM(ZTQueue.make[A](capacity).map(new TQueue(_)))
+  final def bounded[F[+_], A](capacity: Int): STM[F, TQueue[F, A]] =
+    new STM(ZTQueue.bounded[A](capacity).map(new TQueue(_)))
 }

@@ -47,19 +47,19 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"       %%% "zio"                  % "1.0.0-RC17",
-      "dev.zio"       %%% "zio-streams"          % "1.0.0-RC17" % Optional,
-      "dev.zio"       %%% "zio-test"             % "1.0.0-RC17" % Optional,
-      "org.typelevel" %%% "cats-effect"          % "2.0.0" % Optional,
-      "org.typelevel" %%% "cats-mtl-core"        % "0.7.0" % Optional,
-      "co.fs2"        %%% "fs2-core"             % "2.1.0" % Test,
-      "dev.zio"       %%% "zio-test-sbt"         % "1.0.0-RC17" % Test,
-      "org.specs2"    %%% "specs2-core"          % "4.8.3" % Test,
-      "org.specs2"    %%% "specs2-scalacheck"    % "4.8.3" % Test,
-      "org.specs2"    %%% "specs2-matcher-extra" % "4.8.3" % Test,
-      "org.typelevel" %%% "cats-testkit"         % "2.0.0" % Test,
-      "org.typelevel" %%% "cats-effect-laws"     % "2.0.0" % Test,
-      "org.typelevel" %%% "cats-mtl-laws"        % "0.7.0" % Test,
+      "dev.zio"       %%% "zio"                  % zioVersion,
+      "dev.zio"       %%% "zio-streams"          % zioVersion  % Optional,
+      "dev.zio"       %%% "zio-test"             % zioVersion  % Optional,
+      "org.typelevel" %%% "cats-effect"          % "2.0.0"     % Optional,
+      "org.typelevel" %%% "cats-mtl-core"        % "0.7.0"     % Optional,
+      "co.fs2"        %%% "fs2-core"             % "2.1.0"     % Test,
+      "dev.zio"       %%% "zio-test-sbt"         % zioVersion  % Test,
+      "org.specs2"    %%% "specs2-core"          % "4.8.3"     % Test,
+      "org.specs2"    %%% "specs2-scalacheck"    % "4.8.3"     % Test,
+      "org.specs2"    %%% "specs2-matcher-extra" % "4.8.3"     % Test,
+      "org.typelevel" %%% "cats-testkit"         % "2.0.0"     % Test,
+      "org.typelevel" %%% "cats-effect-laws"     % "2.0.0"     % Test,
+      "org.typelevel" %%% "cats-mtl-laws"        % "0.7.0"     % Test,
       "org.typelevel" %%% "discipline-scalatest" % "1.0.0-RC1" % Test
     )
   )
@@ -78,8 +78,8 @@ lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   .settings(skip in publish := true)
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core"    % "2.0.0"      % Test,
-      "dev.zio"       %%% "zio-test-sbt" % "1.0.0-RC17" % Test
+      "org.typelevel" %%% "cats-core"    % "2.0.0"    % Test,
+      "dev.zio"       %%% "zio-test-sbt" % zioVersion % Test
     )
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
