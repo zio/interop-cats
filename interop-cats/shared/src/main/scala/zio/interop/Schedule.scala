@@ -18,16 +18,14 @@ package zio.interop
 
 import cats.effect.{ Effect, LiftIO }
 import zio.duration.{ Duration => ZDuration }
-import zio.{ RIO, Runtime, ZEnv, Schedule => ZSchedule }
+import zio.{ Runtime, ZEnv, ZIO, Schedule => ZSchedule }
 
 import scala.concurrent.duration.Duration
-import zio.ZIO
 
 /**
  * @see zio.ZSchedule
  */
 final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: ZSchedule[ZEnv, A, B]) { self =>
-  import Schedule.{ fromEffect, toEffect }
 
   /**
    * @see zio.ZSchedule.State
@@ -343,15 +341,6 @@ final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: Z
 }
 
 object Schedule {
-  import zio.interop.catz._
-
-  private def toEffect[F[+_], R, A](zio: RIO[R, A])(implicit R: Runtime[R], F: LiftIO[F]): F[A] =
-    F.liftIO(taskEffectInstance.toIO(zio))
-
-  private def fromEffect[F[+_], R, A](
-    eff: F[A]
-  )(implicit R: Runtime[R], F: Effect[F]): RIO[R, A] =
-    taskEffectInstance.liftIO[A](F.toIO(eff))
 
   final def apply[F[+_], S, A, B](
     initial0: F[S],
