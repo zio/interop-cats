@@ -14,7 +14,7 @@ object catzQueueSpec
     extends DefaultRunnableSpec({
       def boundedQueueTest[F[+_]](implicit F: Concurrent[F], R: Runtime[ZEnv]): F[TestResult] =
         for {
-          q  <- Queue.bounded[F, Any, Int](1)
+          q  <- Queue.bounded[F, Int](1)
           _  <- q.offer(1)
           f  <- q.offer(2).start
           r1 <- q.takeAll
@@ -24,21 +24,21 @@ object catzQueueSpec
 
       def droppingQueueTest[F[+_]](implicit F: Concurrent[F], R: Runtime[ZEnv]): F[TestResult] =
         for {
-          q <- Queue.dropping[F, Any, Int](2)
+          q <- Queue.dropping[F, Int](2)
           _ <- q.offerAll(List(1, 2, 3))
           r <- q.takeAll
         } yield assert(r, equalTo(List(1, 2)))
 
       def slidingQueueTest[F[+_]](implicit F: Concurrent[F], R: Runtime[ZEnv]): F[TestResult] =
         for {
-          q <- Queue.sliding[F, Any, Int](2)
+          q <- Queue.sliding[F, Int](2)
           _ <- q.offerAll(List(1, 2, 3, 4))
           r <- q.takeAll
         } yield assert(r, equalTo(List(3, 4)))
 
       def unboundedQueueTest[F[+_]](implicit F: Concurrent[F], R: Runtime[ZEnv]): F[TestResult] =
         for {
-          q        <- Queue.unbounded[F, Any, Int]
+          q        <- Queue.unbounded[F, Int]
           expected = Range.inclusive(0, 100)
           _        <- q.offerAll(expected)
           actual   <- q.takeAll
@@ -46,7 +46,7 @@ object catzQueueSpec
 
       def contramapQueueTest[F[+_]](implicit F: Concurrent[F], R: Runtime[ZEnv]): F[TestResult] =
         for {
-          q        <- Queue.unbounded[F, Any, String]
+          q        <- Queue.unbounded[F, String]
           q1       = q.contramap((i: Int) => i.toString)
           data     = Range.inclusive(0, 100)
           _        <- q1.offerAll(data)
@@ -56,7 +56,7 @@ object catzQueueSpec
 
       def mapMQueueTest[F[+_]](implicit F: Effect[F], R: Runtime[ZEnv]): F[TestResult] =
         for {
-          q        <- Queue.unbounded[F, Any, Int]
+          q        <- Queue.unbounded[F, Int]
           q1       = q.mapM(i => F.pure(i.toString))
           data     = Range.inclusive(0, 100)
           _        <- q1.offerAll(data)

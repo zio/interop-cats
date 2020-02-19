@@ -22,27 +22,27 @@ import zio.{ Queue => ZioQueue, Runtime, UIO, ZEnv }
 object Queue {
 
   /**
-   * @see [[ZioQueue.bounded]]
+   * @see ZioQueue.bounded
    */
-  final def bounded[F[+_], R, A](capacity: Int)(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
+  final def bounded[F[+_], A](capacity: Int)(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
     create(ZioQueue.bounded[A](capacity))
 
   /**
-   * @see [[ZioQueue.dropping]]
+   * @see ZioQueue.dropping
    */
-  final def dropping[F[+_], R, A](capacity: Int)(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
+  final def dropping[F[+_], A](capacity: Int)(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
     create(ZioQueue.dropping[A](capacity))
 
   /**
-   * @see [[ZioQueue.sliding]]
+   * @see ZioQueue.sliding
    */
-  final def sliding[F[+_], R, A](capacity: Int)(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
+  final def sliding[F[+_], A](capacity: Int)(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
     create(ZioQueue.sliding[A](capacity))
 
   /**
-   * @see [[ZioQueue.unbounded]]
+   * @see ZioQueue.unbounded
    */
-  final def unbounded[F[+_], R, A](implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
+  final def unbounded[F[+_], A](implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
     create(ZioQueue.unbounded[A])
 
   private final def create[F[+_], A](in: UIO[ZioQueue[A]])(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
