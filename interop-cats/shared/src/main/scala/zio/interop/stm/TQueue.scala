@@ -36,7 +36,7 @@ class TQueue[F[+_], A] private (val underlying: ZTQueue[A]) extends AnyVal {
   /**
    * See [[zio.stm.TQueue#offerAll]]
    */
-  final def offerAll(as: List[A]): STM[Nothing, List[A]] = new STM(underlying.offerAll(as)).map(_.toList)
+  final def offerAll(as: List[A]): STM[F, List[A]] = new STM(underlying.offerAll(as)).map(_.toList)
 
   /**
    * See [[zio.stm.TQueue#poll]]
