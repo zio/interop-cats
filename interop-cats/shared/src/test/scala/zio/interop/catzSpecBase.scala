@@ -1,7 +1,7 @@
 package zio.interop
 
 import cats.Eq
-import cats.effect.laws.util.{TestContext, TestInstances}
+import cats.effect.laws.util.{ TestContext, TestInstances }
 import cats.implicits._
 import org.scalacheck.Arbitrary
 import org.scalatest.funsuite.AnyFunSuite
@@ -9,11 +9,11 @@ import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.Discipline
 import zio.clock.Clock
 import zio.console.Console
-import zio.internal.{Executor, Platform}
+import zio.internal.{ Executor, Platform }
 import zio.interop.catz.taskEffectInstance
 import zio.random.Random
 import zio.system.System
-import zio.{Cause, IO, Runtime, UIO, ZIO}
+import zio.{ Cause, IO, Runtime, UIO, ZIO }
 
 private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestInstances with catzSpecBaseLowPriority {
 
@@ -25,7 +25,6 @@ private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestIns
       .fromExecutor(Executor.fromExecutionContext(Int.MaxValue)(tc))
       .withReportFailure(_ => ())
   )
-
 
   implicit def zioEqCause[E]: Eq[Cause[E]] = zioEqCause0.asInstanceOf[Eq[Cause[E]]]
   private val zioEqCause0: Eq[Cause[Any]]  = Eq.fromUniversalEquals

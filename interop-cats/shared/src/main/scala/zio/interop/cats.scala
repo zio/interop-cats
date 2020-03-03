@@ -17,13 +17,13 @@
 package zio.interop
 
 import cats.arrow.ArrowChoice
-import cats.effect.{Concurrent, ContextShift, ExitCase}
-import cats.{effect, _}
+import cats.effect.{ Concurrent, ContextShift, ExitCase }
+import cats.{ effect, _ }
 import zio._
 import zio.clock.Clock
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.{FiniteDuration, NANOSECONDS, TimeUnit}
+import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS, TimeUnit }
 
 object catz extends CatsEffectPlatform {
   object core extends CatsPlatform

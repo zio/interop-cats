@@ -47,7 +47,6 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .settings(stdSettings("zio-interop-cats"))
   .settings(buildInfoSettings)
   .settings(
-    resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
     libraryDependencies ++= Seq(
       "dev.zio"       %%% "zio"                  % zioVersion,
       "dev.zio"       %%% "zio-streams"          % zioVersion % Optional,
@@ -80,7 +79,7 @@ lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   .settings(skip in publish := true)
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core"    % "2.0.0"      % Test,
+      "org.typelevel" %%% "cats-core"    % "2.0.0"    % Test,
       "dev.zio"       %%% "zio-test-sbt" % zioVersion % Test
     )
   )

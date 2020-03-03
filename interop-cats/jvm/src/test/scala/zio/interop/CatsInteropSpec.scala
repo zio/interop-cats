@@ -3,7 +3,7 @@ package zio.interop
 import cats.effect.{ Concurrent, Resource }
 import org.specs2.Specification
 import org.specs2.specification.AroundTimeout
-import zio.{ Runtime, Promise, Task }
+import zio.{ Promise, Runtime, Task }
 import zio.interop.catz._
 
 class CatsInteropSpec extends Specification with AroundTimeout {
