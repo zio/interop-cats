@@ -144,9 +144,8 @@ trait BracketLawsOverrides[F[_], E] extends BracketLaws[F, E] {
 trait ConcurrentLawsOverrides[F[_]] extends ConcurrentLaws[F] {
 
   // TODO: disabled failing test -> fix underlaying issue
-  override def asyncFRegisterCanBeCancelled[A](a: A) = {
+  override def asyncFRegisterCanBeCancelled[A](a: A) =
     F.pure(a) <-> F.pure(a)
-  }
 
   // TODO: disabled failing test -> fix underlaying issue
   override def uncancelableMirrorsSource[A](fa: F[A]) =
@@ -186,10 +185,11 @@ object ConcurrentTestsOverrides {
 
   def apply[F[_]](implicit ev: Concurrent[F], cs: ContextShift[F]): ConcurrentTests[F] =
     new ConcurrentTests[F] {
-      def laws: ConcurrentLaws[F] = new ConcurrentLawsOverrides[F] with AsyncLawsOverrides[F] with BracketLawsOverrides[F, Throwable] {
-        override val F: Concurrent[F]              = ev
-        override val contextShift: ContextShift[F] = cs
-      }
+      def laws: ConcurrentLaws[F] =
+        new ConcurrentLawsOverrides[F] with AsyncLawsOverrides[F] with BracketLawsOverrides[F, Throwable] {
+          override val F: Concurrent[F]              = ev
+          override val contextShift: ContextShift[F] = cs
+        }
     }
 }
 
@@ -197,9 +197,13 @@ object ConcurrentEffectTestsOverrides {
 
   def apply[F[_]](implicit ev: ConcurrentEffect[F], cs: ContextShift[F]): ConcurrentEffectTests[F] =
     new ConcurrentEffectTests[F] {
-      def laws: ConcurrentEffectLaws[F] = new ConcurrentEffectLawsOverrides[F] with AsyncLawsOverrides[F] with BracketLawsOverrides[F, Throwable] with ConcurrentLawsOverrides[F] {
-        override val F: ConcurrentEffect[F]        = ev
-        override val contextShift: ContextShift[F] = cs
-      }
+      def laws: ConcurrentEffectLaws[F] =
+        new ConcurrentEffectLawsOverrides[F]
+          with AsyncLawsOverrides[F]
+          with BracketLawsOverrides[F, Throwable]
+          with ConcurrentLawsOverrides[F] {
+          override val F: ConcurrentEffect[F]        = ev
+          override val contextShift: ContextShift[F] = cs
+        }
     }
 }
