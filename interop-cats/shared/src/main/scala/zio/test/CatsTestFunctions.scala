@@ -27,7 +27,7 @@ trait CatsTestFunctions {
    * Checks the assertion holds for the given effectfully-computed value.
    */
   final def assertF[F[_], R, A](value: F[A], assertion: Assertion[A])(implicit F: Effect[F]): RIO[R, TestResult] =
-    assertM(fromEffect(value), assertion)
+    assertM(fromEffect(value))(assertion)
 
   /**
    * Checks the effectual test passes for "sufficient" numbers of samples from
