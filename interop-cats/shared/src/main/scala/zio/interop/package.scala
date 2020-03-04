@@ -16,10 +16,13 @@
 
 package zio
 
-import cats.effect.ExitCase
+import cats.effect.{ Effect, ExitCase, LiftIO }
+import zio.interop.catz.taskEffectInstance
 
 package object interop {
   type ParIO[-R, +E, +A] = Par.T[R, E, A]
+
+  type Queue[F[+_], A] = CQueue[F, A, A]
 
   @inline private[interop] final def exitToExitCase(exit: Exit[Any, Any]): ExitCase[Throwable] = exit match {
     case Exit.Success(_)                          => ExitCase.Completed
@@ -36,4 +39,12 @@ package object interop {
     case ExitCase.Error(e)  => Exit.fail(e)
     case ExitCase.Canceled  => Exit.interrupt(Fiber.Id.None)
   }
+
+  private[interop] def fromEffect[F[+_], R, A](
+    eff: F[A]
+  )(implicit R: Runtime[R], F: Effect[F]): RIO[R, A] =
+    taskEffectInstance.liftIO[A](F.toIO(eff))
+
+  private[interop] def toEffect[F[+_], R, A](zio: RIO[R, A])(implicit R: Runtime[R], F: LiftIO[F]): F[A] =
+    F.liftIO(taskEffectInstance.toIO(zio))
 }
