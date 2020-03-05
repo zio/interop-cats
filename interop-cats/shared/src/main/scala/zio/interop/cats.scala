@@ -288,7 +288,7 @@ private class CatsSemigroupK[R, E: Semigroup] extends SemigroupK[ZIO[R, E, *]] {
   override final def combineK[A](a: ZIO[R, E, A], b: ZIO[R, E, A]): ZIO[R, E, A] =
     a.catchAll { e1 =>
       b.catchAll { e2 =>
-        ZIO.fail(Semigroup[E].combine(e1, e2))
+        ZIO.failNow(Semigroup[E].combine(e1, e2))
       }
     }
 }
