@@ -12,27 +12,27 @@ class catzMtlSpec extends catzSpecZIOBase {
   type Error = String
 
   checkAllAsync(
-    "ApplicativeAsk[ZIO[Ctx, Error, ?]]",
-    implicit tc => ApplicativeAskTests[ZIO[Ctx, Error, ?], Ctx].applicativeAsk[Ctx]
+    "ApplicativeAsk[ZIO[Ctx, Error, *]]",
+    implicit tc => ApplicativeAskTests[ZIO[Ctx, Error, *], Ctx].applicativeAsk[Ctx]
   )
 
   checkAllAsync(
-    "ApplicativeLocal[ZIO[Ctx, Error, ?]]",
-    implicit tc => ApplicativeLocalTests[ZIO[Ctx, Error, ?], Ctx].applicativeLocal[Ctx, Int]
+    "ApplicativeLocal[ZIO[Ctx, Error, *]]",
+    implicit tc => ApplicativeLocalTests[ZIO[Ctx, Error, *], Ctx].applicativeLocal[Ctx, Int]
   )
 
   checkAllAsync(
-    "FunctorRaise[ZIO[Ctx, Error, ?]]",
-    implicit tc => FunctorRaiseTests[ZIO[Ctx, Error, ?], Error].functorRaise[Int]
+    "FunctorRaise[ZIO[Ctx, Error, *]]",
+    implicit tc => FunctorRaiseTests[ZIO[Ctx, Error, *], Error].functorRaise[Int]
   )
 
   checkAllAsync(
-    "ApplicativeHandle[ZIO[Ctx, Error, ?]]",
-    implicit tc => ApplicativeHandleTests[ZIO[Ctx, Error, ?], Error].applicativeHandle[Int]
+    "ApplicativeHandle[ZIO[Ctx, Error, *]]",
+    implicit tc => ApplicativeHandleTests[ZIO[Ctx, Error, *], Error].applicativeHandle[Int]
   )
 
-  def askSummoner[R, E]    = ApplicativeAsk[ZIO[R, E, ?], R]
-  def localSummoner[R, E]  = ApplicativeLocal[ZIO[R, E, ?], R]
-  def raiseSummoner[R, E]  = FunctorRaise[ZIO[R, E, ?], E]
-  def handleSummoner[R, E] = ApplicativeHandle[ZIO[R, E, ?], E]
+  def askSummoner[R, E]    = ApplicativeAsk[ZIO[R, E, *], R]
+  def localSummoner[R, E]  = ApplicativeLocal[ZIO[R, E, *], R]
+  def raiseSummoner[R, E]  = FunctorRaise[ZIO[R, E, *], E]
+  def handleSummoner[R, E] = ApplicativeHandle[ZIO[R, E, *], E]
 }
