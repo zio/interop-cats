@@ -108,7 +108,7 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout {
 
     val testCase = {
       val managed: ZManaged[Any, Throwable, Unit] = res(1).toManaged
-      managed.use[Any, Throwable, Unit](_ => ZIO.unit)
+      managed.use_(ZIO.unit)
     }
 
     unsafeRun(testCase.sandbox.orElse(ZIO.unit))
@@ -122,7 +122,7 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout {
 
     val testCase = {
       val managed: ZManaged[Any, Throwable, Unit] = res(1).toManaged
-      managed.use[Any, Throwable, Unit](_ => ZIO.unit)
+      managed.use_(ZIO.unit)
     }
 
     unsafeRun(testCase)
@@ -141,7 +141,7 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout {
     val testCase = {
       val managed1: ZManaged[Any, Throwable, Unit] = res(1).toManaged
       val managed2: ZManaged[Any, Throwable, Unit] = man(2)
-      (managed1 *> managed2).use[Any, Throwable, Unit](_ => ZIO.unit)
+      (managed1 *> managed2).use_(ZIO.unit)
     }
 
     unsafeRun(testCase)
@@ -214,7 +214,7 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout {
 
     val testCase = {
       val managed: ZManaged[Any, Throwable, Unit] = res(1).toManagedZIO
-      managed.use[Any, Throwable, Unit](_ => ZIO.unit)
+      managed.use_(ZIO.unit)
     }
 
     unsafeRun(testCase.sandbox.orElse(ZIO.unit))
@@ -228,7 +228,7 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout {
 
     val testCase = {
       val managed: ZManaged[Any, Throwable, Unit] = res(1).toManagedZIO
-      managed.use[Any, Throwable, Unit](_ => ZIO.unit)
+      managed.use_(ZIO.unit)
     }
 
     unsafeRun(testCase)
@@ -247,7 +247,7 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout {
     val testCase = {
       val managed1: ZManaged[Any, Throwable, Unit] = res(1).toManagedZIO
       val managed2: ZManaged[Any, Throwable, Unit] = man(2)
-      (managed1 *> managed2).use[Any, Throwable, Unit](_ => ZIO.unit)
+      (managed1 *> managed2).use_(ZIO.unit)
     }
 
     unsafeRun(testCase)
