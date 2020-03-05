@@ -62,9 +62,6 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
    */
   final def commit(implicit R: Runtime[Any], A: Async[F]): F[A] = STM.atomically(self)
 
-  /**
-   * See [[zio.stm.ZSTM#partial]]]
-   */
   final def const[B](b: => B): STM[F, B] = self map (_ => b)
 
   /**
@@ -85,9 +82,6 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
    */
   final def flatMap[B](f: A => STM[F, B]): STM[F, B] = new STM(underlying.flatMap(f.andThen(_.underlying)))
 
-  /**
-   * See [[zio.stm.ZSTM#flatten]]
-   */
   final def flatten[B](implicit ev: A <:< STM[F, B]): STM[F, B] =
     self flatMap ev
 
