@@ -1,6 +1,5 @@
 package zio.interop
 
-import cats.effect.implicits._
 import cats.effect.{ Effect, Concurrent, ContextShift, IO => CIO }
 import cats.implicits._
 import zio.test.Assertion._
@@ -17,9 +16,8 @@ object catzQueueSpec extends DefaultRunnableSpec {
     for {
       q  <- Queue.bounded[F, Int](1)
       _  <- q.offer(1)
-      f  <- q.offer(2).start
       r1 <- q.takeAll
-      _  <- f.join
+      _  <- q.offer(2)
       r2 <- q.takeAll
     } yield assert(r1)(equalTo(List(1))) && assert(r2)(equalTo(List(2)))
 
