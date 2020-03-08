@@ -166,7 +166,8 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
   ): effect.SyncIO[Unit] =
     effect.SyncIO {
       rts.unsafeRunAsync(fa.run) { exit =>
-        cb(exit.flatMap(identity).toEither).unsafeRunAsync(_ => ())
+        if (exit.interrupted) ()
+        else cb(exit.flatMap(identity).toEither).unsafeRunAsync(_ => ())
       }
     }
 
@@ -179,7 +180,8 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
           .bracketExit(
             (_, exit: Exit[Throwable, A]) =>
               RIO.effectTotal {
-                effect.IO.suspend(cb(exit.toEither)).unsafeRunAsync(_ => ())
+                if (exit.interrupted) ()
+                else effect.IO.suspend(cb(exit.toEither)).unsafeRunAsync(_ => ())
               },
             _ => fa
           )
