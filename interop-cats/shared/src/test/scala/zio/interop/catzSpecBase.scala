@@ -9,7 +9,7 @@ import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.Discipline
 import zio.clock.Clock
 import zio.console.Console
-import zio.internal.{ Executor, Platform }
+import zio.internal.{ Executor, Platform, Tracing }
 import zio.interop.catz.taskEffectInstance
 import zio.random.Random
 import zio.system.System
@@ -23,16 +23,27 @@ private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestIns
     (),
     Platform
       .fromExecutor(Executor.fromExecutionContext(Int.MaxValue)(tc))
+      .withTracing(Tracing.disabled)
       .withReportFailure(_ => ())
   )
 
   implicit def zioEqCause[E]: Eq[Cause[E]] = zioEqCause0.asInstanceOf[Eq[Cause[E]]]
-  private val zioEqCause0: Eq[Cause[Any]]  = Eq.fromUniversalEquals
+  private val zioEqCause0: Eq[Cause[Any]] = Eq.by[Cause[Any], Cause[Any]] { cause =>
+    cause.fold(
+      empty = Cause.empty,
+      failCase = {
+        case _: Throwable => Cause.fail(eqError)
+        case e            => Cause.fail(e)
+      },
+      dieCase = _ => Cause.die(eqError),
+      interruptCase = _ => Cause.interrupt(zio.Fiber.Id.None)
+    )(thenCase = Cause.Then(_, _), bothCase = Cause.Both(_, _), tracedCase = Cause.traced)
+  }(Eq.fromUniversalEquals)
 
-  implicit def zioEqIO[E: Eq, A: Eq](implicit tc: TestContext): Eq[IO[E, A]] =
+  implicit def zioEqIO[E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[IO[E, A]] =
     Eq.by(_.either)
 
-  implicit def zioEqUIO[A: Eq](implicit tc: TestContext): Eq[UIO[A]] =
+  implicit def zioEqUIO[A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[UIO[A]] =
     Eq.by(uio => taskEffectInstance.toIO(uio.sandbox.either))
 
   def checkAllAsync(name: String, f: TestContext => Laws#RuleSet): Unit =
@@ -40,9 +51,13 @@ private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestIns
 
 }
 
+private object eqError extends Throwable {
+  override def equals(obj: Any): Boolean = obj.isInstanceOf[Throwable]
+}
+
 private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
 
-  implicit def zioEq[R: Arbitrary, E, A: Eq](implicit tc: TestContext): Eq[ZIO[R, E, A]] = {
+  implicit def zioEq[R: Arbitrary, E, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[ZIO[R, E, A]] = {
     def run(r: R, zio: ZIO[R, E, A]) = taskEffectInstance.toIO(zio.provide(r).sandbox.either)
     Eq.instance((io1, io2) => Arbitrary.arbitrary[R].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2)))
   }

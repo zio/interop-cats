@@ -1,18 +1,17 @@
 package zio.interop
 
-import cats.{ Monad, SemigroupK }
 import cats.effect.concurrent.Deferred
 import cats.effect.laws.discipline.arbitrary._
 import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests, SyncTests }
-import cats.effect.laws.{ AsyncLaws, BracketLaws, ConcurrentEffectLaws, ConcurrentLaws, EffectLaws }
-import cats.effect.{ Async, Bracket, Concurrent, ConcurrentEffect, ContextShift, Effect }
+import cats.effect.laws._
+import cats.effect.{ Concurrent, ConcurrentEffect, ContextShift, Effect }
 import cats.implicits._
 import cats.laws._
 import cats.laws.discipline._
+import cats.{ Monad, SemigroupK }
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.interop.catz._
 import zio.{ IO, _ }
-import scala.concurrent.Promise
 
 class catzSpec extends catzSpecZIOBase {
 
@@ -131,47 +130,13 @@ trait AsyncLawsOverrides[F[_]] extends AsyncLaws[F] {
 
 }
 
-trait BracketLawsOverrides[F[_], E] extends BracketLaws[F, E] {
+trait BracketLawsOverrides[F[_], E] extends BracketLaws[F, E] {}
 
-  implicit def F: Bracket[F, E]
+trait ConcurrentLawsOverrides[F[_]] extends ConcurrentLaws[F] {}
 
-  // TODO: disabled failing test -> fix underlying issue
-  override def bracketCaseWithPureUnitIsEqvMap[A, B](fa: F[A], f: A => B) =
-    F.map(fa)(f) <-> F.map(fa)(f)
-}
+trait SemigroupKLawsOverrides[F[_]] extends SemigroupKLaws[F] {}
 
-trait ConcurrentLawsOverrides[F[_]] extends ConcurrentLaws[F] {
-
-  // TODO: disabled failing test -> fix underlying issue
-  override def uncancelableMirrorsSource[A](fa: F[A]) =
-    fa <-> fa
-}
-
-trait SemigroupKLawsOverrides[F[_]] extends SemigroupKLaws[F] {
-
-  // TODO: disabled failing test -> fix underlying issue
-  override def semigroupKAssociative[A](a: F[A], b: F[A], c: F[A]): IsEq[F[A]] =
-    a <-> a
-}
-
-trait ConcurrentEffectLawsOverrides[F[_]] extends ConcurrentEffectLaws[F] {
-  import cats.effect.IO
-
-  override def runCancelableIsSynchronous[A]: IsEq[F[Unit]] = {
-    val lh = Deferred.uncancelable[F, Unit].flatMap { latch =>
-      val spawned = Promise[Unit]()
-      // Never ending task
-      val ff = F.cancelable[A](_ => { spawned.success(()); latch.complete(()) })
-      // Execute, then cancel
-      val token = F.delay(F.runCancelable(ff)(_ => IO.unit).unsafeRunSync()).flatMap { canceler =>
-        Async.fromFuture(F.pure(spawned.future)) >> canceler
-      }
-      F.liftIO(F.runAsync(token)(_ => IO.unit).toIO) *> latch.get
-    }
-    lh <-> F.unit
-  }
-
-}
+trait ConcurrentEffectLawsOverrides[F[_]] extends ConcurrentEffectLaws[F] {}
 
 object SemigroupKTestsOverrides {
 

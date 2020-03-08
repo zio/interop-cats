@@ -1,6 +1,6 @@
 package zio.interop
 
-import zio._
+import zio.{ IO, Promise, ZIO, ZManaged }
 import org.scalacheck._
 
 /**
@@ -114,7 +114,7 @@ trait GenIOInteropCats {
     Gen.const(io.flatMap(a => IO.succeed(a)))
 
   private def genOfRace[E, A](io: IO[E, A]): Gen[IO[E, A]] =
-    Gen.const(io.race(IO.never))
+    Gen.const(io.interruptible.race(ZIO.never.interruptible))
 
   private def genOfParallel[E, A](io: IO[E, A])(gen: Gen[IO[E, A]]): Gen[IO[E, A]] =
     gen.map { parIo =>

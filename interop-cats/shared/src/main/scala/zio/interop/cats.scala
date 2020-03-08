@@ -212,16 +212,16 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     }
 
   override final def race[A, B](fa: RIO[R, A], fb: RIO[R, B]): RIO[R, Either[A, B]] =
-    fa.map(Left(_)) raceFirst fb.map(Right(_))
+    fa.map(Left(_)).interruptible raceFirst fb.map(Right(_)).interruptible
 
   override final def start[A](fa: RIO[R, A]): RIO[R, effect.Fiber[RIO[R, *], A]] =
-    RIO.interruptible(fa).forkDaemon.map(toFiber)
+    fa.interruptible.forkDaemon.map(toFiber)
 
   override final def racePair[A, B](
     fa: RIO[R, A],
     fb: RIO[R, B]
   ): RIO[R, Either[(A, effect.Fiber[RIO[R, *], B]), (effect.Fiber[RIO[R, *], A], B)]] =
-    (fa raceWith fb)(
+    (fa.interruptible raceWith fb.interruptible)(
       { case (l, f) => l.fold(f.interrupt *> RIO.halt(_), RIO.succeedNow).map(lv => Left((lv, toFiber(f)))) },
       { case (r, f) => r.fold(f.interrupt *> RIO.halt(_), RIO.succeedNow).map(rv => Right((toFiber(f), rv))) }
     )
