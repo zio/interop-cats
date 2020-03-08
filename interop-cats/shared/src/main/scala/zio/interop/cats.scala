@@ -281,7 +281,12 @@ private class CatsMonadError[R, E] extends MonadError[ZIO[R, E, *], E] with Stac
 
 /** lossy, throws away errors using the "first success" interpretation of SemigroupK */
 private class CatsSemigroupKLossy[R, E] extends SemigroupK[ZIO[R, E, *]] {
-  override final def combineK[A](a: ZIO[R, E, A], b: ZIO[R, E, A]): ZIO[R, E, A] = a.orElse(b)
+  override final def combineK[A](a: ZIO[R, E, A], b: ZIO[R, E, A]): ZIO[R, E, A] =
+    a.catchAll { e1 =>
+      b.catchAll { _ =>
+        ZIO.failNow(e1)
+      }
+    }
 }
 
 private class CatsSemigroupK[R, E: Semigroup] extends SemigroupK[ZIO[R, E, *]] {
