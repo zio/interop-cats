@@ -28,17 +28,7 @@ private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestIns
   )
 
   implicit def zioEqCause[E]: Eq[Cause[E]] = zioEqCause0.asInstanceOf[Eq[Cause[E]]]
-  private val zioEqCause0: Eq[Cause[Any]] = Eq.by[Cause[Any], Cause[Any]] { cause =>
-    cause.fold(
-      empty = Cause.empty,
-      failCase = {
-        case _: Throwable => Cause.fail(eqError)
-        case e            => Cause.fail(e)
-      },
-      dieCase = _ => Cause.die(eqError),
-      interruptCase = _ => Cause.interrupt(zio.Fiber.Id.None)
-    )(thenCase = Cause.Then(_, _), bothCase = Cause.Both(_, _), tracedCase = Cause.traced)
-  }(Eq.fromUniversalEquals)
+  private val zioEqCause0: Eq[Cause[Any]]  = Eq.by[Cause[Any], Option[Any]](_.failureOption)(Eq.fromUniversalEquals)
 
   implicit def zioEqIO[E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[IO[E, A]] =
     Eq.by(_.either)
@@ -49,10 +39,6 @@ private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestIns
   def checkAllAsync(name: String, f: TestContext => Laws#RuleSet): Unit =
     checkAll(name, f(TestContext()))
 
-}
-
-private object eqError extends Throwable {
-  override def equals(obj: Any): Boolean = obj.isInstanceOf[Throwable]
 }
 
 private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
