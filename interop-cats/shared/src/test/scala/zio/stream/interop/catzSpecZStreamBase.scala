@@ -35,8 +35,8 @@ private[interop] trait catzSpecZStreamBase
 
 private[interop] trait catzSpecZStreamBaseLowPriority { self: catzSpecZStreamBase =>
 
-  implicit def zstreamEq[R: Arbitrary, E, A: Eq](implicit tc: TestContext): Eq[ZStream[R, E, A]] = {
-    def run(r: R, zstream: ZStream[R, E, A]) = taskEffectInstance.toIO(zstream.runCollect.provide(r).sandbox.either)
+  implicit def zstreamEq[R: Arbitrary, E: Eq, A: Eq](implicit tc: TestContext): Eq[ZStream[R, E, A]] = {
+    def run(r: R, zstream: ZStream[R, E, A]) = taskEffectInstance.toIO(zstream.runCollect.provide(r).either)
     Eq.instance(
       (stream1, stream2) =>
         Arbitrary.arbitrary[R].sample.fold(false)(r => catsSyntaxEq(run(r, stream1)) eqv run(r, stream2))

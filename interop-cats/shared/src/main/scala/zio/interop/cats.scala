@@ -216,16 +216,16 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     }
 
   override final def race[A, B](fa: RIO[R, A], fb: RIO[R, B]): RIO[R, Either[A, B]] =
-    fa.map(Left(_)) raceFirst fb.map(Right(_))
+    fa.map(Left(_)).interruptible raceFirst fb.map(Right(_)).interruptible
 
   override final def start[A](fa: RIO[R, A]): RIO[R, effect.Fiber[RIO[R, *], A]] =
-    RIO.interruptible(fa).forkDaemon.map(toFiber)
+    fa.interruptible.forkDaemon.map(toFiber)
 
   override final def racePair[A, B](
     fa: RIO[R, A],
     fb: RIO[R, B]
   ): RIO[R, Either[(A, effect.Fiber[RIO[R, *], B]), (effect.Fiber[RIO[R, *], A], B)]] =
-    (fa raceWith fb)(
+    (fa.interruptible raceWith fb.interruptible)(
       { case (l, f) => l.fold(f.interrupt *> RIO.halt(_), RIO.succeedNow).map(lv => Left((lv, toFiber(f)))) },
       { case (r, f) => r.fold(f.interrupt *> RIO.halt(_), RIO.succeedNow).map(rv => Right((toFiber(f), rv))) }
     )
@@ -285,7 +285,12 @@ private class CatsMonadError[R, E] extends MonadError[ZIO[R, E, *], E] with Stac
 
 /** lossy, throws away errors using the "first success" interpretation of SemigroupK */
 private class CatsSemigroupKLossy[R, E] extends SemigroupK[ZIO[R, E, *]] {
-  override final def combineK[A](a: ZIO[R, E, A], b: ZIO[R, E, A]): ZIO[R, E, A] = a.orElse(b)
+  override final def combineK[A](a: ZIO[R, E, A], b: ZIO[R, E, A]): ZIO[R, E, A] =
+    a.catchAll { e1 =>
+      b.catchAll { _ =>
+        ZIO.failNow(e1)
+      }
+    }
 }
 
 private class CatsSemigroupK[R, E: Semigroup] extends SemigroupK[ZIO[R, E, *]] {
@@ -330,13 +335,13 @@ private class CatsParApplicative[R, E] extends CommutativeApplicative[ParIO[R, E
     Par(ZIO.succeed(x))
 
   final override def map2[A, B, Z](fa: ParIO[R, E, A], fb: ParIO[R, E, B])(f: (A, B) => Z): ParIO[R, E, Z] =
-    Par(Par.unwrap(fa).zipWithPar(Par.unwrap(fb))(f))
+    Par(Par.unwrap(fa).interruptible.zipWithPar(Par.unwrap(fb).interruptible)(f))
 
   final override def ap[A, B](ff: ParIO[R, E, A => B])(fa: ParIO[R, E, A]): ParIO[R, E, B] =
-    Par(Par.unwrap(ff).zipWithPar(Par.unwrap(fa))(_(_)))
+    Par(Par.unwrap(ff).interruptible.zipWithPar(Par.unwrap(fa).interruptible)(_(_)))
 
   final override def product[A, B](fa: ParIO[R, E, A], fb: ParIO[R, E, B]): ParIO[R, E, (A, B)] =
-    Par(Par.unwrap(fa).zipPar(Par.unwrap(fb)))
+    Par(Par.unwrap(fa).interruptible.zipPar(Par.unwrap(fb).interruptible))
 
   final override def map[A, B](fa: ParIO[R, E, A])(f: A => B): ParIO[R, E, B] =
     Par(Par.unwrap(fa).map(f))

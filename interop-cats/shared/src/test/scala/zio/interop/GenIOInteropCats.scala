@@ -1,7 +1,7 @@
 package zio.interop
 
-import zio._
 import org.scalacheck._
+import zio.{ IO, Promise, ZIO, ZManaged }
 
 /**
  * Temporary fork of zio.GenIO that overrides `genParallel` with ZManaged-based code
@@ -114,11 +114,12 @@ trait GenIOInteropCats {
     Gen.const(io.flatMap(a => IO.succeed(a)))
 
   private def genOfRace[E, A](io: IO[E, A]): Gen[IO[E, A]] =
-    Gen.const(io.race(IO.never))
+    Gen.const(io.interruptible.race(ZIO.never.interruptible))
 
   private def genOfParallel[E, A](io: IO[E, A])(gen: Gen[IO[E, A]]): Gen[IO[E, A]] =
     gen.map { parIo =>
-//      io.zipPar(parIo).map(_._1)
+      // this should work, but generates more random failures on CI
+//      io.interruptible.zipPar(parIo.interruptible).map(_._1)
       Promise.make[Nothing, Unit].flatMap { p =>
         ZManaged
           .fromEffect(parIo *> p.succeed(()))

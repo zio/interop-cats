@@ -9,11 +9,11 @@ import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.Discipline
 import zio.clock.Clock
 import zio.console.Console
-import zio.internal.{ Executor, Platform }
+import zio.internal.{ Executor, Platform, Tracing }
 import zio.interop.catz.taskEffectInstance
 import zio.random.Random
 import zio.system.System
-import zio.{ Cause, IO, Runtime, UIO, ZIO }
+import zio.{ Cause, IO, Runtime, Task, UIO, ZIO }
 
 private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestInstances with catzSpecBaseLowPriority {
 
@@ -23,16 +23,19 @@ private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestIns
     (),
     Platform
       .fromExecutor(Executor.fromExecutionContext(Int.MaxValue)(tc))
+      .withTracing(Tracing.disabled)
       .withReportFailure(_ => ())
   )
 
-  implicit def zioEqCause[E]: Eq[Cause[E]] = zioEqCause0.asInstanceOf[Eq[Cause[E]]]
-  private val zioEqCause0: Eq[Cause[Any]]  = Eq.fromUniversalEquals
+  implicit val zioEqCauseNothing: Eq[Cause[Nothing]] = Eq.fromUniversalEquals
 
-  implicit def zioEqIO[E: Eq, A: Eq](implicit tc: TestContext): Eq[IO[E, A]] =
+  implicit def zioEqIO[E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[IO[E, A]] =
     Eq.by(_.either)
 
-  implicit def zioEqUIO[A: Eq](implicit tc: TestContext): Eq[UIO[A]] =
+  implicit def zioEqTask[A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[Task[A]] =
+    Eq.by(_.either)
+
+  implicit def zioEqUIO[A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[UIO[A]] =
     Eq.by(uio => taskEffectInstance.toIO(uio.sandbox.either))
 
   def checkAllAsync(name: String, f: TestContext => Laws#RuleSet): Unit =
@@ -42,8 +45,8 @@ private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestIns
 
 private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
 
-  implicit def zioEq[R: Arbitrary, E, A: Eq](implicit tc: TestContext): Eq[ZIO[R, E, A]] = {
-    def run(r: R, zio: ZIO[R, E, A]) = taskEffectInstance.toIO(zio.provide(r).sandbox.either)
+  implicit def zioEq[R: Arbitrary, E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[ZIO[R, E, A]] = {
+    def run(r: R, zio: ZIO[R, E, A]) = taskEffectInstance.toIO(zio.provide(r).either)
     Eq.instance((io1, io2) => Arbitrary.arbitrary[R].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2)))
   }
 
