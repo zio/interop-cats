@@ -166,8 +166,7 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
   ): effect.SyncIO[Unit] =
     effect.SyncIO {
       rts.unsafeRunAsync(fa.run) { exit =>
-        if (exit.interrupted) ()
-        else cb(exit.flatMap(identity).toEither).unsafeRunAsync(_ => ())
+        cb(exit.flatMap(identity).toEither).unsafeRunAsync(_ => ())
       }
     }
 
