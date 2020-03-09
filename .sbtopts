@@ -1,5 +1,5 @@
 -J-Xss5M
 -J-XX:ReservedCodeCacheSize=256m
--J-Xmx4G
+-J-Xmx5G
 -J-XX:MaxMetaspaceSize=3G
 -J-XX:MaxInlineLevel=18
