@@ -175,12 +175,15 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
   ): effect.SyncIO[effect.CancelToken[RIO[R, *]]] =
     effect.SyncIO {
       rts.unsafeRun {
-        RIO.unit
+        RIO.descriptor
           .bracketExit(
-            (_, exit: Exit[Throwable, A]) =>
+            (descriptor, exit: Exit[Throwable, A]) =>
               RIO.effectTotal {
-                if (exit.interrupted) ()
-                else effect.IO.suspend(cb(exit.toEither)).unsafeRunAsync(_ => ())
+                exit match {
+                  case Exit.Failure(cause) if !cause.interruptors.forall(_ == descriptor.id) => ()
+                  case _ =>
+                    effect.IO.suspend(cb(exit.toEither)).unsafeRunAsync(_ => ())
+                }
               },
             _ => fa
           )
