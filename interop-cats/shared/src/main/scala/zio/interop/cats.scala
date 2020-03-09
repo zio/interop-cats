@@ -40,7 +40,7 @@ abstract class CatsEffectPlatform
   val console: interop.console.cats.type = interop.console.cats
 
   trait CatsApp extends App {
-    implicit val runtime: Runtime[Unit] = this
+    implicit val runtime: Runtime[ZEnv] = this
   }
 
   object implicits {
@@ -211,7 +211,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
 
   override final def cancelable[A](k: (Either[Throwable, A] => Unit) => effect.CancelToken[RIO[R, *]]): RIO[R, A] =
     RIO.effectAsyncInterrupt[R, A] { kk =>
-      val token = k(kk apply _.fold(ZIO.failNow, ZIO.succeedNow))
+      val token = k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow))
       Left(token.orDie)
     }
 
@@ -234,10 +234,10 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     RIO.never
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => Unit): RIO[R, A] =
-    RIO.effectAsync(kk => k(kk apply _.fold(ZIO.failNow, ZIO.succeedNow)))
+    RIO.effectAsync(kk => k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow)))
 
   override final def asyncF[A](k: (Either[Throwable, A] => Unit) => RIO[R, Unit]): RIO[R, A] =
-    RIO.effectAsyncM(kk => k(kk apply _.fold(ZIO.failNow, ZIO.succeedNow)).orDie)
+    RIO.effectAsyncM(kk => k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow)).orDie)
 
   override final def suspend[A](thunk: => RIO[R, A]): RIO[R, A] =
     RIO.effectSuspend(thunk)
@@ -292,7 +292,7 @@ private class CatsSemigroupK[R, E: Semigroup] extends SemigroupK[ZIO[R, E, *]] {
   override final def combineK[A](a: ZIO[R, E, A], b: ZIO[R, E, A]): ZIO[R, E, A] =
     a.catchAll { e1 =>
       b.catchAll { e2 =>
-        ZIO.failNow(Semigroup[E].combine(e1, e2))
+        ZIO.fail(Semigroup[E].combine(e1, e2))
       }
     }
 }
