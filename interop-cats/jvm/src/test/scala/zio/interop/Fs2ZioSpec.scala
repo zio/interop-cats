@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext.global
 class ZioWithFs2Spec(implicit ee: ExecutionEnv) extends Specification with AroundTimeout {
 
   val runtime                                = Runtime.default
-  def unsafeRun[R, E, A](p: ZIO[Unit, E, A]) = runtime.unsafeRun(p)
+  def unsafeRun[R, E, A](p: ZIO[ZEnv, E, A]) = runtime.unsafeRun(p)
 
   def is =
     s2"""
