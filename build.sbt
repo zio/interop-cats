@@ -40,14 +40,13 @@ lazy val root = project
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
-val zioVersion = "1.0.0-RC18-1+29-1e6f1909-SNAPSHOT"
+val zioVersion = "1.0.0-RC18-2"
 lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .in(file("interop-cats"))
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-interop-cats"))
   .settings(buildInfoSettings)
   .settings(
-    resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
     libraryDependencies ++= Seq(
       "dev.zio"       %%% "zio"                  % zioVersion,
       "dev.zio"       %%% "zio-streams"          % zioVersion % Optional,
