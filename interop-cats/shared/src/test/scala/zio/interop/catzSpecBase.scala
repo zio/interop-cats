@@ -14,7 +14,6 @@ import zio.interop.catz.taskEffectInstance
 import zio.random.Random
 import zio.system.System
 import zio.{ Cause, IO, Runtime, Task, UIO, ZIO, ZManaged }
-import com.github.ghik.silencer.silent
 
 private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestInstances with catzSpecBaseLowPriority {
 
@@ -39,6 +38,9 @@ private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestIns
   implicit def zioEqUIO[A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[UIO[A]] =
     Eq.by(uio => taskEffectInstance.toIO(uio.sandbox.either))
 
+  implicit def zioEqZManaged[E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[ZManaged[Any, E, A]] =
+    Eq.by(_.reserve.flatMap(_.acquire).either)
+
   def checkAllAsync(name: String, f: TestContext => Laws#RuleSet): Unit =
     checkAll(name, f(TestContext()))
 
@@ -51,21 +53,9 @@ private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
     Eq.instance((io1, io2) => Arbitrary.arbitrary[R].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2)))
   }
 
-  //---!! TODO: this is the comment for a reviewer: remove or rewrite it after the review!!---
-  // This code is used in "zmanagedEq" to overcome 'diverging implicit expansion' issue happening on scala 2.12 and 2.11 (2.13 - OK)
-  // Apperently older versions of compiler had problems with implicits priority treatment and tried to search both
-  // Eq[ZManaged[R, E, A]] defined locally as 'zmanagedEq' and Eq[ZManaged[Any, E, A]] defined as 'zioEqZManaged' in 'catzSpecZIOBase' in parallel.
-  trait =:!=[A, B]
-  implicit def neq[A, B]: =:!=[A, B]    = null
-  implicit def neqAmbig1[A]: =:!=[A, A] = null
-  implicit def neqAmbig2[A]: =:!=[A, A] = null
-
-  implicit def zmanagedEq[R, E: Eq, A: Eq](
+  implicit def zmanagedEq[R: Arbitrary, E: Eq, A: Eq](
     implicit rts: Runtime[Any],
-    tc: TestContext,
-    @silent("never used")
-    rIsNotAny: R =:!= Any,
-    ar: Arbitrary[R]
+    tc: TestContext
   ): Eq[ZManaged[R, E, A]] = {
     def run(r: R, zm: ZManaged[R, E, A]) = taskEffectInstance.toIO(zm.provide(r).reserve.flatMap(_.acquire).either)
     Eq.instance((io1, io2) => Arbitrary.arbitrary[R].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2)))

@@ -218,9 +218,9 @@ private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] w
 private object CatsZManagedArrowChoice extends ArrowChoice[ZManaged[*, Any, *]] {
   final override def lift[A, B](f: A => B): ZManaged[A, Any, B] = ZManaged.fromFunction(f)
   final override def compose[A, B, C](f: ZManaged[B, Any, C], g: ZManaged[A, Any, B]): ZManaged[A, Any, C] =
-    g >>= f.provide
+    f compose g
 
-  final override def id[A]: ZManaged[A, Any, A] = ZManaged.environment
+  final override def id[A]: ZManaged[A, Any, A] = ZManaged.identity
   final override def dimap[A, B, C, D](fab: ZManaged[A, Any, B])(f: C => A)(g: B => D): ZManaged[C, Any, D] =
     fab.provideSome(f).map(g)
 

@@ -352,8 +352,8 @@ private class CatsParApplicative[R, E] extends CommutativeApplicative[ParIO[R, E
 
 private class CatsArrow[E] extends ArrowChoice[ZIO[*, E, *]] {
   final override def lift[A, B](f: A => B): ZIO[A, E, B]                              = ZIO.fromFunction(f)
-  final override def compose[A, B, C](f: ZIO[B, E, C], g: ZIO[A, E, B]): ZIO[A, E, C] = g >>= f.provide
-  final override def id[A]: ZIO[A, E, A]                                              = ZIO.environment
+  final override def compose[A, B, C](f: ZIO[B, E, C], g: ZIO[A, E, B]): ZIO[A, E, C] = f compose g
+  final override def id[A]: ZIO[A, E, A]                                              = ZIO.identity
   final override def dimap[A, B, C, D](fab: ZIO[A, E, B])(f: C => A)(g: B => D): ZIO[C, E, D] =
     fab.provideSome(f).map(g)
 
