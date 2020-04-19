@@ -13,7 +13,7 @@ import zio.internal.{ Executor, Platform, Tracing }
 import zio.interop.catz.taskEffectInstance
 import zio.random.Random
 import zio.system.System
-import zio.{ Cause, IO, Runtime, Task, UIO, ZIO, ZManaged }
+import zio.{ =!=, Cause, IO, Runtime, Task, UIO, ZIO, ZManaged }
 
 private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestInstances with catzSpecBaseLowPriority {
 
@@ -53,7 +53,8 @@ private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
     Eq.instance((io1, io2) => Arbitrary.arbitrary[R].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2)))
   }
 
-  implicit def zmanagedEq[R: Arbitrary, E: Eq, A: Eq](
+  // 'R =!= Any' evidence fixes the 'diverging implicit expansion for type Arbitrary' error reproducible on scala 2.12 and 2.11.
+  implicit def zmanagedEq[R: * =!= Any: Arbitrary, E: Eq, A: Eq](
     implicit rts: Runtime[Any],
     tc: TestContext
   ): Eq[ZManaged[R, E, A]] = {
