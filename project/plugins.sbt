@@ -7,4 +7,4 @@ addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings"          %
 addSbtPlugin("com.github.cb372"                  % "sbt-explicit-dependencies" % "0.2.13")
 addSbtPlugin("de.heikoseeberger"                 % "sbt-header"                % "5.6.0")
 addSbtPlugin("ch.epfl.scala"                     % "sbt-bloop"                 % "1.3.5")
-addSbtPlugin("com.geirsson"                      % "sbt-ci-release"            % "1.5.2")
+addSbtPlugin("com.geirsson"                      % "sbt-ci-release"            % "1.5.3")
