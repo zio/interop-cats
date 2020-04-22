@@ -38,6 +38,7 @@ class catzSpec extends catzSpecZIOBase {
     "ArrowChoice[ZIO]",
     implicit tc => ArrowChoiceTests[ZIO[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
   )
+  checkAllAsync("Contravariant[ZIO]", implicit tc => ContravariantTests[ZIO[*, Int, Int]].contravariant[Int, Int, Int])
 
   // ZManaged Tests
   checkAllAsync("Monad[ZManaged]", implicit tc => MonadTests[ZManaged[Any, Throwable, *]].apply[Int, Int, Int])
