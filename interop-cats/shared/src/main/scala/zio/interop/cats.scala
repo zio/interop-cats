@@ -356,29 +356,20 @@ private class CatsParApplicative[R, E] extends CommutativeApplicative[ParIO[R, E
 
 private class CatsArrow[E] extends ArrowChoice[ZIO[*, E, *]] {
   final override def lift[A, B](f: A => B): ZIO[A, E, B]                              = ZIO.fromFunction(f)
-  final override def compose[A, B, C](f: ZIO[B, E, C], g: ZIO[A, E, B]): ZIO[A, E, C] = g >>= f.provide
-  final override def id[A]: ZIO[A, E, A]                                              = ZIO.environment
+  final override def compose[A, B, C](f: ZIO[B, E, C], g: ZIO[A, E, B]): ZIO[A, E, C] = f compose g
+  final override def id[A]: ZIO[A, E, A]                                              = ZIO.identity
   final override def dimap[A, B, C, D](fab: ZIO[A, E, B])(f: C => A)(g: B => D): ZIO[C, E, D] =
     fab.provideSome(f).map(g)
 
-  final override def choose[A, B, C, D](f: ZIO[A, E, C])(g: ZIO[B, E, D]): ZIO[Either[A, B], E, Either[C, D]] =
-    ZIO.accessM(_.fold(f.provide(_).map(Left(_)), g.provide(_).map(Right(_))))
-  final override def first[A, B, C](fa: ZIO[A, E, B]): ZIO[(A, C), E, (B, C)] =
-    ZIO.accessM { case (a, c) => fa.provide(a).map((_, c)) }
-  final override def second[A, B, C](fa: ZIO[A, E, B]): ZIO[(C, A), E, (C, B)] =
-    ZIO.accessM { case (c, a) => fa.provide(a).map((c, _)) }
-  final override def split[A, B, C, D](f: ZIO[A, E, B], g: ZIO[C, E, D]): ZIO[(A, C), E, (B, D)] =
-    ZIO.accessM { case (a, c) => f.provide(a).zip(g.provide(c)) }
-  final override def merge[A, B, C](f: ZIO[A, E, B], g: ZIO[A, E, C]): ZIO[A, E, (B, C)] = f.zip(g)
+  final override def choose[A, B, C, D](f: ZIO[A, E, C])(g: ZIO[B, E, D]): ZIO[Either[A, B], E, Either[C, D]] = f +++ g
 
-  final override def lmap[A, B, C](fab: ZIO[A, E, B])(f: C => A): ZIO[C, E, B] = fab.provideSome(f)
-  final override def rmap[A, B, C](fab: ZIO[A, E, B])(f: B => C): ZIO[A, E, C] = fab.map(f)
-
-  final override def choice[A, B, C](f: ZIO[A, E, C], g: ZIO[B, E, C]): ZIO[Either[A, B], E, C] =
-    ZIO.accessM[Either[A, B]] {
-      case Left(a)  => f.provide(a)
-      case Right(b) => g.provide(b)
-    }
+  final override def first[A, B, C](fa: ZIO[A, E, B]): ZIO[(A, C), E, (B, C)]                    = fa *** ZIO.identity
+  final override def second[A, B, C](fa: ZIO[A, E, B]): ZIO[(C, A), E, (C, B)]                   = ZIO.identity *** fa
+  final override def split[A, B, C, D](f: ZIO[A, E, B], g: ZIO[C, E, D]): ZIO[(A, C), E, (B, D)] = f *** g
+  final override def merge[A, B, C](f: ZIO[A, E, B], g: ZIO[A, E, C]): ZIO[A, E, (B, C)]         = f.zip(g)
+  final override def lmap[A, B, C](fab: ZIO[A, E, B])(f: C => A): ZIO[C, E, B]                   = fab.provideSome(f)
+  final override def rmap[A, B, C](fab: ZIO[A, E, B])(f: B => C): ZIO[A, E, C]                   = fab.map(f)
+  final override def choice[A, B, C](f: ZIO[A, E, C], g: ZIO[B, E, C]): ZIO[Either[A, B], E, C]  = f ||| g
 }
 
 final private class CatsContravariant[E, T] extends Contravariant[ZIO[*, E, T]] {

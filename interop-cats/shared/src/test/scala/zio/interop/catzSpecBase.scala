@@ -13,7 +13,7 @@ import zio.internal.{ Executor, Platform, Tracing }
 import zio.interop.catz.taskEffectInstance
 import zio.random.Random
 import zio.system.System
-import zio.{ Cause, IO, Runtime, Task, UIO, ZIO }
+import zio.{ =!=, Cause, IO, Runtime, Task, UIO, ZIO, ZManaged }
 
 private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestInstances with catzSpecBaseLowPriority {
 
@@ -38,6 +38,9 @@ private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestIns
   implicit def zioEqUIO[A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[UIO[A]] =
     Eq.by(uio => taskEffectInstance.toIO(uio.sandbox.either))
 
+  implicit def zioEqZManaged[E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[ZManaged[Any, E, A]] =
+    Eq.by(_.reserve.flatMap(_.acquire).either)
+
   def checkAllAsync(name: String, f: TestContext => Laws#RuleSet): Unit =
     checkAll(name, f(TestContext()))
 
@@ -47,6 +50,15 @@ private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
 
   implicit def zioEq[R: Arbitrary, E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[ZIO[R, E, A]] = {
     def run(r: R, zio: ZIO[R, E, A]) = taskEffectInstance.toIO(zio.provide(r).either)
+    Eq.instance((io1, io2) => Arbitrary.arbitrary[R].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2)))
+  }
+
+  // 'R =!= Any' evidence fixes the 'diverging implicit expansion for type Arbitrary' error reproducible on scala 2.12 and 2.11.
+  implicit def zmanagedEq[R: * =!= Any: Arbitrary, E: Eq, A: Eq](
+    implicit rts: Runtime[Any],
+    tc: TestContext
+  ): Eq[ZManaged[R, E, A]] = {
+    def run(r: R, zm: ZManaged[R, E, A]) = taskEffectInstance.toIO(zm.provide(r).reserve.flatMap(_.acquire).either)
     Eq.instance((io1, io2) => Arbitrary.arbitrary[R].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2)))
   }
 

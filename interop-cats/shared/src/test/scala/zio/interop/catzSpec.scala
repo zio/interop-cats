@@ -45,6 +45,10 @@ class catzSpec extends catzSpecZIOBase {
   checkAllAsync("Monad[ZManaged]", implicit tc => ExtraMonadTests[ZManaged[Any, Throwable, *]].monadExtras[Int])
   checkAllAsync("SemigroupK[ZManaged]", implicit tc => SemigroupKTests[ZManaged[Any, Throwable, *]].semigroupK[Int])
   checkAllAsync(
+    "ArrowChoice[ZManaged]",
+    implicit tc => ArrowChoiceTests[ZManaged[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
+  )
+  checkAllAsync(
     "MonadError[ZManaged]",
     implicit tc => MonadErrorTests[ZManaged[Any, Int, *], Int].monadError[Int, Int, Int]
   )

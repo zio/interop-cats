@@ -21,6 +21,7 @@ import cats.arrow.FunctionK
 import cats.effect.Resource.{ Allocate, Bind, Suspend }
 import cats.effect.{ Async, Effect, LiftIO, Resource, Sync, IO => CIO }
 import cats.{ Applicative, Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
+import cats.arrow.ArrowChoice
 
 trait CatsZManagedSyntax {
   import scala.language.implicitConversions
@@ -119,6 +120,8 @@ trait CatsZManagedInstances extends CatsZManagedInstances1 {
       override def combine(x: ZManaged[R, E, A], y: ZManaged[R, E, A]): ZManaged[R, E, A] = x.zipWith(y)(ev.combine)
     }
 
+  implicit def arrowChoiceZManagedInstances[E]: ArrowChoice[ZManaged[*, E, *]] =
+    CatsZManagedArrowChoice.asInstanceOf[ArrowChoice[ZManaged[*, E, *]]]
 }
 
 sealed trait CatsZManagedInstances1 {
@@ -210,4 +213,29 @@ private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] w
         )
       }
     }
+}
+
+private object CatsZManagedArrowChoice extends ArrowChoice[ZManaged[*, Any, *]] {
+  final override def lift[A, B](f: A => B): ZManaged[A, Any, B] = ZManaged.fromFunction(f)
+  final override def compose[A, B, C](f: ZManaged[B, Any, C], g: ZManaged[A, Any, B]): ZManaged[A, Any, C] =
+    f compose g
+
+  final override def id[A]: ZManaged[A, Any, A] = ZManaged.identity
+  final override def dimap[A, B, C, D](fab: ZManaged[A, Any, B])(f: C => A)(g: B => D): ZManaged[C, Any, D] =
+    fab.provideSome(f).map(g)
+
+  final override def choose[A, B, C, D](f: ZManaged[A, Any, C])(
+    g: ZManaged[B, Any, D]
+  ): ZManaged[Either[A, B], Any, Either[C, D]] = f +++ g
+
+  final override def first[A, B, C](fa: ZManaged[A, Any, B]): ZManaged[(A, C), Any, (B, C)]  = fa *** ZManaged.identity
+  final override def second[A, B, C](fa: ZManaged[A, Any, B]): ZManaged[(C, A), Any, (C, B)] = ZManaged.identity *** fa
+  final override def split[A, B, C, D](f: ZManaged[A, Any, B], g: ZManaged[C, Any, D]): ZManaged[(A, C), Any, (B, D)] =
+    f *** g
+
+  final override def merge[A, B, C](f: ZManaged[A, Any, B], g: ZManaged[A, Any, C]): ZManaged[A, Any, (B, C)] = f.zip(g)
+  final override def lmap[A, B, C](fab: ZManaged[A, Any, B])(f: C => A): ZManaged[C, Any, B]                  = fab.provideSome(f)
+  final override def rmap[A, B, C](fab: ZManaged[A, Any, B])(f: B => C): ZManaged[A, Any, C]                  = fab.map(f)
+  final override def choice[A, B, C](f: ZManaged[A, Any, C], g: ZManaged[B, Any, C]): ZManaged[Either[A, B], Any, C] =
+    f ||| g
 }

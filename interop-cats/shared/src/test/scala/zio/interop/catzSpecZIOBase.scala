@@ -2,7 +2,6 @@ package zio.interop
 
 import cats.Eq
 import cats.effect.laws.util.TestContext
-import cats.implicits._
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.{ IO, Runtime, ZIO, ZManaged }
 
@@ -10,9 +9,6 @@ private[interop] trait catzSpecZIOBase extends catzSpecBase with GenIOInteropCat
 
   implicit def zioEqParIO[E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[ParIO[Any, E, A]] =
     Eq.by(Par.unwrap(_))
-
-  implicit def zioEqZManaged[E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[ZManaged[Any, E, A]] =
-    Eq.by(_.reserve.flatMap(_.acquire).either)
 
   implicit def zioArbitrary[R: Cogen, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZIO[R, E, A]] =
     Arbitrary(Arbitrary.arbitrary[R => IO[E, A]].map(ZIO.environment[R].flatMap(_)))
