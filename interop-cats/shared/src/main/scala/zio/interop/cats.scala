@@ -121,8 +121,12 @@ abstract class CatsInstances extends CatsInstances1 {
   implicit final def zioArrowInstance[E]: ArrowChoice[ZIO[*, E, *]] =
     zioArrowInstance0.asInstanceOf[ArrowChoice[ZIO[*, E, *]]]
 
-  private[this] final val bifunctorInstance0: Bifunctor[ZIO[Any, *, *]]  = new CatsBifunctor[Any]
-  private[this] final val zioArrowInstance0: ArrowChoice[ZIO[*, Any, *]] = new CatsArrow[Any]
+  implicit final def contravariantInstance[E, A]: Contravariant[ZIO[*, E, A]] =
+    contravariantInstance0.asInstanceOf[Contravariant[ZIO[*, E, A]]]
+
+  private[this] val bifunctorInstance0: Bifunctor[ZIO[Any, *, *]]           = new CatsBifunctor
+  private[this] val zioArrowInstance0: ArrowChoice[ZIO[*, Any, *]]          = new CatsArrow
+  private[this] val contravariantInstance0: Contravariant[ZIO[*, Any, Any]] = new CatsContravariant
 }
 
 sealed abstract class CatsInstances1 extends CatsInstances2 {
@@ -366,4 +370,9 @@ private class CatsArrow[E] extends ArrowChoice[ZIO[*, E, *]] {
   final override def lmap[A, B, C](fab: ZIO[A, E, B])(f: C => A): ZIO[C, E, B]                   = fab.provideSome(f)
   final override def rmap[A, B, C](fab: ZIO[A, E, B])(f: B => C): ZIO[A, E, C]                   = fab.map(f)
   final override def choice[A, B, C](f: ZIO[A, E, C], g: ZIO[B, E, C]): ZIO[Either[A, B], E, C]  = f ||| g
+}
+
+final private class CatsContravariant[E, T] extends Contravariant[ZIO[*, E, T]] {
+  override def contramap[A, B](fa: ZIO[A, E, T])(f: B => A): ZIO[B, E, T] =
+    ZIO.accessM[B](b => fa.provide(f(b)))
 }
