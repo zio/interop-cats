@@ -1,5 +1,6 @@
 package zio.interop
 
+import cats.arrow.ArrowChoice
 import cats.effect.concurrent.Deferred
 import cats.effect.laws.discipline.arbitrary._
 import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests, SyncTests }
@@ -80,6 +81,11 @@ class catzSpec extends catzSpecZIOBase {
 
     def concurrentEffect[R: Runtime] = ConcurrentEffect[RIO[R, *]]
     def effect[R: Runtime]           = Effect[RIO[R, *]]
+
+    // related to issue #173
+    def getArrow[F[-_, +_, +_], R, E, A](f: F[R, E, A])(implicit a: ArrowChoice[F[*, E, *]]): Any = (a, f)
+    getArrow(ZIO.environment[Int])
+    getArrow(ZManaged.environment[Int])
   }
 
   object summoningRuntimeInstancesTest {
