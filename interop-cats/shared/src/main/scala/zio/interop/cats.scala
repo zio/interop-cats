@@ -115,12 +115,6 @@ abstract class CatsInstances extends CatsInstances1 {
   implicit final def rioArrowInstance: ArrowChoice[RIO] =
     zioArrowInstance0.asInstanceOf[ArrowChoice[RIO]]
 
-  implicit final def urioArrowInstance: ArrowChoice[URIO] =
-    zioArrowInstance0.asInstanceOf[ArrowChoice[URIO]]
-
-  implicit final def zioArrowInstance[E]: ArrowChoice[ZIO[*, E, *]] =
-    zioArrowInstance0.asInstanceOf[ArrowChoice[ZIO[*, E, *]]]
-
   implicit final def contravariantInstance[E, A]: Contravariant[ZIO[*, E, A]] =
     contravariantInstance0.asInstanceOf[Contravariant[ZIO[*, E, A]]]
 
@@ -130,6 +124,9 @@ abstract class CatsInstances extends CatsInstances1 {
 }
 
 sealed abstract class CatsInstances1 extends CatsInstances2 {
+
+  implicit final def urioArrowInstance: ArrowChoice[URIO] =
+    zioArrowInstance0.asInstanceOf[ArrowChoice[URIO]]
 
   implicit final def parallelInstance[R, E]: Parallel.Aux[ZIO[R, E, *], ParIO[R, E, *]] =
     parallelInstance0.asInstanceOf[Parallel.Aux[ZIO[R, E, *], ParIO[R, E, *]]]
@@ -148,6 +145,11 @@ sealed abstract class CatsInstances1 extends CatsInstances2 {
 }
 
 sealed abstract class CatsInstances2 {
+  protected[this] val zioArrowInstance0: ArrowChoice[ZIO[*, Any, *]] = new CatsArrow
+
+  implicit final def zioArrowInstance[E]: ArrowChoice[ZIO[*, E, *]] =
+    zioArrowInstance0.asInstanceOf[ArrowChoice[ZIO[*, E, *]]]
+
   implicit final def monadErrorInstance[R, E]: MonadError[ZIO[R, E, *], E] =
     monadErrorInstance0.asInstanceOf[MonadError[ZIO[R, E, *], E]]
 

@@ -1,5 +1,6 @@
 package zio.interop
 
+import cats.arrow.ArrowChoice
 import cats.effect.concurrent.Deferred
 import cats.effect.laws.discipline.arbitrary._
 import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests, SyncTests }
@@ -14,6 +15,8 @@ import zio.interop.catz._
 import zio.{ IO, _ }
 
 class catzSpec extends catzSpecZIOBase {
+
+  def getArrow[F[-_, +_, +_], R, E, A](f: F[R, E, A])(implicit a: ArrowChoice[F[*, E, *]]): ArrowChoice[F[*, E, *]] = a
 
   def genUIO[A: Arbitrary]: Gen[UIO[A]] =
     Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
@@ -38,8 +41,9 @@ class catzSpec extends catzSpecZIOBase {
     "ArrowChoice[ZIO]",
     implicit tc => ArrowChoiceTests[ZIO[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
   )
+  // checking that this compiles(see issue #173)
+  getArrow(ZIO.environment[Int])
   checkAllAsync("Contravariant[ZIO]", implicit tc => ContravariantTests[ZIO[*, Int, Int]].contravariant[Int, Int, Int])
-
   // ZManaged Tests
   checkAllAsync("Monad[ZManaged]", implicit tc => MonadTests[ZManaged[Any, Throwable, *]].apply[Int, Int, Int])
   checkAllAsync("Monad[ZManaged]", implicit tc => ExtraMonadTests[ZManaged[Any, Throwable, *]].monadExtras[Int])
@@ -48,6 +52,8 @@ class catzSpec extends catzSpecZIOBase {
     "ArrowChoice[ZManaged]",
     implicit tc => ArrowChoiceTests[ZManaged[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
   )
+  // checking that this compiles(see issue #173)
+  getArrow(ZManaged.environment[Int])
   checkAllAsync(
     "MonadError[ZManaged]",
     implicit tc => MonadErrorTests[ZManaged[Any, Int, *], Int].monadError[Int, Int, Int]

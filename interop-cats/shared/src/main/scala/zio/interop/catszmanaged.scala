@@ -120,11 +120,11 @@ trait CatsZManagedInstances extends CatsZManagedInstances1 {
       override def combine(x: ZManaged[R, E, A], y: ZManaged[R, E, A]): ZManaged[R, E, A] = x.zipWith(y)(ev.combine)
     }
 
-  implicit def arrowChoiceZManagedInstances[E]: ArrowChoice[ZManaged[*, E, *]] =
-    CatsZManagedArrowChoice.asInstanceOf[ArrowChoice[ZManaged[*, E, *]]]
+  implicit def arrowChoiceRManagedInstances[E]: ArrowChoice[RManaged] =
+    CatsZManagedArrowChoice.asInstanceOf[ArrowChoice[RManaged]]
 }
 
-sealed trait CatsZManagedInstances1 {
+sealed trait CatsZManagedInstances1 extends CatsZManagedInstances2 {
 
   implicit def monadZManagedInstances[R, E]: Monad[ZManaged[R, E, ?]] = new CatsZManagedMonad
 
@@ -138,6 +138,13 @@ sealed trait CatsZManagedInstances1 {
       fab.mapError(f).map(g)
   }
 
+  implicit def arrowChoiceURManagedInstances[E]: ArrowChoice[URManaged] =
+    CatsZManagedArrowChoice.asInstanceOf[ArrowChoice[URManaged]]
+}
+
+sealed trait CatsZManagedInstances2 {
+  implicit def arrowChoiceZManagedInstances[E]: ArrowChoice[ZManaged[*, E, *]] =
+    CatsZManagedArrowChoice.asInstanceOf[ArrowChoice[ZManaged[*, E, *]]]
 }
 
 private class CatsZManagedMonad[R, E] extends Monad[ZManaged[R, E, ?]] {
