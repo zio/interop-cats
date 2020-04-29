@@ -16,7 +16,8 @@ import zio.{ IO, _ }
 
 class catzSpec extends catzSpecZIOBase {
 
-  def getArrow[F[-_, +_, +_], R, E, A](f: F[R, E, A])(implicit a: ArrowChoice[F[*, E, *]]): ArrowChoice[F[*, E, *]] = a
+  // this method is used to test the spawning of ArrowChoice implicit (see issue #173)
+  def getArrow[F[-_, +_, +_], R, E, A](f: F[R, E, A])(implicit a: ArrowChoice[F[*, E, *]]): Any = (a, f)
 
   def genUIO[A: Arbitrary]: Gen[UIO[A]] =
     Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
