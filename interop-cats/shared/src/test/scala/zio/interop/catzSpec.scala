@@ -16,9 +16,6 @@ import zio.{ IO, _ }
 
 class catzSpec extends catzSpecZIOBase {
 
-  // this method is used to test the spawning of ArrowChoice implicit (see issue #173)
-  def getArrow[F[-_, +_, +_], R, E, A](f: F[R, E, A])(implicit a: ArrowChoice[F[*, E, *]]): Any = (a, f)
-
   def genUIO[A: Arbitrary]: Gen[UIO[A]] =
     Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
 
@@ -42,9 +39,8 @@ class catzSpec extends catzSpecZIOBase {
     "ArrowChoice[ZIO]",
     implicit tc => ArrowChoiceTests[ZIO[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
   )
-  // checking that this compiles(see issue #173)
-  getArrow(ZIO.environment[Int])
   checkAllAsync("Contravariant[ZIO]", implicit tc => ContravariantTests[ZIO[*, Int, Int]].contravariant[Int, Int, Int])
+
   // ZManaged Tests
   checkAllAsync("Monad[ZManaged]", implicit tc => MonadTests[ZManaged[Any, Throwable, *]].apply[Int, Int, Int])
   checkAllAsync("Monad[ZManaged]", implicit tc => ExtraMonadTests[ZManaged[Any, Throwable, *]].monadExtras[Int])
@@ -53,8 +49,6 @@ class catzSpec extends catzSpecZIOBase {
     "ArrowChoice[ZManaged]",
     implicit tc => ArrowChoiceTests[ZManaged[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
   )
-  // checking that this compiles(see issue #173)
-  getArrow(ZManaged.environment[Int])
   checkAllAsync(
     "MonadError[ZManaged]",
     implicit tc => MonadErrorTests[ZManaged[Any, Int, *], Int].monadError[Int, Int, Int]
@@ -87,6 +81,11 @@ class catzSpec extends catzSpecZIOBase {
 
     def concurrentEffect[R: Runtime] = ConcurrentEffect[RIO[R, *]]
     def effect[R: Runtime]           = Effect[RIO[R, *]]
+
+    // related to issue #173
+    def getArrow[F[-_, +_, +_], R, E, A](f: F[R, E, A])(implicit a: ArrowChoice[F[*, E, *]]): Any = (a, f)
+    getArrow(ZIO.environment[Int])
+    getArrow(ZManaged.environment[Int])
   }
 
   object summoningRuntimeInstancesTest {
