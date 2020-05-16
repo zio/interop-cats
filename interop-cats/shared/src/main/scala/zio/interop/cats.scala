@@ -40,7 +40,7 @@ abstract class CatsEffectPlatform
   val console: interop.console.cats.type = interop.console.cats
 
   trait CatsApp extends App {
-    implicit val runtime: Runtime[Unit] = this
+    implicit val runtime: Runtime[ZEnv] = this
   }
 
   object implicits {
@@ -115,17 +115,18 @@ abstract class CatsInstances extends CatsInstances1 {
   implicit final def rioArrowInstance: ArrowChoice[RIO] =
     zioArrowInstance0.asInstanceOf[ArrowChoice[RIO]]
 
-  implicit final def urioArrowInstance: ArrowChoice[URIO] =
-    zioArrowInstance0.asInstanceOf[ArrowChoice[URIO]]
+  implicit final def contravariantInstance[E, A]: Contravariant[ZIO[*, E, A]] =
+    contravariantInstance0.asInstanceOf[Contravariant[ZIO[*, E, A]]]
 
-  implicit final def zioArrowInstance[E]: ArrowChoice[ZIO[*, E, *]] =
-    zioArrowInstance0.asInstanceOf[ArrowChoice[ZIO[*, E, *]]]
-
-  private[this] final val bifunctorInstance0: Bifunctor[ZIO[Any, *, *]]  = new CatsBifunctor[Any]
-  private[this] final val zioArrowInstance0: ArrowChoice[ZIO[*, Any, *]] = new CatsArrow[Any]
+  private[this] val bifunctorInstance0: Bifunctor[ZIO[Any, *, *]]           = new CatsBifunctor
+  private[this] val zioArrowInstance0: ArrowChoice[ZIO[*, Any, *]]          = new CatsArrow
+  private[this] val contravariantInstance0: Contravariant[ZIO[*, Any, Any]] = new CatsContravariant
 }
 
 sealed abstract class CatsInstances1 extends CatsInstances2 {
+
+  implicit final def urioArrowInstance: ArrowChoice[URIO] =
+    zioArrowInstance0.asInstanceOf[ArrowChoice[URIO]]
 
   implicit final def parallelInstance[R, E]: Parallel.Aux[ZIO[R, E, *], ParIO[R, E, *]] =
     parallelInstance0.asInstanceOf[Parallel.Aux[ZIO[R, E, *], ParIO[R, E, *]]]
@@ -144,6 +145,11 @@ sealed abstract class CatsInstances1 extends CatsInstances2 {
 }
 
 sealed abstract class CatsInstances2 {
+  protected[this] val zioArrowInstance0: ArrowChoice[ZIO[*, Any, *]] = new CatsArrow
+
+  implicit final def zioArrowInstance[E]: ArrowChoice[ZIO[*, E, *]] =
+    zioArrowInstance0.asInstanceOf[ArrowChoice[ZIO[*, E, *]]]
+
   implicit final def monadErrorInstance[R, E]: MonadError[ZIO[R, E, *], E] =
     monadErrorInstance0.asInstanceOf[MonadError[ZIO[R, E, *], E]]
 
@@ -211,21 +217,21 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
 
   override final def cancelable[A](k: (Either[Throwable, A] => Unit) => effect.CancelToken[RIO[R, *]]): RIO[R, A] =
     RIO.effectAsyncInterrupt[R, A] { kk =>
-      val token = k(kk apply _.fold(ZIO.failNow, ZIO.succeedNow))
+      val token = k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow))
       Left(token.orDie)
     }
 
   override final def race[A, B](fa: RIO[R, A], fb: RIO[R, B]): RIO[R, Either[A, B]] =
-    fa.map(Left(_)) raceFirst fb.map(Right(_))
+    fa.map(Left(_)).interruptible raceFirst fb.map(Right(_)).interruptible
 
   override final def start[A](fa: RIO[R, A]): RIO[R, effect.Fiber[RIO[R, *], A]] =
-    RIO.interruptible(fa).forkDaemon.map(toFiber)
+    fa.interruptible.forkDaemon.map(toFiber)
 
   override final def racePair[A, B](
     fa: RIO[R, A],
     fb: RIO[R, B]
   ): RIO[R, Either[(A, effect.Fiber[RIO[R, *], B]), (effect.Fiber[RIO[R, *], A], B)]] =
-    (fa raceWith fb)(
+    (fa.interruptible raceWith fb.interruptible)(
       { case (l, f) => l.fold(f.interrupt *> RIO.halt(_), RIO.succeedNow).map(lv => Left((lv, toFiber(f)))) },
       { case (r, f) => r.fold(f.interrupt *> RIO.halt(_), RIO.succeedNow).map(rv => Right((toFiber(f), rv))) }
     )
@@ -234,10 +240,10 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     RIO.never
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => Unit): RIO[R, A] =
-    RIO.effectAsync(kk => k(kk apply _.fold(ZIO.failNow, ZIO.succeedNow)))
+    RIO.effectAsync(kk => k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow)))
 
   override final def asyncF[A](k: (Either[Throwable, A] => Unit) => RIO[R, Unit]): RIO[R, A] =
-    RIO.effectAsyncM(kk => k(kk apply _.fold(ZIO.failNow, ZIO.succeedNow)).orDie)
+    RIO.effectAsyncM(kk => k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow)).orDie)
 
   override final def suspend[A](thunk: => RIO[R, A]): RIO[R, A] =
     RIO.effectSuspend(thunk)
@@ -285,14 +291,19 @@ private class CatsMonadError[R, E] extends MonadError[ZIO[R, E, *], E] with Stac
 
 /** lossy, throws away errors using the "first success" interpretation of SemigroupK */
 private class CatsSemigroupKLossy[R, E] extends SemigroupK[ZIO[R, E, *]] {
-  override final def combineK[A](a: ZIO[R, E, A], b: ZIO[R, E, A]): ZIO[R, E, A] = a.orElse(b)
+  override final def combineK[A](a: ZIO[R, E, A], b: ZIO[R, E, A]): ZIO[R, E, A] =
+    a.catchAll { e1 =>
+      b.catchAll { _ =>
+        ZIO.fail(e1)
+      }
+    }
 }
 
 private class CatsSemigroupK[R, E: Semigroup] extends SemigroupK[ZIO[R, E, *]] {
   override final def combineK[A](a: ZIO[R, E, A], b: ZIO[R, E, A]): ZIO[R, E, A] =
     a.catchAll { e1 =>
       b.catchAll { e2 =>
-        ZIO.failNow(Semigroup[E].combine(e1, e2))
+        ZIO.fail(Semigroup[E].combine(e1, e2))
       }
     }
 }
@@ -330,13 +341,13 @@ private class CatsParApplicative[R, E] extends CommutativeApplicative[ParIO[R, E
     Par(ZIO.succeed(x))
 
   final override def map2[A, B, Z](fa: ParIO[R, E, A], fb: ParIO[R, E, B])(f: (A, B) => Z): ParIO[R, E, Z] =
-    Par(Par.unwrap(fa).zipWithPar(Par.unwrap(fb))(f))
+    Par(Par.unwrap(fa).interruptible.zipWithPar(Par.unwrap(fb).interruptible)(f))
 
   final override def ap[A, B](ff: ParIO[R, E, A => B])(fa: ParIO[R, E, A]): ParIO[R, E, B] =
-    Par(Par.unwrap(ff).zipWithPar(Par.unwrap(fa))(_(_)))
+    Par(Par.unwrap(ff).interruptible.zipWithPar(Par.unwrap(fa).interruptible)(_(_)))
 
   final override def product[A, B](fa: ParIO[R, E, A], fb: ParIO[R, E, B]): ParIO[R, E, (A, B)] =
-    Par(Par.unwrap(fa).zipPar(Par.unwrap(fb)))
+    Par(Par.unwrap(fa).interruptible.zipPar(Par.unwrap(fb).interruptible))
 
   final override def map[A, B](fa: ParIO[R, E, A])(f: A => B): ParIO[R, E, B] =
     Par(Par.unwrap(fa).map(f))
@@ -347,27 +358,23 @@ private class CatsParApplicative[R, E] extends CommutativeApplicative[ParIO[R, E
 
 private class CatsArrow[E] extends ArrowChoice[ZIO[*, E, *]] {
   final override def lift[A, B](f: A => B): ZIO[A, E, B]                              = ZIO.fromFunction(f)
-  final override def compose[A, B, C](f: ZIO[B, E, C], g: ZIO[A, E, B]): ZIO[A, E, C] = g >>= f.provide
-  final override def id[A]: ZIO[A, E, A]                                              = ZIO.environment
+  final override def compose[A, B, C](f: ZIO[B, E, C], g: ZIO[A, E, B]): ZIO[A, E, C] = f compose g
+  final override def id[A]: ZIO[A, E, A]                                              = ZIO.identity
   final override def dimap[A, B, C, D](fab: ZIO[A, E, B])(f: C => A)(g: B => D): ZIO[C, E, D] =
     fab.provideSome(f).map(g)
 
-  final override def choose[A, B, C, D](f: ZIO[A, E, C])(g: ZIO[B, E, D]): ZIO[Either[A, B], E, Either[C, D]] =
-    ZIO.accessM(_.fold(f.provide(_).map(Left(_)), g.provide(_).map(Right(_))))
-  final override def first[A, B, C](fa: ZIO[A, E, B]): ZIO[(A, C), E, (B, C)] =
-    ZIO.accessM { case (a, c) => fa.provide(a).map((_, c)) }
-  final override def second[A, B, C](fa: ZIO[A, E, B]): ZIO[(C, A), E, (C, B)] =
-    ZIO.accessM { case (c, a) => fa.provide(a).map((c, _)) }
-  final override def split[A, B, C, D](f: ZIO[A, E, B], g: ZIO[C, E, D]): ZIO[(A, C), E, (B, D)] =
-    ZIO.accessM { case (a, c) => f.provide(a).zip(g.provide(c)) }
-  final override def merge[A, B, C](f: ZIO[A, E, B], g: ZIO[A, E, C]): ZIO[A, E, (B, C)] = f.zip(g)
+  final override def choose[A, B, C, D](f: ZIO[A, E, C])(g: ZIO[B, E, D]): ZIO[Either[A, B], E, Either[C, D]] = f +++ g
 
-  final override def lmap[A, B, C](fab: ZIO[A, E, B])(f: C => A): ZIO[C, E, B] = fab.provideSome(f)
-  final override def rmap[A, B, C](fab: ZIO[A, E, B])(f: B => C): ZIO[A, E, C] = fab.map(f)
+  final override def first[A, B, C](fa: ZIO[A, E, B]): ZIO[(A, C), E, (B, C)]                    = fa *** ZIO.identity
+  final override def second[A, B, C](fa: ZIO[A, E, B]): ZIO[(C, A), E, (C, B)]                   = ZIO.identity *** fa
+  final override def split[A, B, C, D](f: ZIO[A, E, B], g: ZIO[C, E, D]): ZIO[(A, C), E, (B, D)] = f *** g
+  final override def merge[A, B, C](f: ZIO[A, E, B], g: ZIO[A, E, C]): ZIO[A, E, (B, C)]         = f.zip(g)
+  final override def lmap[A, B, C](fab: ZIO[A, E, B])(f: C => A): ZIO[C, E, B]                   = fab.provideSome(f)
+  final override def rmap[A, B, C](fab: ZIO[A, E, B])(f: B => C): ZIO[A, E, C]                   = fab.map(f)
+  final override def choice[A, B, C](f: ZIO[A, E, C], g: ZIO[B, E, C]): ZIO[Either[A, B], E, C]  = f ||| g
+}
 
-  final override def choice[A, B, C](f: ZIO[A, E, C], g: ZIO[B, E, C]): ZIO[Either[A, B], E, C] =
-    ZIO.accessM[Either[A, B]] {
-      case Left(a)  => f.provide(a)
-      case Right(b) => g.provide(b)
-    }
+final private class CatsContravariant[E, T] extends Contravariant[ZIO[*, E, T]] {
+  override def contramap[A, B](fa: ZIO[A, E, T])(f: B => A): ZIO[B, E, T] =
+    ZIO.accessM[B](b => fa.provide(f(b)))
 }

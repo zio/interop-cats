@@ -40,7 +40,7 @@ lazy val root = project
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
-val zioVersion = "1.0.0-RC18"
+val zioVersion = "1.0.0-RC18-2"
 lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .in(file("interop-cats"))
   .enablePlugins(BuildInfoPlugin)
@@ -69,7 +69,7 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
 lazy val interopCatsJVM = interopCats.jvm
 lazy val interopCatsJS = interopCats.js
   .settings(
-    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.0.0-RC3" % Test
+    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.0.0" % Test
   )
 
 lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
@@ -88,5 +88,5 @@ lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
 lazy val coreOnlyTestJVM = coreOnlyTest.jvm
 lazy val coreOnlyTestJS = coreOnlyTest.js
   .settings(
-    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.0.0-RC3" % Test
+    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.0.0" % Test
   )
