@@ -50,7 +50,7 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
       res match {
         case alloc: Allocate[ZIO[R, E, ?], A1] =>
           ZManaged.makeReserve(alloc.resource.map {
-            case (a, r) => Reservation(ZIO.succeed(a), e => r(exitToExitCase(e)).orDie)
+            case (a, r) => Reservation(ZIO.succeedNow(a), e => r(exitToExitCase(e)).orDie)
           })
 
         case bind: Bind[ZIO[R, E, ?], a, A1] =>
@@ -92,7 +92,7 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
         use = releaseMap =>
           managed.zio.provideSome[R]((_, releaseMap)).map {
             case (_, a) =>
-              Resource.applyCase(ZIO.succeed {
+              Resource.applyCase(ZIO.succeedNow {
                 (
                   a,
                   (exitCase: ExitCase[Throwable]) =>
@@ -130,7 +130,7 @@ trait CatsZManagedInstances extends CatsZManagedInstances1 {
 
   implicit def monoidZManagedInstances[R, E, A](implicit ev: Monoid[A]): Monoid[ZManaged[R, E, A]] =
     new Monoid[ZManaged[R, E, A]] {
-      override def empty: ZManaged[R, E, A] = ZManaged.succeed(ev.empty)
+      override def empty: ZManaged[R, E, A] = ZManaged.succeedNow(ev.empty)
 
       override def combine(x: ZManaged[R, E, A], y: ZManaged[R, E, A]): ZManaged[R, E, A] = x.zipWith(y)(ev.combine)
     }
@@ -163,14 +163,14 @@ sealed trait CatsZManagedInstances2 {
 }
 
 private class CatsZManagedMonad[R, E] extends Monad[ZManaged[R, E, ?]] {
-  override def pure[A](x: A): ZManaged[R, E, A] = ZManaged.succeed(x)
+  override def pure[A](x: A): ZManaged[R, E, A] = ZManaged.succeedNow(x)
 
   override def flatMap[A, B](fa: ZManaged[R, E, A])(f: A => ZManaged[R, E, B]): ZManaged[R, E, B] = fa.flatMap(f)
 
   override def tailRecM[A, B](a: A)(f: A => ZManaged[R, E, Either[A, B]]): ZManaged[R, E, B] =
     ZManaged.suspend(f(a)).flatMap {
       case Left(nextA) => tailRecM(nextA)(f)
-      case Right(b)    => ZManaged.succeed(b)
+      case Right(b)    => ZManaged.succeedNow(b)
     }
 }
 
