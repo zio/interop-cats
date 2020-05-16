@@ -316,7 +316,7 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout {
           )
           resource = managed.toResource[CIO]
 
-          _ <- IO {
+          _ <- blocking.effectBlockingInterrupt {
                 resource
                   .use(_ => CIO.unit)
                   .start
@@ -326,8 +326,8 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout {
                         .flatMap(_ => f.cancel)
                   )
                   .unsafeRunSync()
-              }
-          _   <- endLatch.await.timeout(zio.duration.Duration(10, TimeUnit.SECONDS))
+              }.timeoutFail("startLatch timed out")(zio.duration.Duration(10, TimeUnit.SECONDS))
+          _   <- endLatch.await.timeoutFail("endLatch timed out")(zio.duration.Duration(10, TimeUnit.SECONDS))
           res <- release.get
         } yield res must_=== true).provideLayer(ZEnv.live)
       }

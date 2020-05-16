@@ -23,6 +23,7 @@ import cats.effect.Resource.{ Allocate, Bind, Suspend }
 import cats.effect.{ Async, Effect, ExitCase, LiftIO, Resource, Sync, IO => CIO }
 import cats.{ Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
 import cats.arrow.ArrowChoice
+import zio.ZManaged.ReleaseMap
 
 trait CatsZManagedSyntax {
   import scala.language.implicitConversions
@@ -81,17 +82,25 @@ final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) 
 final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) extends AnyVal {
 
   def toResourceZIO: Resource[ZIO[R, E, ?], A] =
-    Resource.applyCase {
-      ZManaged.ReleaseMap.make.flatMap { releaseMap =>
-        managed.zio.provideSome[R]((_, releaseMap)).map {
-          case (_, a) =>
-            (
-              a,
-              (exitCase: ExitCase[Throwable]) =>
-                releaseMap.releaseAll(exitCaseToExit(exitCase), ExecutionStrategy.Sequential).unit
-            )
-        }
-      }
+    Resource.suspend {
+      ZManaged.ReleaseMap.make.bracketExit(
+        release = (releaseMap: ReleaseMap, exit: Exit[E, _]) =>
+          exit match {
+            case Exit.Success(_) => UIO.unit
+            case Exit.Failure(_) => releaseMap.releaseAll(exit, ExecutionStrategy.Sequential)
+          },
+        use = releaseMap =>
+          managed.zio.provideSome[R]((_, releaseMap)).map {
+            case (_, a) =>
+              Resource.applyCase(ZIO.succeed {
+                (
+                  a,
+                  (exitCase: ExitCase[Throwable]) =>
+                    releaseMap.releaseAll(exitCaseToExit(exitCase), ExecutionStrategy.Sequential).unit
+                )
+              })
+          }
+      )
     }
 
   def toResource[F[_]](implicit F: Async[F], ev: Effect[ZIO[R, E, ?]]): Resource[F, A] =
