@@ -23,7 +23,7 @@ import zio.{ Runtime, ZQueue }
  * @see [[zio.ZQueue]]
  */
 final class CQueue[F[+_], -A, +B] private[interop] (
-  private val underlying: ZQueue[Any, Throwable, Any, Throwable, A, B]
+  private val underlying: ZQueue[Any, Any, Throwable, Throwable, A, B]
 ) {
 
   /**
