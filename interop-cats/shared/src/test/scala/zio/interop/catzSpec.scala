@@ -103,6 +103,16 @@ class catzSpec extends catzSpecZIOBase {
     Monad[UIO]
   }
 
+  test("catsCoreSummoningTest") {
+    import catz._
+    import catz.core._
+    // check that core deferInstance does not conflict with taskConcurrentInstance
+    val _     = deferInstance // unused import
+    val defer = cats.Defer[Task]
+    val sync  = cats.effect.Sync[Task]
+    assert(defer eq sync)
+  }
+
   object concurrentEffectSyntaxTest {
     import cats.effect.syntax.all._
 
