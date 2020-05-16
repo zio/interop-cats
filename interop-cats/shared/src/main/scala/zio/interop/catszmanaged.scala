@@ -201,21 +201,14 @@ private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] w
   )(use: A => ZManaged[R, Throwable, B])(
     release: (A, cats.effect.ExitCase[Throwable]) => ZManaged[R, Throwable, Unit]
   ): ZManaged[R, Throwable, B] =
-    ZManaged.makeReserve {
-      for {
-        r <- ZIO.accessM[R](r => ZManaged.ReleaseMap.make.map(r -> _))
-      } yield {
-        Reservation(
-          acquire = ZIO.uninterruptibleMask { restore =>
-            for {
-              a     <- acquire.zio.map(_._2).provide(r)
-              exitB <- restore(use(a).zio).map(_._2).run.provide(r)
-              _     <- release(a, exitToExitCase(exitB)).zio.provide(r)
-              b     <- ZIO.done(exitB)
-            } yield b
-          },
-          release = exitU => r._2.releaseAll(exitU, ExecutionStrategy.Sequential)
-        )
+    ZManaged {
+      ZIO.uninterruptibleMask { restore =>
+        (for {
+          a     <- acquire
+          exitB <- ZManaged(restore(use(a).zio)).run
+          _     <- release(a, exitToExitCase(exitB))
+          b     <- ZManaged.done(exitB)
+        } yield b).zio
       }
     }
 }
