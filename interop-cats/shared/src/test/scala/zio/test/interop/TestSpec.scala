@@ -21,6 +21,6 @@ object TestSpec extends DefaultRunnableSpec {
             _ <- IO.never
           } yield assert(())(anything)
         }
-      } @@ failure
+      } @@ failing
     )
 }
