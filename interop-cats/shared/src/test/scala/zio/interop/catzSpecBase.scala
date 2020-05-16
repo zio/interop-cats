@@ -5,8 +5,9 @@ import cats.effect.laws.util.{ TestContext, TestInstances }
 import cats.implicits._
 import org.scalacheck.Arbitrary
 import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
-import org.typelevel.discipline.scalatest.Discipline
+import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio.clock.Clock
 import zio.console.Console
 import zio.internal.{ Executor, Platform, Tracing }
@@ -15,7 +16,12 @@ import zio.random.Random
 import zio.system.System
 import zio.{ =!=, Cause, IO, Runtime, Task, UIO, ZIO, ZManaged }
 
-private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestInstances with catzSpecBaseLowPriority {
+private[zio] trait catzSpecBase
+    extends AnyFunSuite
+    with FunSuiteDiscipline
+    with Configuration
+    with TestInstances
+    with catzSpecBaseLowPriority {
 
   type Env = Clock with Console with System with Random
 

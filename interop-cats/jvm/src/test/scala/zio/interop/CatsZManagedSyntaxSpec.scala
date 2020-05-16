@@ -3,8 +3,6 @@ package zio.interop
 import java.util.concurrent.TimeUnit
 
 import cats.effect.{ ContextShift, ExitCase, Resource, IO => CIO }
-import cats.syntax.apply._
-import cats.syntax.functor._
 import org.specs2.Specification
 import org.specs2.specification.AroundTimeout
 import zio.interop.catz._
