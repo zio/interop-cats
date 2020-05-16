@@ -39,7 +39,9 @@ private[zio] trait catzSpecBase extends AnyFunSuite with Discipline with TestIns
     Eq.by(uio => taskEffectInstance.toIO(uio.sandbox.either))
 
   implicit def zioEqZManaged[E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[ZManaged[Any, E, A]] =
-    Eq.by(_.reserve.flatMap(_.acquire).either)
+    Eq.by(
+      zm => ZManaged.ReleaseMap.make.flatMap(releaseMap => zm.zio.provideSome[Any]((_, releaseMap)).map(_._2).either)
+    )
 
   def checkAllAsync(name: String, f: TestContext => Laws#RuleSet): Unit =
     checkAll(name, f(TestContext()))
@@ -58,7 +60,10 @@ private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
     implicit rts: Runtime[Any],
     tc: TestContext
   ): Eq[ZManaged[R, E, A]] = {
-    def run(r: R, zm: ZManaged[R, E, A]) = taskEffectInstance.toIO(zm.provide(r).reserve.flatMap(_.acquire).either)
+    def run(r: R, zm: ZManaged[R, E, A]) =
+      taskEffectInstance.toIO(
+        ZManaged.ReleaseMap.make.flatMap(releaseMap => zm.zio.provide((r, releaseMap)).map(_._2).either)
+      )
     Eq.instance((io1, io2) => Arbitrary.arbitrary[R].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2)))
   }
 

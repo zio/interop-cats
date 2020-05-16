@@ -109,6 +109,9 @@ abstract class CatsInstances extends CatsInstances1 {
   implicit final def monoidKInstance[R, E: Monoid]: MonoidK[ZIO[R, E, *]] =
     new CatsMonoidK[R, E]
 
+  implicit final def deferInstance[R, E]: Defer[ZIO[R, E, *]] =
+    new CatsDefer[R, E]
+
   implicit final def bifunctorInstance[R]: Bifunctor[ZIO[R, *, *]] =
     bifunctorInstance0.asInstanceOf[Bifunctor[ZIO[R, *, *]]]
 
@@ -161,6 +164,10 @@ sealed abstract class CatsInstances2 {
 
   private[this] final val semigroupKLossyInstance0: SemigroupK[ZIO[Any, Any, *]] =
     new CatsSemigroupKLossy[Any, Any]
+}
+
+private class CatsDefer[R, E] extends Defer[ZIO[R, E, ?]] {
+  def defer[A](fa: => ZIO[R, E, A]): ZIO[R, E, A] = ZIO.effectSuspendTotal(fa)
 }
 
 private class CatsConcurrentEffect[R](rts: Runtime[R])
