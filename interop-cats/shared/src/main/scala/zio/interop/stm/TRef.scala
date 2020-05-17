@@ -24,7 +24,7 @@ class TRef[F[+_], A] private (val underlying: ZTRef[A]) extends AnyVal {
   self =>
 
   /**
-   * See [[zio.stm.TRef#get]]
+   * See `zio.stm.TRef#get`
    */
   final def get: STM[F, A] = new STM(underlying.get)
 
@@ -34,30 +34,30 @@ class TRef[F[+_], A] private (val underlying: ZTRef[A]) extends AnyVal {
   def mapK[G[+_]]: TRef[G, A] = new TRef(underlying)
 
   /**
-   * See [[zio.stm.TRef#modify]]
+   * See `zio.stm.TRef#modify`
    */
   final def modify[B](f: A => (B, A)): STM[F, B] = new STM(underlying.modify(f))
 
   /**
-   * See [[zio.stm.TRef#modifySome]]
+   * See `zio.stm.TRef#modifySome`
    */
   final def modifySome[B](default: B)(f: PartialFunction[A, (B, A)]): STM[F, B] =
     new STM(underlying.modifySome(default)(f))
 
   /**
-   * See [[zio.stm.TRef#set]]
+   * See `zio.stm.TRef#set`
    */
   final def set(newValue: A): STM[F, Unit] = new STM(underlying.set(newValue))
 
   override final def toString = underlying.toString
 
   /**
-   * See [[zio.stm.TRef#update]]
+   * See `zio.stm.TRef#update`
    */
   final def update(f: A => A): STM[F, A] = new STM(underlying.updateAndGet(f))
 
   /**
-   * See [[zio.stm.TRef#updateSome]]
+   * See `zio.stm.TRef#updateSome`
    */
   final def updateSome(f: PartialFunction[A, A]): STM[F, A] = new STM(underlying.updateSomeAndGet(f))
 }
