@@ -8,7 +8,7 @@ trait GenStreamInteropCats {
   /**
    * Given a generator for `List[A]`, produces a generator for `Stream[E, A]` using the `Stream.fromIterable` constructor.
    */
-  def genSuccess[E, A: Arbitrary]: Gen[Stream[E, A]] = Arbitrary.arbitrary[A].map(Stream.succeedNow)
+  def genSuccess[E, A: Arbitrary]: Gen[Stream[E, A]] = Arbitrary.arbitrary[A].map(Stream.succeed(_))
 
   /**
    * Given a generator for `E`, produces a generator for `Stream[E, A]` using the `Stream.fail` constructor.

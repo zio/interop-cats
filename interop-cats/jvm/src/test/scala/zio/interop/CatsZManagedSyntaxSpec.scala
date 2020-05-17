@@ -3,8 +3,6 @@ package zio.interop
 import java.util.concurrent.TimeUnit
 
 import cats.effect.{ ContextShift, ExitCase, Resource, IO => CIO }
-import cats.syntax.apply._
-import cats.syntax.functor._
 import org.specs2.Specification
 import org.specs2.specification.AroundTimeout
 import zio.interop.catz._
@@ -318,7 +316,7 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout {
           )
           resource = managed.toResource[CIO]
 
-          _ <- IO {
+          _ <- blocking.effectBlockingInterrupt {
                 resource
                   .use(_ => CIO.unit)
                   .start
@@ -328,8 +326,8 @@ class CatsZManagedSyntaxSpec extends Specification with AroundTimeout {
                         .flatMap(_ => f.cancel)
                   )
                   .unsafeRunSync()
-              }
-          _   <- endLatch.await.timeout(zio.duration.Duration(10, TimeUnit.SECONDS))
+              }.timeoutFail("startLatch timed out")(zio.duration.Duration(10, TimeUnit.SECONDS))
+          _   <- endLatch.await.timeoutFail("endLatch timed out")(zio.duration.Duration(10, TimeUnit.SECONDS))
           res <- release.get
         } yield res must_=== true).provideLayer(ZEnv.live)
       }

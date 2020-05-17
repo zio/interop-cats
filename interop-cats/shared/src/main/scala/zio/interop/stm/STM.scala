@@ -211,11 +211,11 @@ object STM {
 
   final def retry[F[+_]]: STM[F, Nothing] = new STM(ZSTM.retry)
 
-  final def succeed[F[+_], A](a: A): STM[F, A] = new STM(ZSTM.succeed(a))
+  final def succeed[F[+_], A](a: => A): STM[F, A] = new STM(ZSTM.succeed(a))
 
   @deprecated("use succeed", "2.0.0.0")
   final def succeedLazy[F[+_], A](a: => A): STM[F, A] =
     new STM(ZSTM.succeed(a))
 
-  final def unit[F[+_]]: STM[F, Unit] = succeed(())
+  final def unit[F[+_]]: STM[F, Unit] = new STM(ZSTM.unit)
 }

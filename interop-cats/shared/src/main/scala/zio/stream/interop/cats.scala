@@ -149,21 +149,14 @@ private class CatsParallel[R, E](final override val monad: Monad[ZStream[R, E, *
 
 private class CatsParApplicative[R, E] extends CommutativeApplicative[ParStream[R, E, *]] {
 
-  private[this] def liftOption[A, B, C](f: (A, B) => C): (Option[A], Option[B]) => Option[C] =
-    (oa, ob) =>
-      (oa, ob) match {
-        case (Some(a), Some(b)) => Some(f(a, b))
-        case _                  => None
-      }
-
   final override def pure[A](x: A): ParStream[R, E, A] =
     Par(ZStream.succeed(x))
 
   final override def map2[A, B, Z](fa: ParStream[R, E, A], fb: ParStream[R, E, B])(f: (A, B) => Z): ParStream[R, E, Z] =
-    Par(Par.unwrap(fa).zipWith(Par.unwrap(fb))(liftOption(f)))
+    Par(Par.unwrap(fa).zipWith(Par.unwrap(fb))(f))
 
   final override def ap[A, B](ff: ParStream[R, E, A => B])(fa: ParStream[R, E, A]): ParStream[R, E, B] =
-    Par(Par.unwrap(ff).zipWith(Par.unwrap(fa))(liftOption(_(_))))
+    Par(Par.unwrap(ff).zipWith(Par.unwrap(fa))(_(_)))
 
   final override def product[A, B](fa: ParStream[R, E, A], fb: ParStream[R, E, B]): ParStream[R, E, (A, B)] =
     Par(Par.unwrap(fa).zip(Par.unwrap(fb)))
