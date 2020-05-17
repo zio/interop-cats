@@ -17,11 +17,13 @@
 package zio
 package interop
 
+import cats.~>
 import cats.arrow.FunctionK
 import cats.effect.Resource.{ Allocate, Bind, Suspend }
-import cats.effect.{ Async, Effect, LiftIO, Resource, Sync, IO => CIO }
-import cats.{ Applicative, Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
+import cats.effect.{ Async, Effect, ExitCase, LiftIO, Resource, Sync, IO => CIO }
+import cats.{ Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
 import cats.arrow.ArrowChoice
+import zio.ZManaged.ReleaseMap
 
 trait CatsZManagedSyntax {
   import scala.language.implicitConversions
@@ -46,12 +48,16 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
   def toManagedZIO: ZManaged[R, E, A] = {
     def go[A1](res: Resource[ZIO[R, E, ?], A1]): ZManaged[R, E, A1] =
       res match {
-        case Allocate(resource) =>
-          ZManaged(resource.map { case (a, r) => Reservation(ZIO.succeed(a), e => r(exitToExitCase(e)).orDie) })
-        case Bind(source, fs) =>
-          go(source).flatMap(s => go(fs(s)))
-        case Suspend(resource) =>
-          ZManaged.unwrap(resource.map(go))
+        case alloc: Allocate[ZIO[R, E, ?], A1] =>
+          ZManaged.makeReserve(alloc.resource.map {
+            case (a, r) => Reservation(ZIO.succeedNow(a), e => r(exitToExitCase(e)).orDie)
+          })
+
+        case bind: Bind[ZIO[R, E, ?], a, A1] =>
+          go(bind.source).flatMap(s => go(bind.fs(s)))
+
+        case suspend: Suspend[ZIO[R, E, ?], A1] =>
+          ZManaged.unwrap(suspend.resource.map(go))
       }
 
     go(resource)
@@ -65,28 +71,37 @@ final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) 
    * Beware that unhandled error during release of the resource will result in the fiber dying.
    */
   def toManaged[R](implicit L: LiftIO[ZIO[R, Throwable, ?]], F: Effect[F]): ZManaged[R, Throwable, A] = {
-    def go[A1](resource: Resource[CIO, A1]): ZManaged[R, Throwable, A1] =
-      resource match {
-        case Allocate(res) =>
-          ZManaged(L.liftIO(res.map {
-            case (a, r) => Reservation(ZIO.succeed(a), e => L.liftIO(r(exitToExitCase(e))).orDie)
-          }))
-        case Bind(source, fs) =>
-          go(source).flatMap(s => go(fs(s)))
-        case Suspend(res) =>
-          ZManaged.unwrap(L.liftIO(res).map(go))
-      }
+    import catz.core._
 
-    go(resource.mapK(FunctionK.lift(F.toIO)))
+    new ZIOResourceSyntax(
+      resource.mapK(Lambda[F ~> ZIO[R, Throwable, ?]](L liftIO F.toIO(_)))
+    ).toManagedZIO
   }
 }
 
 final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) extends AnyVal {
 
-  def toResourceZIO(implicit ev: Applicative[ZIO[R, E, ?]]): Resource[ZIO[R, E, ?], A] =
-    Resource
-      .makeCase(managed.reserve)((r, e) => r.release(exitCaseToExit(e)).unit)
-      .evalMap(_.acquire)
+  def toResourceZIO: Resource[ZIO[R, E, ?], A] =
+    Resource.suspend {
+      ZManaged.ReleaseMap.make.bracketExit(
+        release = (releaseMap: ReleaseMap, exit: Exit[E, _]) =>
+          exit match {
+            case Exit.Success(_) => UIO.unit
+            case Exit.Failure(_) => releaseMap.releaseAll(exit, ExecutionStrategy.Sequential)
+          },
+        use = releaseMap =>
+          managed.zio.provideSome[R]((_, releaseMap)).map {
+            case (_, a) =>
+              Resource.applyCase(ZIO.succeedNow {
+                (
+                  a,
+                  (exitCase: ExitCase[Throwable]) =>
+                    releaseMap.releaseAll(exitCaseToExit(exitCase), ExecutionStrategy.Sequential).unit
+                )
+              })
+          }
+      )
+    }
 
   def toResource[F[_]](implicit F: Async[F], ev: Effect[ZIO[R, E, ?]]): Resource[F, A] =
     toResourceZIO.mapK(Lambda[FunctionK[ZIO[R, E, ?], F]](F liftIO ev.toIO(_)))
@@ -115,7 +130,7 @@ trait CatsZManagedInstances extends CatsZManagedInstances1 {
 
   implicit def monoidZManagedInstances[R, E, A](implicit ev: Monoid[A]): Monoid[ZManaged[R, E, A]] =
     new Monoid[ZManaged[R, E, A]] {
-      override def empty: ZManaged[R, E, A] = ZManaged.succeed(ev.empty)
+      override def empty: ZManaged[R, E, A] = ZManaged.succeedNow(ev.empty)
 
       override def combine(x: ZManaged[R, E, A], y: ZManaged[R, E, A]): ZManaged[R, E, A] = x.zipWith(y)(ev.combine)
     }
@@ -135,7 +150,7 @@ sealed trait CatsZManagedInstances1 extends CatsZManagedInstances2 {
 
   implicit def bifunctorZManagedInstances[R]: Bifunctor[ZManaged[R, ?, ?]] = new Bifunctor[ZManaged[R, ?, ?]] {
     override def bimap[A, B, C, D](fab: ZManaged[R, A, B])(f: A => C, g: B => D): ZManaged[R, C, D] =
-      fab.mapError(f).map(g)
+      fab.bimap(f, g)
   }
 
   implicit def arrowChoiceURManagedInstances[E]: ArrowChoice[URManaged] =
@@ -148,14 +163,14 @@ sealed trait CatsZManagedInstances2 {
 }
 
 private class CatsZManagedMonad[R, E] extends Monad[ZManaged[R, E, ?]] {
-  override def pure[A](x: A): ZManaged[R, E, A] = ZManaged.succeed(x)
+  override def pure[A](x: A): ZManaged[R, E, A] = ZManaged.succeedNow(x)
 
   override def flatMap[A, B](fa: ZManaged[R, E, A])(f: A => ZManaged[R, E, B]): ZManaged[R, E, B] = fa.flatMap(f)
 
   override def tailRecM[A, B](a: A)(f: A => ZManaged[R, E, Either[A, B]]): ZManaged[R, E, B] =
     ZManaged.suspend(f(a)).flatMap {
       case Left(nextA) => tailRecM(nextA)(f)
-      case Right(b)    => ZManaged.succeed(b)
+      case Right(b)    => ZManaged.succeedNow(b)
     }
 }
 
@@ -178,46 +193,22 @@ private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] w
 
   override final def delay[A](thunk: => A): ZManaged[R, Throwable, A] = ZManaged.fromEffect(ZIO.effect(thunk))
 
-  override final def suspend[A](thunk: => zio.ZManaged[R, Throwable, A]): zio.ZManaged[R, Throwable, A] =
+  override final def suspend[A](thunk: => ZManaged[R, Throwable, A]): ZManaged[R, Throwable, A] =
     ZManaged.unwrap(ZIO.effect(thunk))
 
   override def bracketCase[A, B](
-    acquire: zio.ZManaged[R, Throwable, A]
-  )(
-    use: A => zio.ZManaged[R, Throwable, B]
-  )(
-    release: (A, cats.effect.ExitCase[Throwable]) => zio.ZManaged[R, Throwable, Unit]
-  ): zio.ZManaged[R, Throwable, B] =
+    acquire: ZManaged[R, Throwable, A]
+  )(use: A => ZManaged[R, Throwable, B])(
+    release: (A, cats.effect.ExitCase[Throwable]) => ZManaged[R, Throwable, Unit]
+  ): ZManaged[R, Throwable, B] =
     ZManaged {
-      Ref.make[List[Exit[_, _] => URIO[R, _]]](Nil).map { finalizers =>
-        Reservation(
-          ZIO.uninterruptibleMask { restore =>
-            for {
-              a <- for {
-                    resA <- acquire.reserve
-                    _    <- finalizers.update(resA.release :: _)
-                    a    <- restore(resA.acquire)
-                  } yield a
-              exitB <- (for {
-                        resB <- restore(use(a).reserve.uninterruptible)
-                        _    <- finalizers.update(resB.release :: _)
-                        b    <- restore(resB.acquire)
-                      } yield b).run
-              _ <- for {
-                    resC <- release(a, exitToExitCase(exitB)).reserve
-                    _    <- finalizers.update(resC.release :: _)
-                    _    <- restore(resC.acquire)
-                  } yield ()
-              b <- ZIO.done(exitB)
-            } yield b
-          },
-          exitU =>
-            for {
-              fs    <- finalizers.get
-              exits <- ZIO.foreach(fs)(_(exitU).run)
-              _     <- ZIO.done(Exit.collectAll(exits).getOrElse(Exit.unit))
-            } yield ()
-        )
+      ZIO.uninterruptibleMask { restore =>
+        (for {
+          a     <- acquire
+          exitB <- ZManaged(restore(use(a).zio)).run
+          _     <- release(a, exitToExitCase(exitB))
+          b     <- ZManaged.done(exitB)
+        } yield b).zio
       }
     }
 }

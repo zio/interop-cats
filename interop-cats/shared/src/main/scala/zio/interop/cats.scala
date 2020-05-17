@@ -109,6 +109,9 @@ abstract class CatsInstances extends CatsInstances1 {
   implicit final def monoidKInstance[R, E: Monoid]: MonoidK[ZIO[R, E, *]] =
     new CatsMonoidK[R, E]
 
+  implicit final def deferInstance[R, E]: Defer[ZIO[R, E, *]] =
+    new CatsDefer[R, E]
+
   implicit final def bifunctorInstance[R]: Bifunctor[ZIO[R, *, *]] =
     bifunctorInstance0.asInstanceOf[Bifunctor[ZIO[R, *, *]]]
 
@@ -163,6 +166,10 @@ sealed abstract class CatsInstances2 {
     new CatsSemigroupKLossy[Any, Any]
 }
 
+private class CatsDefer[R, E] extends Defer[ZIO[R, E, ?]] {
+  def defer[A](fa: => ZIO[R, E, A]): ZIO[R, E, A] = ZIO.effectSuspendTotal(fa)
+}
+
 private class CatsConcurrentEffect[R](rts: Runtime[R])
     extends CatsConcurrent[R]
     with effect.ConcurrentEffect[RIO[R, *]] {
@@ -181,10 +188,10 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
   ): effect.SyncIO[effect.CancelToken[RIO[R, *]]] =
     effect.SyncIO {
       rts.unsafeRun {
-        RIO.descriptor
+        ZIO.descriptor
           .bracketExit(
             (descriptor, exit: Exit[Throwable, A]) =>
-              RIO.effectTotal {
+              ZIO.effectTotal {
                 exit match {
                   case Exit.Failure(cause) if !cause.interruptors.forall(_ == descriptor.id) => ()
                   case _ =>
@@ -216,7 +223,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     Concurrent.liftIO(ioa)(this)
 
   override final def cancelable[A](k: (Either[Throwable, A] => Unit) => effect.CancelToken[RIO[R, *]]): RIO[R, A] =
-    RIO.effectAsyncInterrupt[R, A] { kk =>
+    ZIO.effectAsyncInterrupt { kk =>
       val token = k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow))
       Left(token.orDie)
     }
@@ -232,32 +239,32 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     fb: RIO[R, B]
   ): RIO[R, Either[(A, effect.Fiber[RIO[R, *], B]), (effect.Fiber[RIO[R, *], A], B)]] =
     (fa.interruptible raceWith fb.interruptible)(
-      { case (l, f) => l.fold(f.interrupt *> RIO.halt(_), RIO.succeedNow).map(lv => Left((lv, toFiber(f)))) },
-      { case (r, f) => r.fold(f.interrupt *> RIO.halt(_), RIO.succeedNow).map(rv => Right((toFiber(f), rv))) }
+      { case (l, f) => l.fold(f.interrupt *> ZIO.halt(_), ZIO.succeedNow).map(lv => Left((lv, toFiber(f)))) },
+      { case (r, f) => r.fold(f.interrupt *> ZIO.halt(_), ZIO.succeedNow).map(rv => Right((toFiber(f), rv))) }
     )
 
   override final def never[A]: RIO[R, A] =
-    RIO.never
+    ZIO.never
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => Unit): RIO[R, A] =
-    RIO.effectAsync(kk => k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow)))
+    ZIO.effectAsync(kk => k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow)))
 
   override final def asyncF[A](k: (Either[Throwable, A] => Unit) => RIO[R, Unit]): RIO[R, A] =
-    RIO.effectAsyncM(kk => k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow)).orDie)
+    ZIO.effectAsyncM(kk => k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow)).orDie)
 
   override final def suspend[A](thunk: => RIO[R, A]): RIO[R, A] =
-    RIO.effectSuspend(thunk)
+    ZIO.effectSuspend(thunk)
 
   override final def delay[A](thunk: => A): RIO[R, A] =
-    RIO.effect(thunk)
+    ZIO.effect(thunk)
 
   override final def bracket[A, B](acquire: RIO[R, A])(use: A => RIO[R, B])(release: A => RIO[R, Unit]): RIO[R, B] =
-    RIO.bracket[R, A, B](acquire, release(_).orDie, use)
+    ZIO.bracket(acquire, release(_: A).orDie, use)
 
   override final def bracketCase[A, B](acquire: RIO[R, A])(use: A => RIO[R, B])(
     release: (A, ExitCase[Throwable]) => RIO[R, Unit]
   ): RIO[R, B] =
-    RIO.bracketExit[R, A, B](acquire, (a, exit) => release(a, exitToExitCase(exit)).orDie, use)
+    ZIO.bracketExit(acquire, (a: A, exit: Exit[Throwable, B]) => release(a, exitToExitCase(exit)).orDie, use)
 
   override final def uncancelable[A](fa: RIO[R, A]): RIO[R, A] =
     fa.uninterruptible
@@ -270,7 +277,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
 }
 
 private class CatsMonadError[R, E] extends MonadError[ZIO[R, E, *], E] with StackSafeMonad[ZIO[R, E, *]] {
-  override final def pure[A](a: A): ZIO[R, E, A]                                         = ZIO.succeed(a)
+  override final def pure[A](a: A): ZIO[R, E, A]                                         = ZIO.succeedNow(a)
   override final def map[A, B](fa: ZIO[R, E, A])(f: A => B): ZIO[R, E, B]                = fa.map(f)
   override final def flatMap[A, B](fa: ZIO[R, E, A])(f: A => ZIO[R, E, B]): ZIO[R, E, B] = fa.flatMap(f)
   override final def flatTap[A, B](fa: ZIO[R, E, A])(f: A => ZIO[R, E, B]): ZIO[R, E, A] = fa.tap(f)
@@ -338,7 +345,7 @@ private class CatsParallel[R, E](final override val monad: Monad[ZIO[R, E, *]]) 
 private class CatsParApplicative[R, E] extends CommutativeApplicative[ParIO[R, E, *]] {
 
   final override def pure[A](x: A): ParIO[R, E, A] =
-    Par(ZIO.succeed(x))
+    Par(ZIO.succeedNow(x))
 
   final override def map2[A, B, Z](fa: ParIO[R, E, A], fb: ParIO[R, E, B])(f: (A, B) => Z): ParIO[R, E, Z] =
     Par(Par.unwrap(fa).interruptible.zipWithPar(Par.unwrap(fb).interruptible)(f))
