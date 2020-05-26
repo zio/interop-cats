@@ -53,7 +53,7 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
     self flatMap f
 
   /**
-   * See [[zio.stm.ZSTM#collect]]
+   * See zio.stm.ZSTM#collect
    */
   final def collect[B](pf: PartialFunction[A, B]): STM[F, B] = new STM(underlying.collect(pf))
 
