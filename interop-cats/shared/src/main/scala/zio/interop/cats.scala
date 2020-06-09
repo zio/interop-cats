@@ -121,6 +121,8 @@ abstract class CatsInstances extends CatsInstances1 {
   implicit final def contravariantInstance[E, A]: Contravariant[ZIO[*, E, A]] =
     contravariantInstance0.asInstanceOf[Contravariant[ZIO[*, E, A]]]
 
+  implicit final def nonEmptyChunkReducibleInstance: Reducible[NonEmptyChunk] = new NonEmptyChunkReducible
+
   private[this] val bifunctorInstance0: Bifunctor[ZIO[Any, *, *]]           = new CatsBifunctor
   private[this] val zioArrowInstance0: ArrowChoice[ZIO[*, Any, *]]          = new CatsArrow
   private[this] val contravariantInstance0: Contravariant[ZIO[*, Any, Any]] = new CatsContravariant
@@ -384,4 +386,19 @@ private class CatsArrow[E] extends ArrowChoice[ZIO[*, E, *]] {
 final private class CatsContravariant[E, T] extends Contravariant[ZIO[*, E, T]] {
   override def contramap[A, B](fa: ZIO[A, E, T])(f: B => A): ZIO[B, E, T] =
     ZIO.accessM[B](b => fa.provide(f(b)))
+}
+
+final private class NonEmptyChunkReducible extends Reducible[NonEmptyChunk] {
+
+  override def foldLeft[A, B](fa: NonEmptyChunk[A], b: B)(f: (B, A) => B): B = fa.foldLeft(b)(f)
+  override def foldRight[A, B](fa: NonEmptyChunk[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
+    fa.foldRight(lb)(f)
+
+  override def reduceLeftTo[A, B](fa: NonEmptyChunk[A])(f: A => B)(g: (B, A) => B): B =
+    fa.tail.foldLeft(f(fa.head))(g)
+
+  override def reduceRightTo[A, B](fa: NonEmptyChunk[A])(f: A => B)(g: (A, Eval[B]) => Eval[B]): Eval[B] =
+    if (fa.tail.isEmpty) Eval.later(f(fa.head))
+    else fa.foldRight(Eval.later(f(fa.last)))(g)
+
 }
