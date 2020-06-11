@@ -45,7 +45,7 @@ class catzSpec extends catzSpecZIOBase {
   // NonEmptyChunk Tests
   checkAll(
     "Reducible[NonEmptyChunk]", {
-      val intGen: Gen[Int] = Gen.chooseNum(Int.MinValue, Int.MaxValue)
+      val byteGen: Gen[Byte] = Gen.chooseNum(Byte.MinValue, Byte.MaxValue)
       def nonEmptyListGen[A](gen: => Gen[A]): Gen[NonEmptyList[A]] =
         for {
           head <- gen
@@ -55,11 +55,11 @@ class catzSpec extends catzSpecZIOBase {
       def nonEmptyChunk[A](gen: => Gen[A]): Gen[NonEmptyChunk[A]] =
         nonEmptyListGen(gen).map(nel => NonEmptyChunk.fromCons(::(nel.head, nel.tail)))
 
-      implicit val arbitratyNonEmptyChunk: Arbitrary[NonEmptyChunk[Int]] = Arbitrary(nonEmptyChunk(intGen))
-      implicit val arbitratyNonEmptyChunkOpt: Arbitrary[NonEmptyChunk[Option[Int]]] =
-        Arbitrary(nonEmptyChunk(Gen.option(intGen)))
+      implicit val arbitratyNonEmptyChunk: Arbitrary[NonEmptyChunk[Byte]] = Arbitrary(nonEmptyChunk(byteGen))
+      implicit val arbitratyNonEmptyChunkOpt: Arbitrary[NonEmptyChunk[Option[Byte]]] =
+        Arbitrary(nonEmptyChunk(Gen.option(byteGen)))
 
-      ReducibleTests[NonEmptyChunk].reducible[Option, Int, Int]
+      ReducibleTests[NonEmptyChunk].reducible[Option, Byte, Byte]
     }
   )
 
