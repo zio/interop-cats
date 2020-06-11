@@ -44,8 +44,7 @@ class catzSpec extends catzSpecZIOBase {
 
   // NonEmptyChunk Tests
   checkAll(
-    "Reducible[NonEmptyChunk]",
-    {
+    "Reducible[NonEmptyChunk]", {
       val intGen: Gen[Int] = Gen.chooseNum(Int.MinValue, Int.MaxValue)
       def nonEmptyListGen[A](gen: => Gen[A]): Gen[NonEmptyList[A]] =
         for {
