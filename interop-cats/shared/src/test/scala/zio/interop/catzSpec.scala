@@ -13,6 +13,7 @@ import cats.{ Monad, SemigroupK }
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.interop.catz._
 import zio.{ IO, _ }
+import cats.data.NonEmptyList
 
 class catzSpec extends catzSpecZIOBase {
 
@@ -40,6 +41,28 @@ class catzSpec extends catzSpecZIOBase {
     implicit tc => ArrowChoiceTests[ZIO[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
   )
   checkAllAsync("Contravariant[ZIO]", implicit tc => ContravariantTests[ZIO[*, Int, Int]].contravariant[Int, Int, Int])
+
+  // NonEmptyChunk Tests
+  checkAll(
+    "Reducible[NonEmptyChunk]",
+    {
+      val intGen: Gen[Int] = Gen.chooseNum(Int.MinValue, Int.MaxValue)
+      def nonEmptyListGen[A](gen: => Gen[A]): Gen[NonEmptyList[A]] =
+        for {
+          head <- gen
+          tail <- Gen.listOf(gen)
+        } yield NonEmptyList(head, tail)
+
+      def nonEmptyChunk[A](gen: => Gen[A]): Gen[NonEmptyChunk[A]] =
+        nonEmptyListGen(gen).map(nel => NonEmptyChunk.fromCons(::(nel.head, nel.tail)))
+
+      implicit val arbitratyNonEmptyChunk: Arbitrary[NonEmptyChunk[Int]] = Arbitrary(nonEmptyChunk(intGen))
+      implicit val arbitratyNonEmptyChunkOpt: Arbitrary[NonEmptyChunk[Option[Int]]] =
+        Arbitrary(nonEmptyChunk(Gen.option(intGen)))
+
+      ReducibleTests[NonEmptyChunk].reducible[Option, Int, Int]
+    }
+  )
 
   // ZManaged Tests
   checkAllAsync("Monad[ZManaged]", implicit tc => MonadTests[ZManaged[Any, Throwable, *]].apply[Int, Int, Int])

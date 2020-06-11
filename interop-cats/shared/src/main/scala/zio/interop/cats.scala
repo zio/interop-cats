@@ -121,7 +121,8 @@ abstract class CatsInstances extends CatsInstances1 {
   implicit final def contravariantInstance[E, A]: Contravariant[ZIO[*, E, A]] =
     contravariantInstance0.asInstanceOf[Contravariant[ZIO[*, E, A]]]
 
-  implicit final def nonEmptyChunkReducibleInstance: Reducible[NonEmptyChunk] = new NonEmptyChunkReducible
+  implicit final val nonEmptyChunkReducibleInstance: Reducible[NonEmptyChunk] = new NonEmptyChunkReducible
+  implicit final val nonEmptyChunkEqInstance: Eq[NonEmptyChunk[Int]]          = new NonEmptyChunkEq
 
   private[this] val bifunctorInstance0: Bifunctor[ZIO[Any, *, *]]           = new CatsBifunctor
   private[this] val zioArrowInstance0: ArrowChoice[ZIO[*, Any, *]]          = new CatsArrow
@@ -391,14 +392,35 @@ final private class CatsContravariant[E, T] extends Contravariant[ZIO[*, E, T]] 
 final private class NonEmptyChunkReducible extends Reducible[NonEmptyChunk] {
 
   override def foldLeft[A, B](fa: NonEmptyChunk[A], b: B)(f: (B, A) => B): B = fa.foldLeft(b)(f)
-  override def foldRight[A, B](fa: NonEmptyChunk[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
-    fa.foldRight(lb)(f)
+  override def foldRight[A, B](fa: NonEmptyChunk[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = {
+    val idx = fa.length - 1
+    val acc = lb
+    def loop(idx: Int, acc: Eval[B]): Eval[B] =
+      if (idx < 0) acc
+      else loop(idx - 1, Eval.defer(f(fa(idx), acc)))
+
+    Eval.defer(loop(idx, acc))
+  }
 
   override def reduceLeftTo[A, B](fa: NonEmptyChunk[A])(f: A => B)(g: (B, A) => B): B =
     fa.tail.foldLeft(f(fa.head))(g)
 
-  override def reduceRightTo[A, B](fa: NonEmptyChunk[A])(f: A => B)(g: (A, Eval[B]) => Eval[B]): Eval[B] =
-    if (fa.tail.isEmpty) Eval.later(f(fa.head))
-    else fa.foldRight(Eval.later(f(fa.last)))(g)
+  override def reduceRightTo[A, B](fa: NonEmptyChunk[A])(f: A => B)(g: (A, Eval[B]) => Eval[B]): Eval[B] = {
+    val idx = fa.length - 2
+    val acc = f(fa.last)
+    def loop(idx: Int, acc: Eval[B]): Eval[B] =
+      if (idx < 0) acc
+      else loop(idx - 1, Eval.defer(g(fa(idx), acc)))
+
+    Eval.defer(loop(idx, Eval.now(acc)))
+  }
+
+}
+
+final private class NonEmptyChunkEq[A] extends Eq[NonEmptyChunk[A]] {
+
+  override def eqv(x: NonEmptyChunk[A], y: NonEmptyChunk[A]): Boolean =
+    if (x.length != y.length) false
+    else x.zip(y).forall { case (a, b) => a == b }
 
 }
