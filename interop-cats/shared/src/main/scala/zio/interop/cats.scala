@@ -122,7 +122,7 @@ abstract class CatsInstances extends CatsInstances1 {
     contravariantInstance0.asInstanceOf[Contravariant[ZIO[*, E, A]]]
 
   implicit final val nonEmptyChunkReducibleInstance: Reducible[NonEmptyChunk] = new NonEmptyChunkReducible
-  implicit final def nonEmptyChunkEqInstance[A]: Eq[NonEmptyChunk[A]]         = new NonEmptyChunkEq[A]
+  implicit final def nonEmptyChunkEqInstance[A: Eq]: Eq[NonEmptyChunk[A]]     = new NonEmptyChunkEq[A]
 
   private[this] val bifunctorInstance0: Bifunctor[ZIO[Any, *, *]]           = new CatsBifunctor
   private[this] val zioArrowInstance0: ArrowChoice[ZIO[*, Any, *]]          = new CatsArrow
@@ -417,10 +417,10 @@ final private class NonEmptyChunkReducible extends Reducible[NonEmptyChunk] {
 
 }
 
-final private class NonEmptyChunkEq[A] extends Eq[NonEmptyChunk[A]] {
+final private class NonEmptyChunkEq[A: Eq] extends Eq[NonEmptyChunk[A]] {
 
   override def eqv(x: NonEmptyChunk[A], y: NonEmptyChunk[A]): Boolean =
     if (x.length != y.length) false
-    else x.zip(y).forall { case (a, b) => a == b }
+    else x.zip(y).forall { case (a, b) => Eq[A].eqv(a, b) }
 
 }
