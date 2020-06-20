@@ -3,11 +3,11 @@ package zio.stream.interop
 import cats.Eq
 import cats.effect.laws.util.TestContext
 import cats.implicits._
-import org.scalacheck.{Arbitrary, Cogen, Gen}
+import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.interop.catz.taskEffectInstance
 import zio.interop.catzSpecBase
 import zio.stream._
-import zio.{Chunk, ZIO}
+import zio.{ Chunk, ZIO }
 
 private[interop] trait catzSpecZStreamBase
     extends catzSpecBase
