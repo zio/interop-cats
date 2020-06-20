@@ -3,16 +3,18 @@ package zio.stream.interop
 import cats.Eq
 import cats.effect.laws.util.TestContext
 import cats.implicits._
-import org.scalacheck.{ Arbitrary, Cogen, Gen }
+import org.scalacheck.{Arbitrary, Cogen, Gen}
 import zio.interop.catz.taskEffectInstance
 import zio.interop.catzSpecBase
 import zio.stream._
-import zio.ZIO
+import zio.{Chunk, ZIO}
 
 private[interop] trait catzSpecZStreamBase
     extends catzSpecBase
     with catzSpecZStreamBaseLowPriority
     with GenStreamInteropCats {
+
+  implicit def chunkEq[A](implicit ev: Eq[A]): Eq[Chunk[A]] = (x: Chunk[A], y: Chunk[A]) => x.corresponds(y)(ev.eqv)
 
   implicit def zstreamEqStream[E: Eq, A: Eq](implicit tc: TestContext): Eq[Stream[E, A]] = Eq.by(_.either)
 

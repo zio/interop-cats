@@ -201,8 +201,8 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
             _ => fa
           )
           .interruptible
-          .forkWithErrorHandler(_ => ZIO.unit)
-          .tap(ZIO.disown)
+          .onError(_.failureOrCause.fold(_ => ZIO.unit, ZIO.halt(_)))
+          .forkDaemon
           .map(_.interrupt.unit)
       }
     }
