@@ -9,11 +9,11 @@ trait FS2StreamSyntax {
 
   import scala.language.implicitConversions
 
-  implicit final def fs2TaskStreamSyntax[R, E <: Throwable, A](stream: Stream[Task, A]): FS2TaskStreamSyntax[R, E, A] =
-    new FS2TaskStreamSyntax(stream)
+  implicit final def fs2RIOStreamSyntax[R, A](stream: Stream[RIO[R, *], A]): FS2RIOStreamSyntax[R, A] =
+    new FS2RIOStreamSyntax(stream)
 }
 
-final class FS2TaskStreamSyntax[R, E <: Throwable, A](private val stream: Stream[Task, A]) {
+final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, *], A]) {
 
   /**
    * Convert a fs2.Stream into a ZStream.
@@ -24,18 +24,18 @@ final class FS2TaskStreamSyntax[R, E <: Throwable, A](private val stream: Stream
    * @note when possible use only power of 2 capacities; this will
    * provide better performance of the queue.
    */
-  def toZStream(queueSize: Int = 16): ZStream[R, Throwable, A] =
+  def toZStream[R1 <: R](queueSize: Int = 16): ZStream[R1, Throwable, A] =
     if (queueSize > 1)
       toZStreamChunk(queueSize)
     else
       toZStreamSingle
 
-  private def toZStreamSingle: ZStream[R, Throwable, A] =
+  private def toZStreamSingle[R1 <: R]: ZStream[R1, Throwable, A] =
     ZStream.managed {
       for {
         queue <- Queue.bounded[Take[Throwable, A]](1).toManaged(_.shutdown)
         _ <- ZIO
-              .runtime[R]
+              .runtime[R1]
               .toManaged_
               .flatMap { implicit runtime =>
                 (stream.evalTap(a => queue.offer(Take.single(a))) ++ fs2.Stream
@@ -50,12 +50,12 @@ final class FS2TaskStreamSyntax[R, E <: Throwable, A](private val stream: Stream
       } yield ZStream.fromQueue(queue).flattenTake
     }.flatten
 
-  private def toZStreamChunk(queueSize: Int): ZStream[R, Throwable, A] =
+  private def toZStreamChunk[R1 <: R](queueSize: Int): ZStream[R1, Throwable, A] =
     ZStream.managed {
       for {
         queue <- Queue.bounded[Take[Throwable, A]](queueSize).toManaged(_.shutdown)
         _ <- ZIO
-              .runtime[R]
+              .runtime[R1]
               .toManaged_
               .flatMap { implicit runtime =>
                 (stream
@@ -72,5 +72,4 @@ final class FS2TaskStreamSyntax[R, E <: Throwable, A](private val stream: Stream
               .fork
       } yield ZStream.fromQueue(queue).flattenTake
     }.flatten
-
 }

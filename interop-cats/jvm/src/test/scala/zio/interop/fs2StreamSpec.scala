@@ -1,12 +1,12 @@
 package zio.interop
 
 import fs2.Stream
-import zio.{ Chunk, Ref, Task }
+import zio.clock.Clock
+import zio.{ Chunk, RIO, Ref, Task }
 import zio.stream.ZStream
 import zio.test.Assertion.{ equalTo, fails }
 import zio.test._
 import zio.interop.catz._
-import zio.random.Random
 import zio.random.nextIntBetween
 
 object fs2StreamSpec extends DefaultRunnableSpec {
@@ -14,7 +14,7 @@ object fs2StreamSpec extends DefaultRunnableSpec {
 
   val exception = new Exception("Failed")
 
-  def spec: Spec[Random with Sized, TestFailure[Throwable], TestSuccess] = suite("test toZStream conversion")(
+  def spec = suite("test toZStream conversion")(
     testM("simple stream")(checkM(Gen.chunkOf(Gen.anyInt)) { chunk: Chunk[Int] =>
       for {
         fs2Stream <- Stream
@@ -91,6 +91,16 @@ object fs2StreamSpec extends DefaultRunnableSpec {
                       .toZStream(queueSize)
                       .runCollect
         zioStream <- ZStream.fromChunk(chunk).runCollect
+      } yield assert(fs2Stream)(equalTo(zioStream))
+    }),
+    testM("RIO")(checkM(Gen.chunkOfN(10)(Gen.anyLong)) { chunk =>
+      for {
+        zioStream <- ZStream.fromChunk(chunk).runCollect
+        queueSize <- nextIntBetween(2, 128)
+        fs2Stream <- Stream
+                      .fromIterator[RIO[Clock, *]](chunk.iterator)
+                      .toZStream(queueSize)
+                      .runCollect
       } yield assert(fs2Stream)(equalTo(zioStream))
     })
   )
