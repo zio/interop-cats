@@ -4,113 +4,98 @@ package interop
 import cats.effect
 import cats.effect.{ Concurrent, ConcurrentEffect, ContextShift, Sync }
 import fs2.Stream
-import org.specs2.Specification
-import org.specs2.concurrent.ExecutionEnv
-import org.specs2.execute._
-import org.specs2.specification.AroundTimeout
 import zio.interop.catz._
+import zio.test.Assertion.{ anything, equalTo }
+import zio.test._
+import zio.test.interop.catz.test._
 
 import scala.concurrent.ExecutionContext.global
 
-class ZioWithFs2Spec(implicit ee: ExecutionEnv) extends Specification with AroundTimeout {
+object Fs2ZioSpec extends DefaultRunnableSpec {
 
-  val runtime                                = Runtime.default
-  def unsafeRun[R, E, A](p: ZIO[ZEnv, E, A]) = runtime.unsafeRun(p)
-
-  def is =
-    s2"""
-  fs2 parJoin must
-    work if `F` is `cats.effect.IO`          ${simpleJoin(fIsCats)}
-    work if `F` is `zio.interop.Task` ${simpleJoin(fIsZio)}
-
-  fs2 resource handling must
-    work when fiber is failed                $bracketFail
-    work when fiber is terminated            $bracketTerminate
-    work when fiber is interrupted           $bracketInterrupt
-  """
-
-  def expectTimeoutFailure(res: Result) = res match {
-    case Skipped(m, e) if m contains "TIMEOUT" => Success(m, e)
-    case _                                     => Failure("Expected timeout")
-  }
-
-  def simpleJoin(ints: => List[Int]) = {
-    import scala.concurrent.duration._
-
-    upTo(5.seconds) {
-      ints must_=== List(1, 1)
-    }
-  }
-
-  import zio.duration._
+  def spec =
+    suite("ZIO with Fs2")(
+      suite("fs2 parJoin")(
+        testF("works if F is cats.effect.IO") {
+          testCaseJoin[cats.effect.IO].map { ints =>
+            assert(ints)(equalTo(List(1, 1)))
+          }
+        },
+        testM("works if F is zio.interop.Task") {
+          testCaseJoin[zio.Task].map { ints =>
+            assert(ints)(equalTo(List(1, 1)))
+          }
+        }
+      ),
+      suite("fs2 resource handling")(
+        testM("works when fiber is failed") {
+          bracketFail
+        },
+        testM("work when fiber is terminated") {
+          bracketTerminate
+        },
+        testM("work when fiber is interrupted") {
+          bracketInterrupt
+        }
+      )
+    )
 
   implicit val cs: ContextShift[effect.IO]                 = cats.effect.IO.contextShift(global)
   implicit val catsConcurrent: ConcurrentEffect[effect.IO] = cats.effect.IO.ioConcurrentEffect(cs)
 
-  def fIsCats = testCaseJoin[cats.effect.IO].unsafeRunSync()
+  def bracketFail: ZIO[Any, Nothing, TestResult] =
+    for {
+      started  <- Promise.make[Nothing, Unit]
+      released <- Promise.make[Nothing, Unit]
+      fail     <- Promise.make[Nothing, Unit]
+      _ <- Stream
+            .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
+            .evalMap[Task, Unit] { _ =>
+              fail.await *> IO.fail(new Exception())
+            }
+            .compile
+            .drain
+            .fork
 
-  def fIsZio: List[Int] =
-    unsafeRun(testCaseJoin[zio.Task])
+      _ <- started.await
+      _ <- fail.succeed(())
+      _ <- released.await
+    } yield assert(())(anything)
 
-  def bracketFail =
-    unsafeRun {
-      (for {
-        started  <- Promise.make[Nothing, Unit]
-        released <- Promise.make[Nothing, Unit]
-        fail     <- Promise.make[Nothing, Unit]
-        _ <- Stream
-              .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
-              .evalMap[Task, Unit] { _ =>
-                fail.await *> IO.fail(new Exception())
-              }
-              .compile
-              .drain
-              .fork
+  def bracketTerminate: ZIO[Any, Nothing, TestResult] =
+    for {
+      started   <- Promise.make[Nothing, Unit]
+      released  <- Promise.make[Nothing, Unit]
+      terminate <- Promise.make[Nothing, Unit]
+      _ <- Stream
+            .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
+            .evalMap[Task, Unit] { _ =>
+              terminate.await *> IO.die(new Exception())
+            }
+            .compile
+            .drain
+            .fork
 
-        _ <- started.await
-        _ <- fail.succeed(())
-        _ <- released.await
-      } yield ()).timeout(10.seconds).provideLayer(ZEnv.live)
-    } must beSome(())
+      _ <- started.await
+      _ <- terminate.succeed(())
+      _ <- released.await
+    } yield assert(())(anything)
 
-  def bracketTerminate =
-    unsafeRun {
-      (for {
-        started   <- Promise.make[Nothing, Unit]
-        released  <- Promise.make[Nothing, Unit]
-        terminate <- Promise.make[Nothing, Unit]
-        _ <- Stream
-              .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
-              .evalMap[Task, Unit] { _ =>
-                terminate.await *> IO.die(new Exception())
-              }
-              .compile
-              .drain
-              .fork
+  def bracketInterrupt: ZIO[Any, Nothing, TestResult] =
+    for {
+      started  <- Promise.make[Nothing, Unit]
+      released <- Promise.make[Nothing, Unit]
+      f <- Stream
+            .bracket(IO.unit)(_ => released.succeed(()).unit)
+            .evalMap[Task, Unit](_ => started.succeed(()) *> IO.never)
+            .compile
+            .drain
+            .fork
 
-        _ <- started.await
-        _ <- terminate.succeed(())
-        _ <- released.await
-      } yield ()).timeout(10.seconds).provideLayer(ZEnv.live)
-    } must beSome(())
-
-  def bracketInterrupt =
-    unsafeRun {
-      (for {
-        started  <- Promise.make[Nothing, Unit]
-        released <- Promise.make[Nothing, Unit]
-        f <- Stream
-              .bracket(IO.unit)(_ => released.succeed(()).unit)
-              .evalMap[Task, Unit](_ => started.succeed(()) *> IO.never)
-              .compile
-              .drain
-              .fork
-
-        _ <- started.await
-        _ <- f.interrupt
-        _ <- released.await
-      } yield ()).timeout(10.seconds).provideLayer(ZEnv.live)
-    } must beSome(())
+      _ <- started.await
+      _ <- f.interrupt
+      _ <- released.await
+    } yield assert(())(anything)
 
   def testCaseJoin[F[_]: Concurrent]: F[List[Int]] = {
     def one: F[Int]                   = Sync[F].delay(1)
