@@ -227,8 +227,12 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
       Left(token.orDie)
     }
 
-  override final def race[A, B](fa: RIO[R, A], fb: RIO[R, B]): RIO[R, Either[A, B]] =
-    fa.map(Left(_)).interruptible raceFirst fb.map(Right(_)).interruptible
+  override final def race[A, B](fa: RIO[R, A], fb: RIO[R, B]): RIO[R, Either[A, B]] = {
+    def run[C](fc: RIO[R, C]): ZIO[R, Throwable, C] =
+      fc.interruptible.overrideForkScope(ZScope.global)
+
+    run(fa.map(Left(_))) raceFirst run(fb.map(Right(_)))
+  }
 
   override final def start[A](fa: RIO[R, A]): RIO[R, effect.Fiber[RIO[R, *], A]] =
     fa.interruptible.forkDaemon.map(toFiber)
@@ -236,11 +240,15 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
   override final def racePair[A, B](
     fa: RIO[R, A],
     fb: RIO[R, B]
-  ): RIO[R, Either[(A, effect.Fiber[RIO[R, *], B]), (effect.Fiber[RIO[R, *], A], B)]] =
-    (fa.interruptible raceWith fb.interruptible)(
+  ): RIO[R, Either[(A, effect.Fiber[RIO[R, *], B]), (effect.Fiber[RIO[R, *], A], B)]] = {
+    def run[C](fc: RIO[R, C]): ZIO[R, Throwable, C] =
+      fc.interruptible.overrideForkScope(ZScope.global)
+
+    (run(fa) raceWith run(fb))(
       { case (l, f) => l.fold(f.interrupt *> ZIO.halt(_), ZIO.succeedNow).map(lv => Left((lv, toFiber(f)))) },
       { case (r, f) => r.fold(f.interrupt *> ZIO.halt(_), ZIO.succeedNow).map(rv => Right((toFiber(f), rv))) }
     )
+  }
 
   override final def never[A]: RIO[R, A] =
     ZIO.never
