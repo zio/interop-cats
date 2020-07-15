@@ -22,9 +22,9 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
         test("calls finalizers correctly when use is interrupted") {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[CIO, Unit] =
-            Resource.makeCase(CIO.delay { effects += x; () }) {
+            Resource.makeCase(CIO.delay { effects += x }.void) {
               case (_, ExitCase.Canceled) =>
-                CIO.delay { effects += x + 1; () }
+                CIO.delay { effects += x + 1 }.void
               case _ => CIO.unit
             }
 
@@ -39,9 +39,9 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
         test("calls finalizers correctly when use has failed") {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[CIO, Unit] =
-            Resource.makeCase(CIO.delay { effects += x; () }) {
+            Resource.makeCase(CIO.delay { effects += x }.void) {
               case (_, ExitCase.Error(_)) =>
-                CIO.delay { effects += x + 1; () }
+                CIO.delay { effects += x + 1 }.void
               case _ =>
                 CIO.unit
             }
@@ -57,9 +57,9 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
         test("calls finalizers correctly when use has died") {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[CIO, Unit] =
-            Resource.makeCase(CIO.delay { effects += x; () }) {
+            Resource.makeCase(CIO.delay { effects += x }.void) {
               case (_, ExitCase.Error(_)) =>
-                CIO.delay { effects += x + 1; () }
+                CIO.delay { effects += x + 1 }.void
               case _ =>
                 CIO.unit
             }
@@ -76,7 +76,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[CIO, Unit] =
             Resource.make(CIO.delay(effects += x) *> CIO.delay(throw new RuntimeException()).void)(
-              _ => CIO.delay { effects += x + 1; () }
+              _ => CIO.delay { effects += x + 1 }.void
             )
 
           val testCase = {
@@ -90,7 +90,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
         test("calls finalizers correctly when using the resource") {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[CIO, Unit] =
-            Resource.make(CIO.delay { effects += x; () })(_ => CIO.delay { effects += x; () })
+            Resource.make(CIO.delay { effects += x }.void)(_ => CIO.delay { effects += x }.void)
 
           val testCase = {
             val managed: ZManaged[Any, Throwable, Unit] = res(1).toManaged
@@ -104,7 +104,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
 
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[CIO, Unit] =
-            Resource.make(CIO.delay { effects += x; () })(_ => CIO.delay { effects += x; () })
+            Resource.make(CIO.delay { effects += x }.void)(_ => CIO.delay { effects += x }.void)
 
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
             ZManaged.make(ZIO.effectTotal(effects += x).unit)(_ => ZIO.effectTotal(effects += x))
@@ -123,9 +123,9 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
         test("calls finalizers correctly when use is interrupted") {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
-            Resource.makeCase(Task { effects += x; () }) {
+            Resource.makeCase(Task { effects += x }.unit) {
               case (_, ExitCase.Canceled) =>
-                Task { effects += x + 1; () }
+                Task { effects += x + 1 }.unit
               case _ => Task.unit
             }
 
@@ -140,9 +140,9 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
         test("calls finalizers correctly when use has failed") {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
-            Resource.makeCase(Task { effects += x; () }) {
+            Resource.makeCase(Task { effects += x }.unit) {
               case (_, ExitCase.Error(_)) =>
-                Task { effects += x + 1; () }
+                Task { effects += x + 1 }.unit
               case _ =>
                 Task.unit
             }
@@ -158,9 +158,9 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
         test("calls finalizers correctly when use has died") {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
-            Resource.makeCase(Task { effects += x; () }) {
+            Resource.makeCase(Task { effects += x }.unit) {
               case (_, ExitCase.Error(_)) =>
-                Task { effects += x + 1; () }
+                Task { effects += x + 1 }.unit
               case _ =>
                 Task.unit
             }
@@ -177,7 +177,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
             Resource.make(Task(effects += x) *> Task(throw new RuntimeException()).unit)(
-              _ => Task { effects += x + 1; () }
+              _ => Task { effects += x + 1 }.unit
             )
 
           val testCase = {
@@ -191,7 +191,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
         test("calls finalizers correctly when using the resource") {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
-            Resource.make(Task { effects += x; () })(_ => Task { effects += x; () })
+            Resource.make(Task { effects += x }.unit)(_ => Task { effects += x }.unit)
 
           val testCase = {
             val managed: ZManaged[Any, Throwable, Unit] = res(1).toManagedZIO
@@ -205,7 +205,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
 
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
-            Resource.make(Task { effects += x; () })(_ => Task { effects += x; () })
+            Resource.make(Task { effects += x }.unit)(_ => Task { effects += x }.unit)
 
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
             ZManaged.make(ZIO.effectTotal(effects += x).unit)(_ => ZIO.effectTotal(effects += x))
