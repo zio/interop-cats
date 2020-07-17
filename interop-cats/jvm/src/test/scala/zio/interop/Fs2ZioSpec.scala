@@ -60,7 +60,7 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
       _ <- started.await
       _ <- fail.succeed(())
       _ <- released.await
-    } yield assert(())(anything)
+    } yield assertCompletes
 
   def bracketTerminate: ZIO[Any, Nothing, TestResult] =
     for {

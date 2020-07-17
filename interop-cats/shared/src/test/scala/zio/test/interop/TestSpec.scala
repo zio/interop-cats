@@ -19,7 +19,7 @@ object TestSpec extends DefaultRunnableSpec {
         testF("ZIO interruption is tied to F interruption") {
           for {
             _ <- IO.never
-          } yield assert(())(anything)
+          } yield assertCompletes
         }
       } @@ failing
     )
