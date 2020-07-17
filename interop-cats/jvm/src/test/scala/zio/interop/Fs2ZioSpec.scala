@@ -5,7 +5,7 @@ import cats.effect
 import cats.effect.{ Concurrent, ConcurrentEffect, ContextShift, Sync }
 import fs2.Stream
 import zio.interop.catz._
-import zio.test.Assertion.{ anything, equalTo }
+import zio.test.Assertion.equalTo
 import zio.test._
 import zio.test.interop.catz.test._
 
@@ -79,7 +79,7 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
       _ <- started.await
       _ <- terminate.succeed(())
       _ <- released.await
-    } yield assert(())(anything)
+    } yield assertCompletes
 
   def bracketInterrupt: ZIO[Any, Nothing, TestResult] =
     for {
@@ -95,7 +95,7 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
       _ <- started.await
       _ <- f.interrupt
       _ <- released.await
-    } yield assert(())(anything)
+    } yield assertCompletes
 
   def testCaseJoin[F[_]: Concurrent]: F[List[Int]] = {
     def one: F[Int]                   = Sync[F].delay(1)
