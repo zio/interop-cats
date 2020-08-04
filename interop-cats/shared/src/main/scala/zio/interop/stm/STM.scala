@@ -184,7 +184,7 @@ object STM {
   final def collectAll[F[+_], A](
     i: Iterable[STM[F, A]]
   ): STM[F, List[A]] =
-    new STM(ZSTM.collectAll(i.map(_.underlying)))
+    new STM(ZSTM.collectAll(i.map(_.underlying).toList))
 
   final def die[F[+_]](t: Throwable): STM[F, Nothing] =
     succeed(throw t)

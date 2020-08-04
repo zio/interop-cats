@@ -16,482 +16,602 @@
 
 package zio.interop
 
-import cats.effect.{ Effect, LiftIO }
-import zio.duration.{ Duration => ZDuration }
-import zio.{ Runtime, ZEnv, ZIO, Schedule => ZSchedule }
+import java.time.{ Duration, OffsetDateTime }
 
-import scala.concurrent.duration.Duration
+import cats.effect.{ Effect, LiftIO }
+import zio.{ Runtime, ZEnv, Schedule => ZSchedule }
 
 /**
  * @see zio.ZSchedule
  */
-final class Schedule[F[+_], -A, +B] private (private[Schedule] val underlying: ZSchedule[ZEnv, A, B]) { self =>
-
-  /**
-   * @see zio.ZSchedule.State
-   */
-  type State = underlying.State
-
-  /**
-   * @see zio.ZSchedule.initial
-   */
-  def initial(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[State] = toEffect(underlying.initial)
-
-  /**
-   * @see zio.ZSchedule.extract
-   */
-  val extract: (A, State) => B =
-    (a, s) => underlying.extract(a, s)
-
-  /**
-   * @see zio.ZSchedule.update
-   */
-  def update(implicit R: Runtime[ZEnv], F: LiftIO[F]): (A, State) => F[Either[Unit, State]] =
-    (a, s) => toEffect(underlying.update(a, s).either)
-
-  /**
-   * @see zio.ZSchedule.map
-   */
-  final def map[A1 <: A, C](f: B => C): Schedule[F, A1, C] =
-    new Schedule(underlying.map(f))
-
-  /**
-   * @see zio.ZSchedule.contramap
-   */
-  final def contramap[A1](f: A1 => A): Schedule[F, A1, B] =
-    new Schedule(underlying.contramap(f))
-
-  /**
-   * @see zio.ZSchedule.dimap
-   */
-  final def dimap[A1, C](f: A1 => A, g: B => C): Schedule[F, A1, C] =
-    new Schedule(underlying.dimap(f, g))
-
-  /**
-   * @see zio.ZSchedule.forever
-   */
-  final def forever: Schedule[F, A, B] =
-    new Schedule(underlying.forever)
-
-  /**
-   * @see zio.ZSchedule.check
-   */
-  final def check[A1 <: A](
-    test: (A1, B) => F[Boolean]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A1, B] =
-    new Schedule(underlying.check((a1, b) => fromEffect(test(a1, b)).orDie))
-
-  /**
-   * @see zio.ZSchedule.ensuring
-   */
-  final def ensuring(finalizer: F[_])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A, B] =
-    new Schedule(underlying.ensuring(fromEffect(finalizer).orDie))
-
-  /**
-   * @see zio.ZSchedule.whileOutput
-   */
-  final def whileOutput(f: B => Boolean): Schedule[F, A, B] =
-    new Schedule(underlying.whileOutput(f))
-
-  /**
-   * @see zio.ZSchedule.whileInput
-   */
-  final def whileInput[A1 <: A](f: A1 => Boolean): Schedule[F, A1, B] =
-    new Schedule(underlying.whileInput(f))
-
-  /**
-   * @see zio.ZSchedule.untilOutput
-   */
-  final def untilOutput(f: B => Boolean): Schedule[F, A, B] =
-    new Schedule(underlying.untilOutput(f))
-
-  /**
-   * @see zio.ZSchedule.untilInput
-   */
-  final def untilInput[A1 <: A](f: A1 => Boolean): Schedule[F, A1, B] =
-    new Schedule(underlying.untilInput(f))
+final class Schedule[F[+_], -In, +Out] private (private[Schedule] val underlying: ZSchedule[ZEnv, In, Out]) { self =>
+  import Schedule._
 
   /**
    * @see zio.ZSchedule.&&
    */
-  final def &&[A1 <: A, C](that: Schedule[F, A1, C]): Schedule[F, A1, (B, C)] =
+  def &&[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, (Out, Out2)] =
     new Schedule(self.underlying && that.underlying)
-
-  /**
-   * @see zio.ZSchedule.both
-   */
-  final def both[A1 <: A, C](that: Schedule[F, A1, C]): Schedule[F, A1, (B, C)] = self && that
-
-  /**
-   * @see zio.ZSchedule.bothWith
-   */
-  final def bothWith[A1 <: A, C, D](
-    that: Schedule[F, A1, C]
-  )(f: (B, C) => D): Schedule[F, A1, D] =
-    new Schedule(underlying.bothWith(that.underlying)(f))
-
-  /**
-   * @see zio.ZSchedule.*>
-   */
-  final def *>[A1 <: A, C](that: Schedule[F, A1, C]): Schedule[F, A1, C] =
-    new Schedule(self.underlying *> that.underlying)
-
-  /**
-   * @see zio.ZSchedule.zipRight
-   */
-  final def zipRight[A1 <: A, C](that: Schedule[F, A1, C]): Schedule[F, A1, C] =
-    self *> that
-
-  /**
-   * @see zio.ZSchedule.<*
-   */
-  final def <*[A1 <: A, C](that: Schedule[F, A1, C]): Schedule[F, A1, B] =
-    new Schedule(self.underlying <* that.underlying)
-
-  /**
-   * @see zio.ZSchedule.zipLeft
-   */
-  final def zipLeft[A1 <: A, C](that: Schedule[F, A1, C]): Schedule[F, A1, B] =
-    self <* that
-
-  /**
-   * @see zio.ZSchedule.<*>
-   */
-  final def <*>[A1 <: A, C](that: Schedule[F, A1, C]): Schedule[F, A1, (B, C)] = self zip that
-
-  /**
-   * @see zio.ZSchedule.zip
-   */
-  final def zip[A1 <: A, C](that: Schedule[F, A1, C]): Schedule[F, A1, (B, C)] = self && that
-
-  /**
-   * @see zio.ZSchedule.||
-   */
-  final def ||[A1 <: A, C](that: Schedule[F, A1, C]): Schedule[F, A1, (B, C)] =
-    new Schedule(self.underlying || that.underlying)
-
-  /**
-   * @see zio.ZSchedule.either
-   */
-  final def either[A1 <: A, C](that: Schedule[F, A1, C]): Schedule[F, A1, (B, C)] =
-    self || that
-
-  /**
-   * @see zio.ZSchedule.eitherWith
-   */
-  final def eitherWith[A1 <: A, C, D](
-    that: Schedule[F, A1, C]
-  )(f: (B, C) => D): Schedule[F, A1, D] =
-    new Schedule(underlying.eitherWith(that.underlying)(f))
-
-  /**
-   * @see zio.ZSchedule.andThenEither
-   */
-  final def andThenEither[A1 <: A, C](
-    that: Schedule[F, A1, C]
-  ): Schedule[F, A1, Either[B, C]] =
-    new Schedule(underlying.andThenEither(that.underlying))
-
-  /**
-   * @see zio.ZSchedule.andThen
-   */
-  final def andThen[A1 <: A, B1 >: B](that: Schedule[F, A1, B1]): Schedule[F, A1, B1] =
-    new Schedule(underlying.andThen(that.underlying))
-
-  /**
-   * @see zio.ZSchedule.const
-   */
-  final def const[C](c: => C): Schedule[F, A, C] = map(_ => c)
-
-  /**
-   * @see zio.ZSchedule.unit
-   */
-  final def unit: Schedule[F, A, Unit] = const(())
-
-  /**
-   * @see zio.ZSchedule.onDecision
-   */
-  final def onDecision[A1 <: A](
-    f: (A1, Option[State]) => F[Any]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A1, B] =
-    new Schedule(underlying.onDecision((a, d) => fromEffect(f(a, d)).orDie))
-
-  /**
-   * @see zio.ZSchedule.modifyDelay
-   */
-  final def modifyDelay(
-    f: (B, Duration) => F[Duration]
-  )(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, B] =
-    new Schedule(underlying.modifyDelay((b, d) => fromEffect(f(b, d.asScala)).map(ZDuration.fromScala).orDie))
-
-  /**
-   * @see zio.ZSchedule.updated
-   */
-  final def updated[A1 <: A](
-    f: (
-      (A, State) => F[Either[Unit, State]]
-    ) => (A1, State) => F[Either[Unit, State]]
-  )(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A1, B] =
-    Schedule(self.initial, f(self.update), self.extract)
-
-  /**
-   * @see zio.ZSchedule.initialized
-   */
-  final def initialized[A1 <: A](
-    f: F[State] => F[State]
-  )(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A1, B] =
-    Schedule(f(self.initial), self.update, self.extract)
-
-  /**
-   * @see zio.ZSchedule.delayed
-   */
-  final def delayed(f: Duration => Duration)(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, B] =
-    modifyDelay((_, d) => F.pure(f(d)))
-
-  /**
-   * @see zio.ZSchedule.jittered
-   */
-  final def jittered: Schedule[F, A, B] = jittered(0.0, 1.0)
-
-  /**
-   * @see zio.ZSchedule.jittered
-   */
-  final def jittered(min: Double, max: Double): Schedule[F, A, B] =
-    new Schedule(underlying.jittered(min, max))
-
-  /**
-   * @see zio.ZSchedule.tapInput
-   */
-  final def tapInput[A1 <: A](f: A1 => F[Unit])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A1, B] =
-    new Schedule(underlying.tapInput(a1 => fromEffect(f(a1)).orDie))
-
-  /**
-   * @see zio.ZSchedule.tapOutput
-   */
-  final def tapOutput(f: B => F[Unit])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, B] =
-    new Schedule(underlying.tapOutput(a1 => fromEffect(f(a1)).orDie))
-
-  /**
-   * @see zio.ZSchedule.collectAll
-   */
-  final def collectAll: Schedule[F, A, List[B]] =
-    new Schedule(underlying.collectAll)
-
-  /**
-   * @see zio.ZSchedule.fold
-   */
-  final def fold[Z](z: Z)(f: (Z, B) => Z): Schedule[F, A, Z] =
-    new Schedule(underlying.fold(z)(f))
-
-  /**
-   * @see zio.ZSchedule.>>>
-   */
-  final def >>>[C](that: Schedule[F, B, C]): Schedule[F, A, C] =
-    new Schedule(underlying >>> that.underlying)
-
-  /**
-   * @see zio.ZSchedule.<<<
-   */
-  final def <<<[C](that: Schedule[F, C, A]): Schedule[F, C, B] = that >>> self
-
-  /**
-   * @see zio.ZSchedule.compose
-   */
-  final def compose[C](that: Schedule[F, C, A]): Schedule[F, C, B] = self <<< that
-
-  /**
-   * @see zio.ZSchedule.first
-   */
-  final def first[C]: Schedule[F, (A, C), (B, C)] = self *** Schedule.identity[F, C]
-
-  /**
-   * @see zio.ZSchedule.second
-   */
-  final def second[C]: Schedule[F, (C, A), (C, B)] = Schedule.identity[F, C] *** self
-
-  /**
-   * @see zio.ZSchedule.left
-   */
-  final def left[C]: Schedule[F, Either[A, C], Either[B, C]] =
-    self +++ Schedule.identity[F, C]
-
-  /**
-   * @see zio.ZSchedule.right
-   */
-  final def right[C]: Schedule[F, Either[C, A], Either[C, B]] =
-    Schedule.identity[F, C] +++ self
 
   /**
    * @see zio.ZSchedule.***
    */
-  final def ***[C, D](that: Schedule[F, C, D]): Schedule[F, (A, C), (B, D)] =
+  def ***[In2, Out2](that: Schedule[F, In2, Out2]): Schedule[F, (In, In2), (Out, Out2)] =
     new Schedule(underlying *** that.underlying)
 
   /**
-   * @see zio.ZSchedule.|||
+   * @see zio.ZSchedule.*>
    */
-  final def |||[B1 >: B, C](that: Schedule[F, C, B1]): Schedule[F, Either[A, C], B1] =
-    (self +++ that).map(_.merge)
+  def *>[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out2] =
+    new Schedule(underlying *> that.underlying)
+
+  /**
+   * @see zio.ZSchedule.++
+   */
+  def ++[In1 <: In, Out2 >: Out](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out2] =
+    new Schedule(underlying ++ that.underlying)
 
   /**
    * @see zio.ZSchedule.+++
    */
-  final def +++[C, D](that: Schedule[F, C, D]): Schedule[F, Either[A, C], Either[B, D]] =
-    new Schedule(underlying +++ that.underlying)
-}
-
-object Schedule {
-
-  final def apply[F[+_], S, A, B](
-    initial0: F[S],
-    update0: (A, S) => F[Either[Unit, S]],
-    extract0: (A, S) => B
-  )(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, B] =
-    new Schedule(new ZSchedule[ZEnv, A, B] {
-      type State = S
-      val initial = fromEffect(initial0).orDie
-      val update: (A, S) => ZIO[Any, Unit, S] = (a: A, s: S) =>
-        fromEffect(update0(a, s)).orDie.flatMap(ZIO.fromEither(_))
-      val extract: (A, S) => B = extract0
-    })
+  def +++[In2, Out2](that: Schedule[F, In2, Out2]): Schedule[F, Either[In, In2], Either[Out, Out2]] =
+    new Schedule(self.underlying +++ that.underlying)
 
   /**
-   * @see zio.ZSchedule.identity
+   * @see zio.ZSchedule.<||>
    */
-  def identity[F[+_], A]: Schedule[F, A, A] =
-    new Schedule(ZSchedule.identity[A])
+  def <||>[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Either[Out, Out2]] =
+    new Schedule(self.underlying <||> that.underlying)
 
   /**
-   * @see zio.ZSchedule.succeed
+   * @see zio.ZSchedule.<*
    */
-  final def succeed[F[+_], A](a: A): Schedule[F, Any, A] =
-    new Schedule(ZSchedule.succeed(a))
+  def <*[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out] =
+    new Schedule(self.underlying <* that.underlying)
 
   /**
-   * @see zio.ZSchedule.succeedLazy
+   * @see zio.ZSchedule.<*>
    */
-  @deprecated("use succeed", "2.0.0.0")
-  final def succeedLazy[F[+_], A](a: => A): Schedule[F, Any, A] =
-    new Schedule(ZSchedule.succeed(a))
+  def <*>[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, (Out, Out2)] =
+    new Schedule(self.underlying <*> that.underlying)
 
   /**
-   * @see zio.ZSchedule.fromFunction
+   * @see zio.ZSchedule.<<<
    */
-  final def fromFunction[F[+_], A, B](f: A => B): Schedule[F, A, B] =
-    new Schedule(ZSchedule.fromFunction(f))
+  def <<<[In2](that: Schedule[F, In2, In]): Schedule[F, In2, Out] =
+    new Schedule(self.underlying <<< that.underlying)
 
   /**
-   * @see zio.ZSchedule.never
+   * @see zio.ZSchedule.>>>
    */
-  final def never[F[+_]]: Schedule[F, Any, Nothing] =
-    new Schedule(ZSchedule.never)
+  def >>>[Out2](that: Schedule[F, Out, Out2]): Schedule[F, In, Out2] =
+    new Schedule(self.underlying >>> that.underlying)
 
   /**
-   * @see zio.ZSchedule.forever
+   * @see zio.ZSchedule.||
    */
-  final def forever[F[+_]]: Schedule[F, Any, Int] =
-    new Schedule(ZSchedule.forever)
+  def ||[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, (Out, Out2)] =
+    new Schedule(self.underlying || that.underlying)
 
   /**
-   * @see zio.ZSchedule.once
+   * @see zio.ZSchedule.|||
    */
-  final def once[F[+_]]: Schedule[F, Any, Unit] =
-    new Schedule(ZSchedule.once)
+  def |||[Out1 >: Out, In2](that: Schedule[F, In2, Out1]): Schedule[F, Either[In, In2], Out1] =
+    new Schedule(self.underlying ||| that.underlying)
+
+  /**
+   * @see zio.ZSchedule.addDelay
+   */
+  def addDelay(f: Out => Duration): Schedule[F, In, Out] =
+    new Schedule(underlying.addDelay(f))
+
+  /**
+   * @see zio.ZSchedule.addDelayM
+   */
+  def addDelayM(f: Out => F[Duration])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, In, Out] =
+    new Schedule(underlying.addDelayM(out => fromEffect(f(out)).orDie))
+
+  /**
+   * @see zio.ZSchedule.andThen
+   */
+  def andThen[In1 <: In, Out2 >: Out](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out2] =
+    new Schedule(self.underlying andThen that.underlying)
+
+  /**
+   * @see zio.ZSchedule.andThenEither
+   */
+  def andThenEither[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Either[Out, Out2]] =
+    new Schedule(self.underlying andThenEither that.underlying)
+
+  /**
+   * @see zio.ZSchedule.as
+   */
+  def as[Out2](out2: => Out2): Schedule[F, In, Out2] =
+    new Schedule(underlying.as(out2))
+
+  /**
+   * @see zio.ZSchedule.check
+   */
+  def check[In11 <: In](test: (In11, Out) => Boolean): Schedule[F, In11, Out] =
+    new Schedule(underlying.check(test))
+
+  /**
+   * @see zio.ZSchedule.checkM
+   */
+  def checkM[In1 <: In](test: (In1, Out) => F[Boolean])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, In1, Out] =
+    new Schedule(underlying.checkM((in1, out) => fromEffect(test(in1, out)).orDie))
 
   /**
    * @see zio.ZSchedule.collectAll
    */
-  final def collectAll[F[+_], A]: Schedule[F, A, List[A]] =
-    new Schedule(ZSchedule.collectAll)
+  def collectAll: Schedule[F, In, List[Out]] =
+    new Schedule(underlying.collectAll.map(_.toList))
 
   /**
-   * @see zio.ZSchedule.doWhile
+   * @see zio.ZSchedule.compose
    */
-  final def doWhile[F[+_], A](f: A => Boolean): Schedule[F, A, A] =
-    new Schedule(ZSchedule.doWhile(f))
+  def compose[In2](that: Schedule[F, In2, In]): Schedule[F, In2, Out] =
+    new Schedule(self.underlying compose that.underlying)
 
   /**
-   * @see zio.ZSchedule.doUntil[A](A=>Boolean)
+   * @see zio.ZSchedule.combineWith
    */
-  final def doUntil[F[+_], A](f: A => Boolean): Schedule[F, A, A] =
-    new Schedule(ZSchedule.doUntil(f))
+  def combineWith[In1 <: In, Out2](
+    that: Schedule[F, In1, Out2]
+  )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)] =
+    new Schedule(self.underlying.combineWith(that.underlying)(f))
 
   /**
-   * @see zio.ZSchedule!.doUntil[A, B](PartialFunction[A,B])
+   * @see zio.ZSchedule.contramap
    */
-  final def doUntil[F[+_], A, B](
-    pf: PartialFunction[A, B]
-  ): Schedule[F, A, Option[B]] =
-    new Schedule(ZSchedule.doUntil(pf))
+  def contramap[In2](f: In2 => In): Schedule[F, In2, Out] =
+    new Schedule(underlying.contramap(f))
+
+  /**
+   * @see zio.ZSchedule.delayed
+   */
+  def delayed(f: Duration => Duration): Schedule[F, In, Out] =
+    new Schedule(underlying.delayed(f))
+
+  /**
+   * @see zio.ZSchedule.delayedM
+   */
+  def delayedM(f: Duration => F[Duration])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, In, Out] =
+    new Schedule(underlying.delayedM(d => fromEffect(f(d)).orDie))
+
+  /**
+   * @see zio.ZSchedule.dimap
+   */
+  def dimap[In2, Out2](f: In2 => In, g: Out => Out2): Schedule[F, In2, Out2] =
+    new Schedule(underlying.dimap(f, g))
+
+  /**
+   * @see zio.ZSchedule.driver
+   */
+  def driver(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Schedule.Driver[F, In, Out]] =
+    toEffect(underlying.driver.map(driver => new Schedule.Driver(driver)))
+
+  /**
+   * @see zio.ZSchedule.either
+   */
+  def either[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, (Out, Out2)] =
+    new Schedule(self.underlying either that.underlying)
+
+  /**
+   * @see zio.ZSchedule.eitherWith
+   */
+  def eitherWith[In1 <: In, Out2, Out3](that: Schedule[F, In1, Out2])(f: (Out, Out2) => Out3): Schedule[F, In1, Out3] =
+    new Schedule(underlying.eitherWith(that.underlying)(f))
+
+  /**
+   * @see zio.ZSchedule.ensuring
+   */
+  def ensuring(finalizer: F[Any])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, In, Out] =
+    new Schedule(underlying.ensuring(fromEffect(finalizer).orDie))
+
+  /**
+   * @see zio.ZSchedule.first
+   */
+  def first[X]: Schedule[F, (In, X), (Out, X)] =
+    new Schedule(underlying.first)
+
+  /**
+   * @see zio.ZSchedule.fold
+   */
+  def fold[Z](z: Z)(f: (Z, Out) => Z): Schedule[F, In, Z] =
+    new Schedule(underlying.fold(z)(f))
+
+  /**
+   * @see zio.ZSchedule.foldM
+   */
+  def foldM[Z](z: Z)(f: (Z, Out) => F[Z])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, In, Z] =
+    new Schedule(underlying.foldM(z)((z2, out) => fromEffect(f(z2, out)).orDie))
+
+  /**
+   * @see zio.ZSchedule.forever
+   */
+  def forever: Schedule[F, In, Out] =
+    new Schedule(underlying.forever)
+
+  /**
+   * @see zio.ZSchedule.jittered
+   */
+  def jittered: Schedule[F, In, Out] =
+    new Schedule(underlying.jittered)
+
+  /**
+   * @see zio.ZSchedule.jittered
+   */
+  def jittered(min: Double, max: Double): Schedule[F, In, Out] =
+    new Schedule(underlying.jittered(min, max))
+
+  /**
+   * @see zio.ZSchedule.left
+   */
+  def left[X]: Schedule[F, Either[In, X], Either[Out, X]] =
+    new Schedule(underlying.left)
+
+  /**
+   * @see zio.ZSchedule.map
+   */
+  def map[Out2](f: Out => Out2): Schedule[F, In, Out2] =
+    new Schedule(underlying.map(f))
+
+  /**
+   * @see zio.ZSchedule.mapM
+   */
+  def mapM[Out2](f: Out => F[Out2])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, In, Out2] =
+    new Schedule(underlying.mapM(out => fromEffect(f(out)).orDie))
+
+  /**
+   * @see zio.ZSchedule.modifyDelay
+   */
+  def modifyDelay(f: (Out, Duration) => Duration): Schedule[F, In, Out] =
+    new Schedule(underlying.modifyDelay((f)))
+
+  /**
+   * @see zio.ZSchedule.modifyDelayM
+   */
+  def modifyDelayM(f: (Out, Duration) => F[Duration])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, In, Out] =
+    new Schedule(underlying.modifyDelayM((out, duration) => fromEffect(f(out, duration)).orDie))
+
+  /**
+   * @see zio.ZSchedule.repetitions
+   */
+  def repetitions: Schedule[F, In, Int] =
+    new Schedule(underlying.repetitions)
+
+  /**
+   * @see zio.ZSchedule.resetAfter
+   */
+  def resetAfter(duration: Duration): Schedule[F, In, Out] =
+    new Schedule(underlying.resetAfter(duration))
+
+  /**
+   * @see zio.ZSchedule.resetWhen
+   */
+  def resetWhen(f: Out => Boolean): Schedule[F, In, Out] =
+    new Schedule(underlying.resetWhen(f))
+
+  /**
+   * @see zio.ZSchedule.right
+   */
+  def right[X]: Schedule[F, Either[X, In], Either[X, Out]] =
+    new Schedule(underlying.right)
+
+  /**
+   * @see zio.ZSchedule.run
+   */
+  def run(now: OffsetDateTime, input: Iterable[In])(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[List[Out]] =
+    toEffect(underlying.run(now, input).map(_.toList))
+
+  /**
+   * @see zio.ZSchedule.second
+   */
+  def second[X]: Schedule[F, (X, In), (X, Out)] =
+    new Schedule(underlying.second)
 
   /**
    * @see zio.ZSchedule.tapInput
    */
-  final def tapInput[F[+_], A](f: A => F[Unit])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, A, A] =
-    identity[F, A].tapInput(f)
+  def tapInput[In1 <: In](f: In1 => F[Any])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, In1, Out] =
+    new Schedule(underlying.tapInput(in => fromEffect(f(in)).orDie))
 
   /**
-   * @see zio.ZSchedule.recurs
+   * @see zio.ZSchedule.tapOutput
    */
-  final def recurs[F[+_]](n: Int): Schedule[F, Any, Int] =
-    new Schedule(ZSchedule.recurs(n))
+  def tapOutput(f: Out => F[Any])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, In, Out] =
+    new Schedule(underlying.tapOutput(out => fromEffect(f(out)).orDie))
 
   /**
-   * @see zio.ZSchedule.unfold
+   * @see zio.ZSchedule.unit
    */
-  final def unfold[F[+_], A](a: => A)(f: A => A): Schedule[F, Any, A] =
-    new Schedule(ZSchedule.unfold(a)(f))
+  def unit: Schedule[F, In, Unit] =
+    new Schedule(underlying.unit)
 
   /**
-   * @see zio.ZSchedule.unfoldM
+   * @see zio.ZSchedule.untilInput
    */
-  final def unfoldM[F[+_], A](a: F[A])(f: A => F[A])(implicit R: Runtime[ZEnv], F: Effect[F]): Schedule[F, Any, A] =
-    Schedule[F, A, Any, A](
-      a,
-      (_: Any, a: A) => F.map(f(a))(Right(_)),
-      (_: Any, a: A) => a
-    )
+  def untilInput[In1 <: In](f: In1 => Boolean): Schedule[F, In1, Out] =
+    new Schedule(underlying.untilInput(f))
 
   /**
-   * @see zio.ZSchedule.spaced
+   * @see zio.ZSchedule.untilInputM
    */
-  final def spaced[F[+_]](interval: Duration): Schedule[F, Any, Int] =
-    new Schedule(ZSchedule.spaced(ZDuration.fromScala(interval)))
+  def untilInputM[In1 <: In](f: In1 => F[Boolean])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, In1, Out] =
+    new Schedule(underlying.untilInputM(in => fromEffect(f(in)).orDie))
 
   /**
-   * @see zio.ZSchedule.fibonacci
+   * @see zio.ZSchedule.untilOutput
    */
-  final def fibonacci[F[+_]](one: Duration): Schedule[F, Any, Duration] =
-    new Schedule(ZSchedule.fibonacci(ZDuration.fromScala(one)).map(_.asScala))
+  def untilOutput(f: Out => Boolean): Schedule[F, In, Out] =
+    new Schedule(underlying.untilOutput(f))
 
   /**
-   * @see zio.ZSchedule.linear
+   * @see zio.ZSchedule.untilOutputM
    */
-  final def linear[F[+_]](base: Duration): Schedule[F, Any, Duration] =
-    new Schedule(ZSchedule.linear(ZDuration.fromScala(base)).map(_.asScala))
+  def untilOutputM(f: Out => F[Boolean])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, In, Out] =
+    new Schedule(underlying.untilOutputM(out => fromEffect(f(out)).orDie))
 
   /**
-   * @see zio.ZSchedule.exponential
+   * @see zio.ZSchedule.whileInput
    */
-  final def exponential[F[+_]](base: Duration, factor: Double = 2.0): Schedule[F, Any, Duration] =
-    new Schedule(ZSchedule.exponential(ZDuration.fromScala(base), factor).map(_.asScala))
+  def whileInput[In1 <: In](f: In1 => Boolean): Schedule[F, In1, Out] =
+    new Schedule(underlying.whileInput(f))
 
   /**
-   * @see zio.ZSchedule.elapsed
+   * @see zio.ZSchedule.whileInputM
    */
-  final def elapsed[F[+_]]: Schedule[F, Any, Duration] =
-    new Schedule(ZSchedule.elapsed.map(_.asScala))
+  def whileInputM[In1 <: In](f: In1 => F[Boolean])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, In1, Out] =
+    new Schedule(underlying.whileInputM(in => fromEffect(f(in)).orDie))
+
+  /**
+   * @see zio.ZSchedule.whileOutput
+   */
+  def whileOutput(f: Out => Boolean): Schedule[F, In, Out] =
+    new Schedule(underlying.whileOutput(f))
+
+  /**
+   * @see zio.ZSchedule.whileOutputM
+   */
+  def whileOutputM(f: Out => F[Boolean])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, In, Out] =
+    new Schedule(underlying.whileOutputM(out => fromEffect(f(out)).orDie))
+
+  /**
+   * @see zio.ZSchedule.zip
+   */
+  def zip[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, (Out, Out2)] =
+    new Schedule(self.underlying zip that.underlying)
+
+  /**
+   * @see zio.ZSchedule.zipLeft
+   */
+  def zipLeft[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out] =
+    new Schedule(self.underlying zipLeft that.underlying)
+
+  /**
+   * @see zio.ZSchedule.zipRight
+   */
+  def zipRight[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out2] =
+    new Schedule(self.underlying zipRight that.underlying)
+
+  /**
+   * @see zio.ZSchedule.zipWith
+   */
+  def zipWith[In1 <: In, Out2, Out3](that: Schedule[F, In1, Out2])(f: (Out, Out2) => Out3): Schedule[F, In1, Out3] =
+    new Schedule(self.underlying.zipWith(that.underlying)(f))
+}
+
+object Schedule {
+
+  /**
+   * @see zio.ZSchedule.collectAll
+   */
+  def collectAll[F[+_], A]: Schedule[F, A, List[A]] =
+    new Schedule(ZSchedule.collectAll.map(_.toList))
+
+  /**
+   * @see zio.ZSchedule.collectWhile
+   */
+  def collectWhile[F[+_], A](f: A => Boolean): Schedule[F, A, List[A]] =
+    new Schedule(ZSchedule.collectWhile(f).map(_.toList))
+
+  /**
+   * @see zio.ZSchedule.collectWhileM
+   */
+  def collectWhileM[F[+_], A](f: A => F[Boolean])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A, List[A]] =
+    new Schedule(ZSchedule.collectWhileM((a: A) => fromEffect(f(a)).orDie).map(_.toList))
+
+  /**
+   * @see zio.ZSchedule.collectUntil
+   */
+  def collectUntil[F[+_], A](f: A => Boolean): Schedule[F, A, List[A]] =
+    new Schedule(ZSchedule.collectUntil(f).map(_.toList))
+
+  /**
+   * @see zio.ZSchedule.collectUntilM
+   */
+  def collectUntilM[F[+_], A](f: A => F[Boolean])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A, List[A]] =
+    new Schedule(ZSchedule.collectUntilM((a: A) => fromEffect(f(a)).orDie).map(_.toList))
+
+  /**
+   * @see zio.ZSchedule.delayed
+   */
+  def delayed[F[+_], In, Out](schedule: Schedule[F, In, Duration]): Schedule[F, In, Duration] =
+    new Schedule(ZSchedule.delayed(schedule.underlying))
+
+  /**
+   * @see zio.ZSchedule.recurWhile
+   */
+  def recurWhile[F[+_], A](f: A => Boolean): Schedule[F, A, A] =
+    new Schedule(ZSchedule.recurWhile(f))
+
+  /**
+   * @see zio.ZSchedule.recurWhileM
+   */
+  def recurWhileM[F[+_], A](f: A => F[Boolean])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A, A] =
+    new Schedule(ZSchedule.recurWhileM(a => fromEffect(f(a)).orDie))
+
+  /**
+   * @see zio.ZSchedule.recurWhileEquals
+   */
+  def recurWhileEquals[F[+_], A](a: => A): Schedule[F, A, A] =
+    new Schedule(ZSchedule.recurWhileEquals(a))
+
+  /**
+   * @see zio.ZSchedule.recurUntil
+   */
+  def recurUntil[F[+_], A](f: A => Boolean): Schedule[F, A, A] =
+    new Schedule(ZSchedule.recurUntil(f))
+
+  /**
+   * @see zio.ZSchedule.recurUntilM
+   */
+  def recurUntilM[F[+_], A](f: A => F[Boolean])(implicit R: Runtime[Any], F: Effect[F]): Schedule[F, A, A] =
+    new Schedule(ZSchedule.recurUntilM(a => fromEffect(f(a)).orDie))
+
+  /**
+   * @see zio.ZSchedule.recurUntilEquals
+   */
+  def recurUntilEquals[F[+_], A](a: => A): Schedule[F, A, A] =
+    new Schedule(ZSchedule.recurUntilEquals(a))
+
+  /**
+   * @see zio.ZSchedule.recurUntil
+   */
+  def recurUntil[F[+_], A, B](pf: PartialFunction[A, B]): Schedule[F, A, Option[B]] =
+    new Schedule(ZSchedule.recurUntil(pf))
 
   /**
    * @see zio.ZSchedule.duration
    */
-  final def duration[F[+_]](duration: Duration): Schedule[F, Any, Duration] =
-    new Schedule(ZSchedule.duration(ZDuration.fromScala(duration)).map(_.asScala))
+  def duration[F[+_]](duration: Duration): Schedule[F, Any, Duration] =
+    new Schedule(ZSchedule.duration(duration))
+
+  /**
+   * @see zio.ZSchedule.v
+   */
+  def elapsed[F[+_]]: Schedule[F, Any, Duration] =
+    new Schedule(ZSchedule.elapsed)
+
+  /**
+   * @see zio.ZSchedule.exponential
+   */
+  def exponential[F[+_]](base: Duration, factor: Double = 2.0): Schedule[F, Any, Duration] =
+    new Schedule(ZSchedule.exponential(base, factor))
+
+  /**
+   * @see zio.ZSchedule.fibonacci
+   */
+  def fibonacci[F[+_]](one: Duration): Schedule[F, Any, Duration] =
+    new Schedule(ZSchedule.fibonacci(one))
 
   /**
    * @see zio.ZSchedule.fixed
    */
-  final def fixed[F[+_]](interval: Duration): Schedule[F, Any, Int] =
-    new Schedule(ZSchedule.fixed(ZDuration.fromScala(interval)))
+  def fixed[F[+_]](interval: Duration): Schedule[F, Any, Long] =
+    new Schedule(ZSchedule.fixed(interval))
 
+  /**
+   * @see zio.ZSchedule.forever
+   */
+  def forever[F[+_]]: Schedule[F, Any, Long] =
+    new Schedule(ZSchedule.forever)
+
+  /**
+   * @see zio.ZSchedule.fromDuration
+   */
+  def fromDuration[F[+_]](duration: Duration): Schedule[F, Any, Duration] =
+    new Schedule(ZSchedule.fromDuration(duration))
+
+  /**
+   * @see zio.ZSchedule.fromDurations
+   */
+  def fromDurations[F[+_]](duration: Duration, durations: Duration*): Schedule[F, Any, Duration] =
+    new Schedule(ZSchedule.fromDurations(duration, durations: _*))
+
+  /**
+   * @see zio.ZSchedule.fromFunction
+   */
+  def fromFunction[F[+_], A, B](f: A => B): Schedule[F, A, B] =
+    new Schedule(ZSchedule.fromFunction(f))
+
+  /**
+   * @see zio.ZSchedule.count
+   */
+  def count[F[+_]]: Schedule[F, Any, Long] =
+    new Schedule(ZSchedule.count)
+
+  /**
+   * @see zio.ZSchedule.v
+   */
+  def identity[F[+_], A]: Schedule[F, A, A] =
+    new Schedule(ZSchedule.identity)
+
+  /**
+   * @see zio.ZSchedule.linear
+   */
+  def linear[F[+_]](base: Duration): Schedule[F, Any, Duration] =
+    new Schedule(ZSchedule.linear(base))
+
+  /**
+   * @see zio.ZSchedule.once
+   */
+  def once[F[+_]]: Schedule[F, Any, Unit] =
+    new Schedule(ZSchedule.once)
+
+  /**
+   * @see zio.ZSchedule.recurs
+   */
+  def recurs[F[+_]](n: Long): Schedule[F, Any, Long] =
+    new Schedule(ZSchedule.recurs(n))
+
+  /**
+   * @see zio.ZSchedule.recurs
+   */
+  def recurs[F[+_]](n: Int): Schedule[F, Any, Long] =
+    new Schedule(ZSchedule.recurs(n))
+
+  /**
+   * @see zio.ZSchedule.spaced
+   */
+  def spaced[F[+_]](duration: Duration): Schedule[F, Any, Long] =
+    new Schedule(ZSchedule.spaced(duration))
+
+  /**
+   * @see zio.ZSchedule.stop
+   */
+  def stop[F[+_]]: Schedule[F, Any, Unit] =
+    new Schedule(ZSchedule.stop)
+
+  /**
+   * @see zio.ZSchedule.succeed
+   */
+  def succeed[F[+_], A](a: => A): Schedule[F, Any, A] =
+    new Schedule(ZSchedule.succeed(a))
+
+  /**
+   * @see zio.ZSchedule.unfold
+   */
+  def unfold[F[+_], A](a: => A)(f: A => A): Schedule[F, Any, A] =
+    new Schedule(ZSchedule.unfold(a)(f))
+
+  /**
+   * @see zio.ZSchedule.windowed
+   */
+  def windowed[F[+_]](interval: Duration): Schedule[F, Any, Long] =
+    new Schedule(ZSchedule.windowed(interval))
+
+  final class Driver[F[+_], -In, +Out] private[Schedule] (
+    private[Schedule] val underlying: ZSchedule.Driver[ZEnv, In, Out]
+  ) {
+    def next(in: In)(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Either[None.type, Out]] =
+      toEffect(underlying.next(in).either)
+    def last(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Either[NoSuchElementException, Out]] =
+      toEffect(underlying.last.either)
+    def reset(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Unit] =
+      toEffect(underlying.reset)
+  }
+
+  type Interval = ZSchedule.Interval
 }
