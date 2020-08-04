@@ -47,7 +47,8 @@ class TPromise[F[+_], E <: Throwable, A] private (underlying: ZTPromise[E, A]) {
   /**
    * See [[zio.stm.TPromise#poll]]
    */
-  final def poll: STM[F, Option[STM[F, A]]] = new STM(underlying.poll.map(_.map(new STM(_))))
+  final def poll: STM[F, Option[Either[E, A]]] =
+    new STM(underlying.poll)
 
   /**
    * See [[zio.stm.TPromise#succeed]]
