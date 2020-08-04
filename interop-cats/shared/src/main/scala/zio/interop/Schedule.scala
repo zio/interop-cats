@@ -602,7 +602,9 @@ object Schedule {
   def windowed[F[+_]](interval: Duration): Schedule[F, Any, Long] =
     new Schedule(ZSchedule.windowed(interval))
 
-  final class Driver[F[+_], -In, +Out] private[Schedule] (private[Schedule] val underlying: ZSchedule.Driver[ZEnv, In, Out]) {
+  final class Driver[F[+_], -In, +Out] private[Schedule] (
+    private[Schedule] val underlying: ZSchedule.Driver[ZEnv, In, Out]
+  ) {
     def next(in: In)(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Either[None.type, Out]] =
       toEffect(underlying.next(in).either)
     def last(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Either[NoSuchElementException, Out]] =
