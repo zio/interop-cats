@@ -1,18 +1,18 @@
 package zio.interop
 
+import cats.Monad
 import cats.arrow.ArrowChoice
 import cats.effect.concurrent.Deferred
+import cats.effect.laws._
 import cats.effect.laws.discipline.arbitrary._
 import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests, SyncTests }
-import cats.effect.laws._
 import cats.effect.{ Concurrent, ConcurrentEffect, ContextShift, Effect }
 import cats.implicits._
 import cats.laws._
 import cats.laws.discipline._
-import cats.{ Monad, SemigroupK }
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.interop.catz._
-import zio.{ IO, _ }
+import zio._
 
 class catzSpec extends catzSpecZIOBase {
 
@@ -28,7 +28,7 @@ class catzSpec extends catzSpecZIOBase {
   checkAllAsync("MonadError[IO[Int, *]]", implicit tc => MonadErrorTests[IO[Int, *], Int].monadError[Int, Int, Int])
   checkAllAsync("MonoidK[IO[Int, *]]", implicit tc => MonoidKTests[IO[Int, *]].monoidK[Int])
   checkAllAsync("SemigroupK[IO[Option[Unit], *]]", implicit tc => SemigroupKTests[IO[Option[Unit], *]].semigroupK[Int])
-  checkAllAsync("SemigroupK[Task]", implicit tc => SemigroupKTestsOverrides[Task].semigroupK[Int])
+  checkAllAsync("SemigroupK[Task]", implicit tc => SemigroupKTests[Task].semigroupK[Int])
   checkAllAsync("Bifunctor[IO]", implicit tc => BifunctorTests[IO].bifunctor[Int, Int, Int, Int, Int, Int])
   checkAllAsync("Parallel[Task]", implicit tc => ParallelTests[Task, ParIO[Any, Throwable, *]].parallel[Int, Int])
   checkAllAsync("Monad[UIO]", { implicit tc =>
@@ -151,30 +151,11 @@ trait AsyncLawsOverrides[F[_]] extends AsyncLaws[F] {
 
 }
 
-trait BracketLawsOverrides[F[_], E] extends BracketLaws[F, E] {}
-
-trait ConcurrentLawsOverrides[F[_]] extends ConcurrentLaws[F] {}
-
-trait SemigroupKLawsOverrides[F[_]] extends SemigroupKLaws[F] {}
-
-trait ConcurrentEffectLawsOverrides[F[_]] extends ConcurrentEffectLaws[F] {}
-
-object SemigroupKTestsOverrides {
-
-  def apply[F[_]](implicit ev: SemigroupK[F]): SemigroupKTests[F] =
-    new SemigroupKTests[F] {
-      def laws: SemigroupKLaws[F] = new SemigroupKLawsOverrides[F] {
-        override implicit def F: SemigroupK[F] = ev
-      }
-    }
-
-}
-
 object EffectTestsOverrides {
 
   def apply[F[_]](implicit ev: Effect[F]): EffectTests[F] =
     new EffectTests[F] {
-      def laws: EffectLaws[F] = new EffectLaws[F] with AsyncLawsOverrides[F] with BracketLawsOverrides[F, Throwable] {
+      def laws: EffectLaws[F] = new EffectLaws[F] with AsyncLawsOverrides[F] {
         override val F: Effect[F] = ev
       }
     }
@@ -185,7 +166,7 @@ object ConcurrentTestsOverrides {
   def apply[F[_]](implicit ev: Concurrent[F], cs: ContextShift[F]): ConcurrentTests[F] =
     new ConcurrentTests[F] {
       def laws: ConcurrentLaws[F] =
-        new ConcurrentLawsOverrides[F] with AsyncLawsOverrides[F] with BracketLawsOverrides[F, Throwable] {
+        new ConcurrentLaws[F] with AsyncLawsOverrides[F] {
           override val F: Concurrent[F]              = ev
           override val contextShift: ContextShift[F] = cs
         }
@@ -197,10 +178,7 @@ object ConcurrentEffectTestsOverrides {
   def apply[F[_]](implicit ev: ConcurrentEffect[F], cs: ContextShift[F]): ConcurrentEffectTests[F] =
     new ConcurrentEffectTests[F] {
       def laws: ConcurrentEffectLaws[F] =
-        new ConcurrentEffectLawsOverrides[F]
-          with AsyncLawsOverrides[F]
-          with BracketLawsOverrides[F, Throwable]
-          with ConcurrentLawsOverrides[F] {
+        new ConcurrentEffectLaws[F] with AsyncLawsOverrides[F] {
           override val F: ConcurrentEffect[F]        = ev
           override val contextShift: ContextShift[F] = cs
         }
