@@ -1,49 +1,27 @@
 version: 2.1
 
 scala_212: &scala_212
-  SCALA_VERSION: 2.12.11
+  SCALA_VERSION: 2.12.12
 
 scala_213: &scala_213
-  SCALA_VERSION: 2.13.2
+  SCALA_VERSION: 2.13.3
 
-jdk_8: &jdk_8
-  JDK_VERSION: 8
+jdk8_image: &jdk8_image
+  docker:
+    - image: hseeberger/scala-sbt:8u265_1.3.13_2.13.3
 
-jdk_11: &jdk_11
-  JDK_VERSION: 11
+jdk11_image: &jdk11_image
+  docker:
+    - image: hseeberger/scala-sbt:11.0.8_1.3.13_2.13.3
 
-machine_resource: &machine_resource
-  resource_class: large
-
-machine_ubuntu: &machine_ubuntu
-  machine:
-    image: ubuntu-1604:201903-01
-
-install_jdk: &install_jdk
+install_node: &install_node
   - run:
-      name: Install JDK
+      name: Install Node.js
       command: |
-        while $(ps aux | grep -i ' apt ' | grep -v grep > /dev/null); do sleep 1; done # Wait for apt to be ready
-
-        sudo rm /etc/apt/sources.list.d/*
-        sudo tee /etc/apt/sources.list > /dev/null \<< 'EOF'
-        deb http://mirror.math.princeton.edu/pub/ubuntu/ xenial main universe
-        deb http://mirror.math.princeton.edu/pub/ubuntu/ xenial-updates main universe
-        deb http://mirror.math.princeton.edu/pub/ubuntu/ xenial-backports main universe
-        deb http://mirror.math.princeton.edu/pub/ubuntu/ xenial-security main restricted universe
-        EOF
-
-        if [ $JDK_VERSION == 11 ]; then
-          wget -qO - https://adoptopenjdk.jfrog.io/adoptopenjdk/api/gpg/key/public | sudo apt-key add -
-          sudo add-apt-repository https://adoptopenjdk.jfrog.io/adoptopenjdk/deb/ -y
-        fi
-        sudo apt update
-        if [ $JDK_VERSION == 11 ]; then
-          sudo apt install -y adoptopenjdk-11-hotspot
-        elif [ $JDK_VERSION == 8 ]; then
-          sudo apt install -y openjdk-8-jdk
-        fi
-        java -version
+        apt-get install -y curl
+        curl -sL https://deb.nodesource.com/setup_14.x | bash -
+        apt-get install -y nodejs
+        node -v
 
 load_cache: &load_cache
   - restore_cache:
@@ -66,16 +44,6 @@ save_cache: &save_cache
           - "~/.m2"
           - "~/.cache"
 
-compile: &compile
-  steps:
-    - checkout
-    - <<: *load_cache
-    - run:
-        name: Compile code
-        command: ./sbt ++${SCALA_VERSION}! compileJVM
-    - <<: *clean_cache
-    - <<: *save_cache
-
 filter_tags: &filter_tags
   tags:
     only: /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/
@@ -86,7 +54,7 @@ lint: &lint
     - <<: *load_cache
     - run:
         name: Lint code
-        command: ./sbt ++${SCALA_VERSION}! check
+        command: sbt ++${SCALA_VERSION}! check
     - <<: *clean_cache
     - <<: *save_cache
 
@@ -94,10 +62,9 @@ testJVM: &testJVM
   steps:
     - checkout
     - <<: *load_cache
-    - <<: *install_jdk
     - run:
         name: Run tests
-        command: ./sbt ++${SCALA_VERSION}! testJVM
+        command: sbt ++${SCALA_VERSION}! testJVM
     - <<: *clean_cache
     - <<: *save_cache
     - store_test_results:
@@ -107,10 +74,10 @@ testJS: &testJS
   steps:
     - checkout
     - <<: *load_cache
-    - <<: *install_jdk
+    - <<: *install_node
     - run:
         name: Run tests
-        command: ./sbt ++${SCALA_VERSION}! testJS
+        command: sbt ++${SCALA_VERSION}! testJS
     - <<: *clean_cache
     - <<: *save_cache
     - store_test_results:
@@ -144,60 +111,50 @@ release: &release
             $HOME/bin/gpg --version
             echo RELOADAGENT | gpg-connect-agent
             echo $PGP_SECRET | base64 -di | gpg2 --import --no-tty --batch --yes
-            PATH=$HOME/bin:$PATH ./sbt ++${SCALA_VERSION}! clean ci-release
+            PATH=$HOME/bin:$PATH sbt ++${SCALA_VERSION}! clean ci-release
 
 jobs:
   lint:
     <<: *lint
-    <<: *machine_ubuntu
+    <<: *jdk8_image
     environment:
       - <<: *scala_212
-      - <<: *jdk_8
 
   test_212_jdk8_jvm:
     <<: *testJVM
-    <<: *machine_ubuntu
-    <<: *machine_resource
+    <<: *jdk8_image
     environment:
       - <<: *scala_212
-      - <<: *jdk_8
 
   test_213_jdk8_jvm:
     <<: *testJVM
-    <<: *machine_ubuntu
-    <<: *machine_resource
+    <<: *jdk8_image
     environment:
       - <<: *scala_213
-      - <<: *jdk_8
 
   test_212_jdk11_jvm:
     <<: *testJVM
-    <<: *machine_ubuntu
-    <<: *machine_resource
+    <<: *jdk11_image
     environment:
       - <<: *scala_212
-      - <<: *jdk_11
 
   test_212_jdk8_js:
     <<: *testJS
-    <<: *machine_ubuntu
+    <<: *jdk8_image
     environment:
       - <<: *scala_212
-      - <<: *jdk_8
 
   test_213_jdk8_js:
     <<: *testJS
-    <<: *machine_ubuntu
+    <<: *jdk8_image
     environment:
       - <<: *scala_213
-      - <<: *jdk_8
 
   release:
     <<: *release
-    <<: *machine_ubuntu
+    <<: *jdk8_image
     environment:
       - <<: *scala_213
-      - <<: *jdk_8
 
 workflows:
   version: 2
