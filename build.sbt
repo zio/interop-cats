@@ -53,7 +53,7 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
       "dev.zio"       %%% "zio-test"             % zioVersion % Optional,
       "org.typelevel" %%% "cats-effect"          % "2.1.4" % Optional,
       "org.typelevel" %%% "cats-mtl-core"        % "0.7.1" % Optional,
-      "co.fs2"        %%% "fs2-core"             % "2.3.0" % Optional,
+      "co.fs2"        %%% "fs2-core"             % "2.4.3" % Optional,
       "dev.zio"       %%% "zio-test-sbt"         % zioVersion % Test,
       "org.typelevel" %%% "cats-testkit"         % "2.1.1" % Test,
       "org.typelevel" %%% "cats-effect-laws"     % "2.1.4" % Test,
