@@ -31,8 +31,9 @@ class catzMtlSpec extends catzSpecZIOBase {
     implicit tc => ApplicativeHandleTests[ZIO[Ctx, Error, *], Error].applicativeHandle[Int]
   )
 
-  def askSummoner[R, E]    = ApplicativeAsk[ZIO[R, E, *], R]
-  def localSummoner[R, E]  = ApplicativeLocal[ZIO[R, E, *], R]
-  def raiseSummoner[R, E]  = FunctorRaise[ZIO[R, E, *], E]
-  def handleSummoner[R, E] = ApplicativeHandle[ZIO[R, E, *], E]
+  def askSummoner[R, E]                    = ApplicativeAsk[ZIO[R, E, *], R]
+  def askSubtypingSummoner[R1, R <: R1, E] = ApplicativeAsk[ZIO[R, E, *], R1]
+  def localSummoner[R, E]                  = ApplicativeLocal[ZIO[R, E, *], R]
+  def raiseSummoner[R, E]                  = FunctorRaise[ZIO[R, E, *], E]
+  def handleSummoner[R, E]                 = ApplicativeHandle[ZIO[R, E, *], E]
 }
