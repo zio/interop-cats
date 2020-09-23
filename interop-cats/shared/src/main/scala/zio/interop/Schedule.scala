@@ -159,7 +159,7 @@ final class Schedule[F[+_], -In, +Out] private (private[Schedule] val underlying
   def combineWith[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
   )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)] =
-    new Schedule(self.underlying.combineWith(that.underlying)(f))
+    new Schedule(self.underlying.intersectWith(that.underlying)(f))
 
   /**
    * @see zio.ZSchedule.contramap
