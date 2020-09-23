@@ -33,7 +33,9 @@ trait CatsTestFunctions {
    * Checks the effectual test passes for "sufficient" numbers of samples from
    * the given random variable.
    */
-  final def checkF[F[_], R <: TestConfig, A](rv: Gen[R, A])(test: A => F[TestResult])(implicit F: Effect[F]): RIO[R, TestResult] =
+  final def checkF[F[_], R <: TestConfig, A](
+    rv: Gen[R, A]
+  )(test: A => F[TestResult])(implicit F: Effect[F]): RIO[R, TestResult] =
     checkM(rv)(a => fromEffect(test(a)))
 
   /**
@@ -65,7 +67,9 @@ trait CatsTestFunctions {
    * variable. This is useful for deterministic `Gen` that comprehensively
    * explore all possibilities in a given domain.
    */
-  final def checkAllF[F[_], R <: TestConfig, A](rv: Gen[R, A])(test: A => F[TestResult])(implicit F: Effect[F]): RIO[R, TestResult] =
+  final def checkAllF[F[_], R <: TestConfig, A](
+    rv: Gen[R, A]
+  )(test: A => F[TestResult])(implicit F: Effect[F]): RIO[R, TestResult] =
     checkAllM(rv)(a => fromEffect(test(a)))
 
   /**
@@ -87,7 +91,12 @@ trait CatsTestFunctions {
   /**
    * A version of `checkAllM` that accepts four random variables.
    */
-  final def checkAllF[F[_], R <: TestConfig, A, B, C, D](rv1: Gen[R, A], rv2: Gen[R, B], rv3: Gen[R, C], rv4: Gen[R, D])(
+  final def checkAllF[F[_], R <: TestConfig, A, B, C, D](
+    rv1: Gen[R, A],
+    rv2: Gen[R, B],
+    rv3: Gen[R, C],
+    rv4: Gen[R, D]
+  )(
     test: (A, B, C, D) => F[TestResult]
   )(implicit F: Effect[F]): RIO[R, TestResult] =
     checkAllM(rv1, rv2, rv3, rv4)((a, b, c, d) => fromEffect(test(a, b, c, d)))
@@ -97,8 +106,8 @@ trait CatsTestFunctions {
    * the given random variable.
    */
   final def checkSomeF[F[_], R <: TestConfig, A](
-                                                  rv: Gen[R, A]
-                                                )(n: Int)(test: A => F[TestResult])(implicit F: Effect[F]): RIO[R, TestResult] =
+    rv: Gen[R, A]
+  )(n: Int)(test: A => F[TestResult])(implicit F: Effect[F]): RIO[R, TestResult] =
     checkNM(n)(rv)(a => fromEffect(test(a)))
 
   /**
@@ -120,7 +129,12 @@ trait CatsTestFunctions {
   /**
    * A version of `checkSomeM` that accepts four random variables.
    */
-  final def checkSomeF[F[_], R <: TestConfig, A, B, C, D](rv1: Gen[R, A], rv2: Gen[R, B], rv3: Gen[R, C], rv4: Gen[R, D])(
+  final def checkSomeF[F[_], R <: TestConfig, A, B, C, D](
+    rv1: Gen[R, A],
+    rv2: Gen[R, B],
+    rv3: Gen[R, C],
+    rv4: Gen[R, D]
+  )(
     n: Int
   )(test: (A, B, C, D) => F[TestResult])(implicit F: Effect[F]): RIO[R, TestResult] =
     checkNM(n)(rv1, rv2, rv3, rv4)((a, b, c, d) => fromEffect(test(a, b, c, d)))
