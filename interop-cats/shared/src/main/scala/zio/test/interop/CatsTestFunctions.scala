@@ -97,8 +97,8 @@ trait CatsTestFunctions {
    * the given random variable.
    */
   final def checkSomeF[F[_], R <: TestConfig, A](
-    rv: Gen[R, A]
-  )(n: Int)(test: A => F[TestResult])(implicit F: Effect[F]): RIO[R, TestResult] =
+                                                  rv: Gen[R, A]
+                                                )(n: Int)(test: A => F[TestResult])(implicit F: Effect[F]): RIO[R, TestResult] =
     checkNM(n)(rv)(a => fromEffect(test(a)))
 
   /**
