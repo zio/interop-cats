@@ -154,12 +154,21 @@ final class Schedule[F[+_], -In, +Out] private (private[Schedule] val underlying
     new Schedule(self.underlying compose that.underlying)
 
   /**
-   * @see zio.ZSchedule.combineWith
+   * @see zio.ZSchedule.intersectWith
    */
-  def combineWith[In1 <: In, Out2](
+  def intersectWith[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
   )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)] =
     new Schedule(self.underlying.intersectWith(that.underlying)(f))
+
+  /**
+   * @see zio.ZSchedule.combineWith
+   */
+  @deprecated("use intersectWith", "2.1.5")
+  def combineWith[In1 <: In, Out2](
+    that: Schedule[F, In1, Out2]
+  )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)] =
+    intersectWith(that)(f)
 
   /**
    * @see zio.ZSchedule.contramap
