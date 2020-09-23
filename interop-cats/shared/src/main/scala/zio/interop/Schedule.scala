@@ -171,6 +171,14 @@ final class Schedule[F[+_], -In, +Out] private (private[Schedule] val underlying
     intersectWith(that)(f)
 
   /**
+   * @see zio.ZSchedule.unionWith
+   */
+  def unionWith[In1 <: In, Out2](
+    that: Schedule[F, In1, Out2]
+  )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)] =
+    new Schedule(self.underlying.unionWith(that.underlying)(f))
+
+  /**
    * @see zio.ZSchedule.contramap
    */
   def contramap[In2](f: In2 => In): Schedule[F, In2, Out] =
