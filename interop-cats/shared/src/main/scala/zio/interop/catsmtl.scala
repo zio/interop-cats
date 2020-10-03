@@ -17,33 +17,33 @@
 package zio.interop
 
 import cats.mtl._
-import cats.{ Applicative, Functor }
+import cats.Applicative
 import zio.ZIO
 
 abstract class CatsMtlPlatform extends CatsMtlInstances
 
 abstract class CatsMtlInstances {
 
-  implicit def zioApplicativeLocalAsk[R, E](implicit ev: Applicative[ZIO[R, E, ?]]): ApplicativeLocal[ZIO[R, E, ?], R] =
-    new DefaultApplicativeLocal[ZIO[R, E, ?], R] {
-      val applicative: Applicative[ZIO[R, E, ?]]              = ev
-      def ask: ZIO[R, Nothing, R]                             = ZIO.environment
-      def local[A](f: R => R)(fa: ZIO[R, E, A]): ZIO[R, E, A] = ZIO.accessM(fa provide f(_))
+  implicit def zioLocal[R, E](implicit ev: Applicative[ZIO[R, E, *]]): Local[ZIO[R, E, *], R] =
+    new Local[ZIO[R, E, *], R] {
+      override def applicative: Applicative[ZIO[R, E, *]]              = ev
+      override def ask[E2 >: R]: ZIO[R, E, E2]                         = ZIO.environment
+      override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] = ZIO.accessM(fa provide f(_))
     }
 
   implicit def zioApplicativeAsk[R1, R <: R1, E](
-    implicit ev: Applicative[ZIO[R, E, ?]]
-  ): ApplicativeAsk[ZIO[R, E, ?], R1] =
-    new DefaultApplicativeAsk[ZIO[R, E, ?], R1] {
-      override val applicative: Applicative[ZIO[R, E, *]] = ev
-      override def ask: ZIO[R, Nothing, R1]               = ZIO.environment
+    implicit ev: Applicative[ZIO[R, E, *]]
+  ): Ask[ZIO[R, E, *], R1] =
+    new Ask[ZIO[R, E, *], R1] {
+      override def applicative: Applicative[ZIO[R, E, *]] = ev
+      override def ask[R2 >: R1]: ZIO[R, E, R2]           = ZIO.environment
     }
 
-  implicit def zioApplicativeHandle[R, E](implicit ev: Applicative[ZIO[R, E, ?]]): ApplicativeHandle[ZIO[R, E, ?], E] =
-    new DefaultApplicativeHandle[ZIO[R, E, ?], E] {
-      val functor: Functor[ZIO[R, E, ?]]                                      = ev
-      val applicative: Applicative[ZIO[R, E, ?]]                              = ev
-      def raise[A](e: E): ZIO[R, E, A]                                        = ZIO.fail(e)
-      def handleWith[A](fa: ZIO[R, E, A])(f: E => ZIO[R, E, A]): ZIO[R, E, A] = fa.catchAll(f)
+  implicit def zioApplicativeHandle[R, E](implicit ev: Applicative[ZIO[R, E, *]]): Handle[ZIO[R, E, *], E] =
+    new Handle[ZIO[R, E, *], E] {
+      override def applicative: Applicative[ZIO[R, E, *]]                              = ev
+      override def raise[E2 <: E, A](e: E2): ZIO[R, E, A]                              = ZIO.fail(e)
+      override def handleWith[A](fa: ZIO[R, E, A])(f: E => ZIO[R, E, A]): ZIO[R, E, A] = fa.catchAll(f)
     }
+
 }

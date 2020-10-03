@@ -2,7 +2,7 @@ package zio.interop
 
 import cats.implicits._
 import cats.mtl.laws.discipline._
-import cats.mtl.{ ApplicativeAsk, ApplicativeHandle, ApplicativeLocal, FunctorRaise }
+import cats.mtl.{ Ask, Handle, Local, Raise }
 import zio._
 import zio.interop.catz._
 import zio.interop.catz.mtl._
@@ -12,28 +12,28 @@ class catzMtlSpec extends catzSpecZIOBase {
   type Error = String
 
   checkAllAsync(
-    "ApplicativeAsk[ZIO[Ctx, Error, *]]",
-    implicit tc => ApplicativeAskTests[ZIO[Ctx, Error, *], Ctx].applicativeAsk[Ctx]
+    "Ask[ZIO[Ctx, Error, *]]",
+    implicit tc => AskTests[ZIO[Ctx, Error, *], Ctx].ask[Ctx]
   )
 
   checkAllAsync(
-    "ApplicativeLocal[ZIO[Ctx, Error, *]]",
-    implicit tc => ApplicativeLocalTests[ZIO[Ctx, Error, *], Ctx].applicativeLocal[Ctx, Int]
+    "Local[ZIO[Ctx, Error, *]]",
+    implicit tc => LocalTests[ZIO[Ctx, Error, *], Ctx].local[Ctx, Int]
   )
 
   checkAllAsync(
-    "FunctorRaise[ZIO[Ctx, Error, *]]",
-    implicit tc => FunctorRaiseTests[ZIO[Ctx, Error, *], Error].functorRaise[Int]
+    "Raise[ZIO[Ctx, Error, *]]",
+    implicit tc => RaiseTests[ZIO[Ctx, Error, *], Error].raise[Int]
   )
 
   checkAllAsync(
-    "ApplicativeHandle[ZIO[Ctx, Error, *]]",
-    implicit tc => ApplicativeHandleTests[ZIO[Ctx, Error, *], Error].applicativeHandle[Int]
+    "Handle[ZIO[Ctx, Error, *]]",
+    implicit tc => HandleTests[ZIO[Ctx, Error, *], Error].handle[Int]
   )
 
-  def askSummoner[R, E]                    = ApplicativeAsk[ZIO[R, E, *], R]
-  def askSubtypingSummoner[R1, R <: R1, E] = ApplicativeAsk[ZIO[R, E, *], R1]
-  def localSummoner[R, E]                  = ApplicativeLocal[ZIO[R, E, *], R]
-  def raiseSummoner[R, E]                  = FunctorRaise[ZIO[R, E, *], E]
-  def handleSummoner[R, E]                 = ApplicativeHandle[ZIO[R, E, *], E]
+  def askSummoner[R, E]                    = Ask[ZIO[R, E, *], R]
+  def askSubtypingSummoner[R1, R <: R1, E] = Ask[ZIO[R, E, *], R1]
+  def localSummoner[R, E]                  = Local[ZIO[R, E, *], R]
+  def raiseSummoner[R, E]                  = Raise[ZIO[R, E, *], E]
+  def handleSummoner[R, E]                 = Handle[ZIO[R, E, *], E]
 }
