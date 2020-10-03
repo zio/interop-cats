@@ -2,33 +2,43 @@ package zio
 package stream.interop
 
 import fs2.Stream
-import zio.stream.{ Take, ZStream }
 import zio.interop.catz._
+import zio.stream.{ Take, ZStream }
+
+import scala.language.implicitConversions
 
 trait FS2StreamSyntax {
 
-  import scala.language.implicitConversions
-
   implicit final def fs2RIOStreamSyntax[R, A](stream: Stream[RIO[R, *], A]): FS2RIOStreamSyntax[R, A] =
     new FS2RIOStreamSyntax(stream)
+
+  implicit final def zStreamSyntax[R, E, A](stream: ZStream[R, E, A]): ZStreamSyntax[R, E, A] =
+    new ZStreamSyntax(stream)
+}
+
+class ZStreamSyntax[R, E, A](private val stream: ZStream[R, E, A]) extends AnyVal {
+
+  /** Convert a [[zio.stream.ZStream]] into an [[fs2.Stream]]. */
+  def toFs2Stream: fs2.Stream[ZIO[R, E, *], A] =
+    fs2.Stream.resource(stream.process.toResourceZIO).flatMap { pull =>
+      fs2.Stream.repeatEval(pull.optional).unNoneTerminate.flatMap { chunk =>
+        fs2.Stream.chunk(fs2.Chunk.indexedSeq(chunk))
+      }
+    }
 }
 
 final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, *], A]) {
 
   /**
-   * Convert a fs2.Stream into a ZStream.
-   * This method requires non-empty queue.
+   * Convert an [[fs2.Stream]] into a [[zio.stream.ZStream]].
+   * This method requires a non-empty queue.
    *
    * When `queueSize` >= 2 utilizes chunks for better performance.
    *
-   * @note when possible use only power of 2 capacities; this will
-   * provide better performance of the queue.
+   * @note when possible use only power of 2 queue sizes; this will provide better performance of the queue.
    */
   def toZStream[R1 <: R](queueSize: Int = 16): ZStream[R1, Throwable, A] =
-    if (queueSize > 1)
-      toZStreamChunk(queueSize)
-    else
-      toZStreamSingle
+    if (queueSize > 1) toZStreamChunk(queueSize) else toZStreamSingle
 
   private def toZStreamSingle[R1 <: R]: ZStream[R1, Throwable, A] =
     ZStream.managed {

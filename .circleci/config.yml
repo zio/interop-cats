@@ -1,10 +1,10 @@
 version: 2.1
 
 scala_212: &scala_212
-  SCALA_VERSION: 2.12.11
+  SCALA_VERSION: 2.12.12
 
 scala_213: &scala_213
-  SCALA_VERSION: 2.13.2
+  SCALA_VERSION: 2.13.3
 
 jdk_8: &jdk_8
   JDK_VERSION: 8
@@ -47,7 +47,7 @@ install_jdk: &install_jdk
 
 load_cache: &load_cache
   - restore_cache:
-      key: sbt-cache-interop-cats
+      key: sbt-cache-interop-cats-2
 
 clean_cache: &clean_cache
   - run:
@@ -59,22 +59,12 @@ clean_cache: &clean_cache
 
 save_cache: &save_cache
   - save_cache:
-      key: sbt-cache-interop-cats
+      key: sbt-cache-interop-cats-2
       paths:
           - "~/.ivy2/cache"
           - "~/.sbt"
           - "~/.m2"
           - "~/.cache"
-
-compile: &compile
-  steps:
-    - checkout
-    - <<: *load_cache
-    - run:
-        name: Compile code
-        command: ./sbt ++${SCALA_VERSION}! compileJVM
-    - <<: *clean_cache
-    - <<: *save_cache
 
 filter_tags: &filter_tags
   tags:

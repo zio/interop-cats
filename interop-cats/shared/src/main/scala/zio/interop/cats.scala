@@ -21,6 +21,7 @@ import cats.effect.{ Concurrent, ContextShift, ExitCase }
 import cats.{ effect, _ }
 import zio._
 import zio.clock.Clock
+import zio.clock.Clock.Service.{ live => zioClock }
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS, TimeUnit }
@@ -46,18 +47,18 @@ abstract class CatsEffectPlatform
   object implicits {
     implicit final def ioTimer[E]: effect.Timer[IO[E, *]] = ioTimer0.asInstanceOf[effect.Timer[IO[E, *]]]
 
-    private[this] implicit val ioTimer0: effect.Timer[IO[Any, *]] =
+    private[this] val ioTimer0: effect.Timer[IO[Any, *]] =
       new effect.Timer[IO[Any, *]] {
-        override final def clock: effect.Clock[IO[Any, *]] = new effect.Clock[IO[Any, *]] {
+        override final val clock: effect.Clock[IO[Any, *]] = new effect.Clock[IO[Any, *]] {
           override final def monotonic(unit: TimeUnit): IO[Any, Long] =
-            zio.clock.nanoTime.map(unit.convert(_, NANOSECONDS)).provideLayer(ZEnv.live)
+            zioClock.nanoTime.map(unit.convert(_, NANOSECONDS))
 
           override final def realTime(unit: TimeUnit): IO[Any, Long] =
-            zio.clock.currentTime(unit).provideLayer(ZEnv.live)
+            zioClock.currentTime(unit)
         }
 
         override final def sleep(duration: FiniteDuration): IO[Any, Unit] =
-          zio.clock.sleep(zio.duration.Duration.fromNanos(duration.toNanos)).provideLayer(ZEnv.live)
+          zioClock.sleep(zio.duration.Duration.fromNanos(duration.toNanos))
       }
   }
 
