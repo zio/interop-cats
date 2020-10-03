@@ -3,8 +3,8 @@ package zio.stream.interop
 import cats.implicits._
 import cats.laws.discipline._
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
-import zio.stream.interop.catz._
 import zio.stream._
+import zio.stream.interop.catz._
 
 class catzSpec extends catzSpecZStreamBase with GenStreamInteropCats {
 
