@@ -22,14 +22,14 @@ object catzClockSpec extends DefaultRunnableSpec {
             clock.get.toTimer
 
           val stream: Stream[Task, Int] =
-            Stream.eval(Task.effect(1)).delayBy(FiniteDuration(10, TimeUnit.SECONDS))
+            Stream.eval(Task.effect(1)).delayBy(FiniteDuration(10, TimeUnit.DAYS))
 
           for {
             fiber <- stream.compile.drain.fork
-            _     <- TestClock.adjust(20.seconds)
+            _     <- TestClock.adjust(10.days)
             _     <- fiber.join
           } yield assertCompletes
         }
-      } @@ timeout(1.second)
+      } @@ timeout(60.seconds)
     }
 }
