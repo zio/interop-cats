@@ -7,6 +7,7 @@ import zio.clock._
 import zio.duration._
 import zio.interop.catz._
 import zio.test.environment._
+import zio.test.TestAspect._
 import zio.test._
 
 import scala.concurrent.duration.FiniteDuration
@@ -29,6 +30,6 @@ object catzClockSpec extends DefaultRunnableSpec {
             _     <- fiber.join
           } yield assertCompletes
         }
-      }
+      } @@ timeout(1.second)
     }
 }
