@@ -16,35 +16,35 @@
 
 package zio.interop
 
-import cats.effect.LiftIO
-import zio.{ Queue => ZioQueue, Runtime, UIO, ZEnv }
+import cats.effect.Async
+import zio.{ Runtime, UIO, ZEnv, Queue => ZioQueue }
 
 object Queue {
 
   /**
    * @see ZioQueue.bounded
    */
-  final def bounded[F[+_], A](capacity: Int)(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
+  final def bounded[F[+_]: Async, A](capacity: Int)(implicit R: Runtime[ZEnv]): F[Queue[F, A]] =
     create(ZioQueue.bounded[A](capacity))
 
   /**
    * @see ZioQueue.dropping
    */
-  final def dropping[F[+_], A](capacity: Int)(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
+  final def dropping[F[+_]: Async, A](capacity: Int)(implicit R: Runtime[ZEnv]): F[Queue[F, A]] =
     create(ZioQueue.dropping[A](capacity))
 
   /**
    * @see ZioQueue.sliding
    */
-  final def sliding[F[+_], A](capacity: Int)(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
+  final def sliding[F[+_]: Async, A](capacity: Int)(implicit R: Runtime[ZEnv]): F[Queue[F, A]] =
     create(ZioQueue.sliding[A](capacity))
 
   /**
    * @see ZioQueue.unbounded
    */
-  final def unbounded[F[+_], A](implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
+  final def unbounded[F[+_]: Async, A](implicit R: Runtime[ZEnv]): F[Queue[F, A]] =
     create(ZioQueue.unbounded[A])
 
-  private final def create[F[+_], A](in: UIO[ZioQueue[A]])(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Queue[F, A]] =
+  private final def create[F[+_]: Async, A](in: UIO[ZioQueue[A]])(implicit R: Runtime[ZEnv]): F[Queue[F, A]] =
     toEffect(in.map(new CQueue[F, A, A](_)))
 }

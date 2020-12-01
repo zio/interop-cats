@@ -1,17 +1,31 @@
 package zio
 package interop
 
-import cats.effect
-import cats.effect.{ Concurrent, ConcurrentEffect, ContextShift, Sync }
+import cats.effect.kernel.Async
+import cats.effect.std.Dispatcher
+import cats.effect.unsafe.{ IORuntime, IORuntimeConfig, Scheduler }
+import cats.effect.{ Sync, IO => CIO }
 import fs2.Stream
+import zio.blocking.Blocking
+import zio.duration._
 import zio.interop.catz._
 import zio.test.Assertion.equalTo
 import zio.test._
 import zio.test.interop.catz.test._
 
-import scala.concurrent.ExecutionContext.global
-
 object Fs2ZioSpec extends DefaultRunnableSpec {
+  implicit val zioRuntime: Runtime[ZEnv] = Runtime.default
+  val (scheduler, shutdown)              = Scheduler.createDefaultScheduler()
+  implicit val ioRuntime: IORuntime = IORuntime(
+    zioRuntime.platform.executor.asEC,
+    zioRuntime.environment.get[Blocking.Service].blockingExecutor.asEC,
+    scheduler,
+    shutdown,
+    IORuntimeConfig()
+  )
+
+  implicit val dispatcher: Dispatcher[CIO] =
+    Dispatcher[CIO].allocated.unsafeRunSync()._1
 
   def spec =
     suite("ZIO with Fs2")(
@@ -22,7 +36,7 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
           }
         },
         testM("works if F is zio.interop.Task") {
-          testCaseJoin[zio.Task].map { ints =>
+          testCaseJoin[zio.RIO[ZEnv, *]].map { ints =>
             assert(ints)(equalTo(List(1, 1)))
           }
         }
@@ -38,10 +52,7 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
           bracketInterrupt
         }
       )
-    )
-
-  implicit val cs: ContextShift[effect.IO]                 = cats.effect.IO.contextShift(global)
-  implicit val catsConcurrent: ConcurrentEffect[effect.IO] = cats.effect.IO.ioConcurrentEffect(cs)
+    ) @@ TestAspect.timeout(10.seconds)
 
   def bracketFail: ZIO[Any, Nothing, TestResult] =
     for {
@@ -97,7 +108,7 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
       _ <- released.await
     } yield assertCompletes
 
-  def testCaseJoin[F[_]: Concurrent]: F[List[Int]] = {
+  def testCaseJoin[F[_]: Async]: F[List[Int]] = {
     def one: F[Int]                   = Sync[F].delay(1)
     val s: Stream[F, Int]             = Stream.eval(one)
     val ss: Stream[F, Stream[F, Int]] = Stream.emits(List(s, s))

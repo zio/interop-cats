@@ -1,15 +1,12 @@
 package zio.stream.interop
 
+import cats.effect.ParallelF
 import cats.implicits._
 import cats.laws.discipline._
-import org.scalacheck.{ Arbitrary, Gen }
 import zio.stream._
 import zio.stream.interop.catz._
 
 class catzSpec extends catzSpecZStreamBase with GenStreamInteropCats {
-
-  def genUStream[A: Arbitrary]: Gen[Stream[Nothing, A]] =
-    Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
 
   checkAllAsync(
     "MonadError[Stream[Int, *]]",
@@ -17,7 +14,7 @@ class catzSpec extends catzSpecZStreamBase with GenStreamInteropCats {
   )
   checkAllAsync(
     "Parallel[Stream[Throwable, *]]",
-    implicit tc => ParallelTests[Stream[Throwable, *], ParStream[Any, Throwable, *]].parallel[Int, Int]
+    implicit tc => ParallelTests[Stream[Throwable, *], ParallelF[Stream[Throwable, *], *]].parallel[Int, Int]
   )
   checkAllAsync("MonoidK[Stream[Int, *]]", implicit tc => MonoidKTests[Stream[Int, *]].monoidK[Int])
   checkAllAsync(
@@ -29,12 +26,7 @@ class catzSpec extends catzSpecZStreamBase with GenStreamInteropCats {
     implicit tc => SemigroupKTests[Stream[Throwable, *]].semigroupK[Int]
   )
   checkAllAsync("Bifunctor[Stream]", implicit tc => BifunctorTests[Stream].bifunctor[Int, Int, Int, Int, Int, Int])
-  checkAllAsync(
-    "Monad[Stream[Nothing, *]]", { implicit tc =>
-      implicit def streamArbitrary[A: Arbitrary]: Arbitrary[Stream[Nothing, A]] = Arbitrary(genUStream[A])
-      MonadTests[Stream[Nothing, *]].apply[Int, Int, Int]
-    }
-  )
+  checkAllAsync("Monad[UStream]", implicit tc => MonadTests[UStream].apply[Int, Int, Int])
   checkAllAsync(
     "ArrowChoice[ZStream]",
     implicit tc => ArrowChoiceTests[ZStream[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]

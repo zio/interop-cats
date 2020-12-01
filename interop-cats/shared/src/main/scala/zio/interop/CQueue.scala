@@ -16,7 +16,8 @@
 
 package zio.interop
 
-import cats.effect.{ Effect, LiftIO }
+import cats.effect.Async
+import cats.effect.std.Dispatcher
 import zio.{ Runtime, ZQueue }
 
 /**
@@ -29,64 +30,76 @@ final class CQueue[F[+_], -A, +B] private[interop] (
   /**
    * @see [[ZQueue.awaitShutdown]]
    */
-  def awaitShutdown(implicit R: Runtime[Any], F: LiftIO[F]): F[Unit] = toEffect(underlying.awaitShutdown)
+  def awaitShutdown(implicit R: Runtime[Any], F: Async[F]): F[Unit] =
+    toEffect(underlying.awaitShutdown)
 
   /**
    * @see [[ZQueue.capacity]]
    */
-  def capacity: Int = underlying.capacity
+  def capacity: Int =
+    underlying.capacity
 
   /**
    * @see [[ZQueue.isShutdown]]
    */
-  def isShutdown(implicit R: Runtime[Any], F: LiftIO[F]): F[Boolean] = toEffect(underlying.isShutdown)
+  def isShutdown(implicit R: Runtime[Any], F: Async[F]): F[Boolean] =
+    toEffect(underlying.isShutdown)
 
   /**
    * @see [[ZQueue.offer]]
    */
-  def offer(a: A)(implicit R: Runtime[Any], F: LiftIO[F]): F[Boolean] = toEffect(underlying.offer(a))
+  def offer(a: A)(implicit R: Runtime[Any], F: Async[F]): F[Boolean] =
+    toEffect(underlying.offer(a))
 
   /**
    * @see [[ZQueue.offerAll]]
    */
-  def offerAll(as: Iterable[A])(implicit R: Runtime[Any], F: LiftIO[F]): F[Boolean] = toEffect(underlying.offerAll(as))
+  def offerAll(as: Iterable[A])(implicit R: Runtime[Any], F: Async[F]): F[Boolean] =
+    toEffect(underlying.offerAll(as))
 
   /**
    * @see [[ZQueue.shutdown]]
    */
-  def shutdown(implicit R: Runtime[Any], F: LiftIO[F]): F[Unit] = toEffect(underlying.shutdown)
+  def shutdown(implicit R: Runtime[Any], F: Async[F]): F[Unit] =
+    toEffect(underlying.shutdown)
 
   /**
    * @see [[ZQueue.size]]
    */
-  def size(implicit R: Runtime[Any], F: LiftIO[F]): F[Int] = toEffect(underlying.size)
+  def size(implicit R: Runtime[Any], F: Async[F]): F[Int] =
+    toEffect(underlying.size)
 
   /**
    * @see [[ZQueue.take]]
    */
-  def take(implicit R: Runtime[Any], F: LiftIO[F]): F[B] = toEffect(underlying.take)
+  def take(implicit R: Runtime[Any], F: Async[F]): F[B] =
+    toEffect(underlying.take)
 
   /**
    * @see [[ZQueue.takeAll]]
    */
-  def takeAll(implicit R: Runtime[Any], F: LiftIO[F]): F[List[B]] = toEffect(underlying.takeAll)
+  def takeAll(implicit R: Runtime[Any], F: Async[F]): F[List[B]] =
+    toEffect(underlying.takeAll)
 
   /**
    * @see [[ZQueue.takeUpTo]]
    */
-  def takeUpTo(max: Int)(implicit R: Runtime[Any], F: LiftIO[F]): F[List[B]] = toEffect(underlying.takeUpTo(max))
+  def takeUpTo(max: Int)(implicit R: Runtime[Any], F: Async[F]): F[List[B]] =
+    toEffect(underlying.takeUpTo(max))
 
   /**
    * @see [[ZQueue.&&]]
    */
   @deprecated("use ZStream", "2.0.0")
-  def &&[A0 <: A, C](that: CQueue[F, A0, C]): CQueue[F, A0, (B, C)] = new CQueue(underlying && that.underlying)
+  def &&[A0 <: A, C](that: CQueue[F, A0, C]): CQueue[F, A0, (B, C)] =
+    new CQueue(underlying && that.underlying)
 
   /**
    * @see [[ZQueue.both]]
    */
   @deprecated("use ZStream", "2.0.0")
-  def both[A0 <: A, C](that: CQueue[F, A0, C]): CQueue[F, A0, (B, C)] = new CQueue(underlying.both(that.underlying))
+  def both[A0 <: A, C](that: CQueue[F, A0, C]): CQueue[F, A0, (B, C)] =
+    new CQueue(underlying.both(that.underlying))
 
   /**
    * @see [[ZQueue.bothWith]]
@@ -99,48 +112,48 @@ final class CQueue[F[+_], -A, +B] private[interop] (
    * @see [[ZQueue.bothWithM]]
    */
   @deprecated("use ZStream", "2.0.0")
-  def bothWithM[A0 <: A, C, D](
-    that: CQueue[F, A0, C]
-  )(f: (B, C) => F[D])(implicit R: Runtime[Any], E: Effect[F]): CQueue[F, A0, D] =
-    new CQueue(underlying.bothWithM(that.underlying) { (b, c) =>
-      fromEffect(f(b, c))
-    })
+  def bothWithM[A0 <: A, C, D](that: CQueue[F, A0, C])(f: (B, C) => F[D])(implicit F: Dispatcher[F]): CQueue[F, A0, D] =
+    new CQueue(underlying.bothWithM(that.underlying)((b, c) => fromEffect(f(b, c))))
 
   /**
    * @see [[ZQueue.contramap]]
    */
-  def contramap[C](f: C => A): CQueue[F, C, B] = new CQueue(underlying.contramap(f))
+  def contramap[C](f: C => A): CQueue[F, C, B] =
+    new CQueue(underlying.contramap(f))
 
   /**
    * @see [[ZQueue.contramapM]]
    */
-  def contramapM[C](f: C => F[A])(implicit R: Runtime[Any], E: Effect[F]): CQueue[F, C, B] =
+  def contramapM[C](f: C => F[A])(implicit F: Dispatcher[F]): CQueue[F, C, B] =
     new CQueue(underlying.contramapM(c => fromEffect(f(c))))
 
   /**
    * @see [[ZQueue.filterInput]]
    */
-  def filterInput[A0 <: A](f: A0 => Boolean): CQueue[F, A0, B] = new CQueue(underlying.filterInput(f))
+  def filterInput[A0 <: A](f: A0 => Boolean): CQueue[F, A0, B] =
+    new CQueue(underlying.filterInput(f))
 
   /**
    * @see [[ZQueue.filterInputM]]
    */
-  def filterInputM[A0 <: A](f: A0 => F[Boolean])(implicit R: Runtime[Any], E: Effect[F]): CQueue[F, A0, B] =
+  def filterInputM[A0 <: A](f: A0 => F[Boolean])(implicit F: Dispatcher[F]): CQueue[F, A0, B] =
     new CQueue(underlying.filterInputM((a0: A0) => fromEffect(f(a0))))
 
   /**
    * @see [[ZQueue.map]]
    */
-  def map[C](f: B => C): CQueue[F, A, C] = new CQueue(underlying.map(f))
+  def map[C](f: B => C): CQueue[F, A, C] =
+    new CQueue(underlying.map(f))
 
   /**
    * @see [[ZQueue.mapM]]
    */
-  def mapM[C](f: B => F[C])(implicit R: Runtime[Any], E: Effect[F]): CQueue[F, A, C] =
+  def mapM[C](f: B => F[C])(implicit F: Dispatcher[F]): CQueue[F, A, C] =
     new CQueue(underlying.mapM(b => fromEffect(f(b))))
 
   /**
    * @see [[ZQueue.poll]]
    */
-  def poll(implicit R: Runtime[Any], F: LiftIO[F]): F[Option[B]] = toEffect(underlying.poll)
+  def poll(implicit R: Runtime[Any], F: Async[F]): F[Option[B]] =
+    toEffect(underlying.poll)
 }

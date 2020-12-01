@@ -1,7 +1,7 @@
 package zio.interop
 
 import org.scalacheck._
-import zio.{ IO, Promise, ZIO, ZManaged }
+import zio._
 
 /**
  * Temporary fork of zio.GenIO that overrides `genParallel` with ZManaged-based code
@@ -47,6 +47,9 @@ trait GenIOInteropCats {
    */
   def genIO[E: Arbitrary, A: Arbitrary]: Gen[IO[E, A]] =
     Gen.oneOf(genSuccess[E, A], genFailure[E, A])
+
+  def genUIO[A: Arbitrary]: Gen[UIO[A]] =
+    Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
 
   /**
    * Given a generator for `IO[E, A]`, produces a sized generator for `IO[E, A]` which represents a transformation,
@@ -127,5 +130,4 @@ trait GenIOInteropCats {
           .use_(p.await *> io)
       }
     }
-
 }

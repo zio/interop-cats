@@ -23,156 +23,168 @@ import zio.stm.{ STM => ZSTM }
 import scala.util.Try
 
 /**
- * See [[zio.stm.ZSTM]]
+ * See [[zio.stm.STM]]
  */
 final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throwable, A]) {
-  self =>
 
   /**
-   * See `<*>` [[zio.stm.STM]] `<*>`
+   * See [[zio.stm.STM#<*>]]
    */
-  final def <*>[B](that: => STM[F, B]): STM[F, (A, B)] =
-    self zip that
+  def <*>[B](that: => STM[F, B]): STM[F, (A, B)] =
+    this zip that
 
   /**
-   * See [[zio.stm.ZSTM]] `<*`
+   * See [[zio.stm.STM#<*]]
    */
-  final def <*[B](that: => STM[F, B]): STM[F, A] =
-    self zipLeft that
+  def <*[B](that: => STM[F, B]): STM[F, A] =
+    this zipLeft that
 
   /**
-   * See [[zio.stm.ZSTM]] `*>`
+   * See [[zio.stm.STM#*>]]
    */
-  final def *>[B](that: => STM[F, B]): STM[F, B] =
-    self zipRight that
+  def *>[B](that: => STM[F, B]): STM[F, B] =
+    this zipRight that
 
   /**
-   * See [[zio.stm.ZSTM]] `>>=`
+   * See [[zio.stm.STM#>>=]]
    */
-  final def >>=[B](f: A => STM[F, B]): STM[F, B] =
-    self flatMap f
+  def >>=[B](f: A => STM[F, B]): STM[F, B] =
+    flatMap(f)
 
   /**
-   * See zio.stm.ZSTM#collect
+   * See [[zio.stm.STM#collect]]
    */
-  final def collect[B](pf: PartialFunction[A, B]): STM[F, B] = new STM(underlying.collect(pf))
+  def collect[B](pf: PartialFunction[A, B]): STM[F, B] =
+    new STM(underlying.collect(pf))
 
   /**
-   * See [[zio.stm.ZSTM#commit]]
+   * See [[zio.stm.STM#commit]]
    */
-  final def commit(implicit R: Runtime[Any], A: Async[F]): F[A] = STM.atomically(self)
+  def commit(implicit R: Runtime[Any], A: Async[F]): F[A] =
+    STM.atomically(this)
 
-  final def const[B](b: => B): STM[F, B] = self map (_ => b)
+  def const[B](b: => B): STM[F, B] =
+    map(_ => b)
 
   /**
-   * See [[zio.stm.ZSTM#either]]
+   * See [[zio.stm.STM#either]]
    */
-  final def either: STM[F, Either[Throwable, A]] = new STM(underlying.either)
+  def either: STM[F, Either[Throwable, A]] =
+    new STM(underlying.either)
 
   /**
-   * See [[zio.stm.ZSTM#withFilter]]
+   * See [[zio.stm.STM#withFilter]]
    */
-  final def filter(f: A => Boolean): STM[F, A] =
-    collect {
-      case a if f(a) => a
-    }
+  def filter(f: A => Boolean): STM[F, A] =
+    collect { case a if f(a) => a }
 
   /**
-   * See [[zio.stm.ZSTM#flatMap]]
+   * See [[zio.stm.STM#flatMap]]
    */
-  final def flatMap[B](f: A => STM[F, B]): STM[F, B] = new STM(underlying.flatMap(f.andThen(_.underlying)))
-
-  final def flatten[B](implicit ev: A <:< STM[F, B]): STM[F, B] =
-    self flatMap ev
+  def flatMap[B](f: A => STM[F, B]): STM[F, B] =
+    new STM(underlying.flatMap(f(_).underlying))
 
   /**
-   * See [[zio.stm.ZSTM#fold]]
+   * See [[zio.stm.STM.flatten]]
    */
-  final def fold[B](f: Throwable => B, g: A => B): STM[F, B] = new STM(underlying.fold(f, g))
+  def flatten[B](implicit ev: A <:< STM[F, B]): STM[F, B] =
+    flatMap(ev)
 
   /**
-   * See [[zio.stm.ZSTM#foldM]]
+   * See [[zio.stm.STM#fold]]
    */
-  final def foldM[B](f: Throwable => STM[F, B], g: A => STM[F, B]): STM[F, B] =
-    new STM(underlying.foldM(f.andThen(_.underlying), g.andThen(_.underlying)))
+  def fold[B](f: Throwable => B, g: A => B): STM[F, B] =
+    new STM(underlying.fold(f, g))
 
   /**
-   * See [[zio.stm.ZSTM#map]]
+   * See [[zio.stm.STM#foldM]]
    */
-  final def map[B](f: A => B): STM[F, B] = new STM(underlying.map(f))
+  def foldM[B](f: Throwable => STM[F, B], g: A => STM[F, B]): STM[F, B] =
+    new STM(underlying.foldM(f(_).underlying, g(_).underlying))
 
   /**
-   * See [[zio.stm.ZSTM#mapError]]
+   * See [[zio.stm.STM#map]]
    */
-  final def mapError[E1 <: Throwable](f: Throwable => E1): STM[F, A] = new STM(underlying.mapError(f))
+  def map[B](f: A => B): STM[F, B] =
+    new STM(underlying.map(f))
+
+  /**
+   * See [[zio.stm.STM#mapError]]
+   */
+  def mapError[E1 <: Throwable](f: Throwable => E1): STM[F, A] =
+    new STM(underlying.mapError(f))
 
   /**
    * Switch from effect F to effect G.
    */
-  final def mapK[G[+_]]: STM[G, A] = new STM(underlying)
+  def mapK[G[+_]]: STM[G, A] =
+    new STM(underlying)
 
   /**
-   * See [[zio.stm.ZSTM#option]]
+   * See [[zio.stm.STM#option]]
    */
-  final def option: STM[F, Option[A]] =
-    fold[Option[A]](_ => None, Some(_))
+  def option: STM[F, Option[A]] =
+    fold[Option[A]](_ => None, Some[A])
 
   /**
-   * See [[zio.stm.ZSTM#orElse]]
+   * See [[zio.stm.STM#orElse]]
    */
-  final def orElse[A1 >: A](that: => STM[F, A1]): STM[F, A1] = new STM(underlying.orElse(that.underlying))
+  def orElse[A1 >: A](that: => STM[F, A1]): STM[F, A1] =
+    new STM(underlying.orElse(that.underlying))
 
   /**
-   * See [[zio.stm.ZSTM#orElseEither]]
+   * See [[zio.stm.STM#orElseEither]]
    */
-  final def orElseEither[B](that: => STM[F, B]): STM[F, Either[A, B]] =
-    (self map (Left[A, B](_))) orElse (that map (Right[A, B](_)))
+  def orElseEither[B](that: => STM[F, B]): STM[F, Either[A, B]] =
+    this.map(Left[A, B]) orElse that.map(Right[A, B])
 
   /**
-   * See zio.stm.STM.unit
+   * See [[zio.stm.STM.unit]]
    */
-  final def unit: STM[F, Unit] = const(())
+  def unit: STM[F, Unit] =
+    const(())
 
   /**
-   * See zio.stm.STM.unit
+   * See [[zio.stm.STM.unit]]
    */
-  final def void: STM[F, Unit] = unit
+  def void: STM[F, Unit] =
+    unit
 
   /**
    * Same as [[filter]]
    */
-  final def withFilter(f: A => Boolean): STM[F, A] = filter(f)
+  def withFilter(f: A => Boolean): STM[F, A] =
+    filter(f)
 
   /**
-   * See [[zio.stm.ZSTM#zip]]
+   * See [[zio.stm.STM#zip]]
    */
-  final def zip[B](that: => STM[F, B]): STM[F, (A, B)] =
-    (self zipWith that)((a, b) => a -> b)
+  def zip[B](that: => STM[F, B]): STM[F, (A, B)] =
+    zipWith(that)(_ -> _)
 
   /**
-   * See [[zio.stm.ZSTM#zipLeft]]
+   * See [[zio.stm.STM#zipLeft]]
    */
-  final def zipLeft[B](that: => STM[F, B]): STM[F, A] =
-    (self zip that) map (_._1)
+  def zipLeft[B](that: => STM[F, B]): STM[F, A] =
+    zipWith(that)((a, _) => a)
 
   /**
-   * See [[zio.stm.ZSTM#zipRight]]
+   * See [[zio.stm.STM#zipRight]]
    */
-  final def zipRight[B](that: => STM[F, B]): STM[F, B] =
-    (self zip that) map (_._2)
+  def zipRight[B](that: => STM[F, B]): STM[F, B] =
+    zipWith(that)((_, b) => b)
 
   /**
-   * See [[zio.stm.ZSTM#zipWith]]
+   * See [[zio.stm.STM#zipWith]]
    */
-  final def zipWith[B, C](that: => STM[F, B])(f: (A, B) => C): STM[F, C] =
-    self flatMap (a => that map (b => f(a, b)))
-
+  def zipWith[B, C](that: => STM[F, B])(f: (A, B) => C): STM[F, C] =
+    flatMap(a => that.map(f(a, _)))
 }
 
 object STM {
 
-  final def atomically[F[+_], A](stm: STM[F, A])(implicit R: Runtime[Any], A: Async[F]): F[A] =
-    A.async { cb =>
+  final def atomically[F[+_], A](stm: STM[F, A])(implicit R: Runtime[Any], F: Async[F]): F[A] =
+    F.async_ { cb =>
       R.unsafeRunAsync(ZSTM.atomically(stm.underlying)) { exit =>
         cb(exit.toEither)
       }
@@ -181,9 +193,7 @@ object STM {
   final def check[F[+_]](p: Boolean): STM[F, Unit] =
     if (p) STM.unit else retry
 
-  final def collectAll[F[+_], A](
-    i: Iterable[STM[F, A]]
-  ): STM[F, List[A]] =
+  final def collectAll[F[+_], A](i: Iterable[STM[F, A]]): STM[F, List[A]] =
     new STM(ZSTM.collectAll(i.map(_.underlying).toList))
 
   final def die[F[+_]](t: Throwable): STM[F, Nothing] =
@@ -195,9 +205,7 @@ object STM {
   final def fail[F[+_]](e: Throwable): STM[F, Nothing] =
     new STM(ZSTM.fail(e))
 
-  final def foreach[F[+_], A, B](
-    as: Iterable[A]
-  )(f: A => STM[F, B]): STM[F, List[B]] =
+  final def foreach[F[+_], A, B](as: Iterable[A])(f: A => STM[F, B]): STM[F, List[B]] =
     collectAll(as.map(f))
 
   final def fromEither[F[+_], A](e: Either[Throwable, A]): STM[F, A] =
@@ -209,13 +217,12 @@ object STM {
   final def partial[F[+_], A](a: => A): STM[F, A] =
     fromTry(Try(a))
 
-  final def retry[F[+_]]: STM[F, Nothing] = new STM(ZSTM.retry)
+  final def retry[F[+_]]: STM[F, Nothing] =
+    new STM(ZSTM.retry)
 
-  final def succeed[F[+_], A](a: => A): STM[F, A] = new STM(ZSTM.succeed(a))
-
-  @deprecated("use succeed", "2.0.0.0")
-  final def succeedLazy[F[+_], A](a: => A): STM[F, A] =
+  final def succeed[F[+_], A](a: => A): STM[F, A] =
     new STM(ZSTM.succeed(a))
 
-  final def unit[F[+_]]: STM[F, Unit] = new STM(ZSTM.unit)
+  final def unit[F[+_]]: STM[F, Unit] =
+    new STM(ZSTM.unit)
 }

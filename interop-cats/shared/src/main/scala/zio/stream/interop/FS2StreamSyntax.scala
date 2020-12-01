@@ -44,19 +44,15 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, *], A]) {
     ZStream.managed {
       for {
         queue <- Queue.bounded[Take[Throwable, A]](1).toManaged(_.shutdown)
-        _ <- ZIO
-              .runtime[R1]
-              .toManaged_
-              .flatMap { implicit runtime =>
-                (stream.evalTap(a => queue.offer(Take.single(a))) ++ fs2.Stream
-                  .eval(queue.offer(Take.end)))
-                  .handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
-                  .compile
-                  .resource
-                  .drain
-                  .toManaged
-              }
-              .fork
+        _ <- {
+          (stream.evalTap(a => queue.offer(Take.single(a))) ++ fs2.Stream
+            .eval(queue.offer(Take.end)))
+            .handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
+            .compile
+            .resource
+            .drain
+            .toManagedZIO
+        }.fork
       } yield ZStream.fromQueue(queue).flattenTake
     }.flatten
 
@@ -64,22 +60,17 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, *], A]) {
     ZStream.managed {
       for {
         queue <- Queue.bounded[Take[Throwable, A]](queueSize).toManaged(_.shutdown)
-        _ <- ZIO
-              .runtime[R1]
-              .toManaged_
-              .flatMap { implicit runtime =>
-                (stream
-                  .chunkLimit(queueSize)
-                  .evalTap(a => queue.offer(Take.chunk(zio.Chunk.fromIterable(a.toList))))
-                  .unchunk ++ fs2.Stream
-                  .eval(queue.offer(Take.end)))
-                  .handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
-                  .compile
-                  .resource
-                  .drain
-                  .toManaged
-              }
-              .fork
+        _ <- {
+          stream
+            .chunkLimit(queueSize)
+            .evalTap(a => queue.offer(Take.chunk(zio.Chunk.fromIterable(a.toList))))
+            .unchunk ++ fs2.Stream.eval(queue.offer(Take.end))
+        }.handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
+          .compile
+          .resource
+          .drain
+          .toManagedZIO
+          .fork
       } yield ZStream.fromQueue(queue).flattenTake
     }.flatten
 }

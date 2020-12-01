@@ -1,25 +1,60 @@
 package zio.interop
 
-import cats.Eq
-import cats.effect.laws.util.TestContext
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
-import zio.{ IO, Runtime, ZIO, ZManaged }
+import zio._
+import zio.clock.Clock
 
-private[interop] trait catzSpecZIOBase extends catzSpecBase with GenIOInteropCats {
+private[interop] trait catzSpecZIOBase
+    extends catzSpecBase
+    with catzSpecZIOBaseLowPriority
+    with GenIOInteropCats
+    with VersionSpecific {
 
-  implicit def zioEqParIO[E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[ParIO[Any, E, A]] =
-    Eq.by(Par.unwrap(_))
+  implicit def arbitraryUIO[A: Arbitrary]: Arbitrary[UIO[A]] =
+    Arbitrary(genUIO[A])
 
-  implicit def zioArbitrary[R: Cogen, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZIO[R, E, A]] =
-    Arbitrary(Arbitrary.arbitrary[R => IO[E, A]].map(ZIO.environment[R].flatMap(_)))
+  implicit def arbitraryURIO[R: Cogen, A: Arbitrary]: Arbitrary[URIO[R, A]] =
+    Arbitrary(Arbitrary.arbitrary[R => UIO[A]].map(ZIO.environment[R].flatMap))
 
-  implicit def ioArbitrary[E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[IO[E, A]] =
+  implicit def arbitraryUManaged[A: Arbitrary]: Arbitrary[UManaged[A]] =
+    zManagedArbitrary[Any, Nothing, A](arbitraryUIO[A])
+
+  implicit def arbitraryURManaged[R: Cogen, A: Arbitrary]: Arbitrary[URManaged[R, A]] =
+    zManagedArbitrary[R, Nothing, A]
+
+  implicit def arbitraryClockAndBlocking(implicit ticker: Ticker): Arbitrary[Clock with CBlocking] =
+    Arbitrary(Arbitrary.arbitrary[ZEnv])
+
+  implicit val cogenForClockAndBlocking: Cogen[Clock with CBlocking] =
+    Cogen(_.hashCode.toLong)
+}
+
+private[interop] trait catzSpecZIOBaseLowPriority { self: catzSpecZIOBase =>
+
+  implicit def arbitraryIO[E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[IO[E, A]] =
     Arbitrary(Gen.oneOf(genIO[E, A], genLikeTrans(genIO[E, A]), genIdentityTrans(genIO[E, A])))
 
-  implicit def ioParArbitrary[R, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ParIO[R, E, A]] =
-    Arbitrary(Arbitrary.arbitrary[IO[E, A]].map(Par.apply))
+  implicit def arbitraryZIO[R: Cogen, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZIO[R, E, A]] =
+    Arbitrary(Gen.function1[R, IO[E, A]](arbitraryIO[E, A].arbitrary).map(ZIO.environment[R].flatMap))
 
-  implicit def zManagedArbitrary[R, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZManaged[R, E, A]] =
-    Arbitrary(Arbitrary.arbitrary[IO[E, A]].map(ZManaged.fromEffect(_)))
+  implicit def arbitraryRIO[R: Cogen, A: Arbitrary: Cogen]: Arbitrary[RIO[R, A]] =
+    arbitraryZIO[R, Throwable, A]
 
+  implicit def arbitraryTask[A: Arbitrary: Cogen]: Arbitrary[Task[A]] =
+    arbitraryIO[Throwable, A]
+
+  def zManagedArbitrary[R, E, A](implicit zio: Arbitrary[ZIO[R, E, A]]): Arbitrary[ZManaged[R, E, A]] =
+    Arbitrary(zio.arbitrary.map(ZManaged.fromEffect))
+
+  implicit def arbitraryRManaged[R: Cogen, A: Arbitrary: Cogen]: Arbitrary[RManaged[R, A]] =
+    zManagedArbitrary[R, Throwable, A]
+
+  implicit def arbitraryManaged[E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[Managed[E, A]] =
+    zManagedArbitrary[Any, E, A]
+
+  implicit def arbitraryZManaged[R: Cogen, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZManaged[R, E, A]] =
+    zManagedArbitrary[R, E, A]
+
+  implicit def arbitraryTaskManaged[A: Arbitrary: Cogen]: Arbitrary[TaskManaged[A]] =
+    zManagedArbitrary[Any, Throwable, A]
 }
