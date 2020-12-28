@@ -54,7 +54,11 @@ abstract class CatsEffectPlatform
 
 }
 
-abstract class CatsPlatform extends CatsInstances with CatsZManagedInstances
+abstract class CatsPlatform
+    extends CatsInstances
+    with CatsZManagedInstances
+    with CatsChunkInstances
+    with CatsNonEmptyChunkInstances
 
 abstract class CatsEffectInstances extends CatsInstances with CatsEffectInstances1 {
 
