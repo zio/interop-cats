@@ -1,6 +1,6 @@
 # Interop Cats Effect
 
-[![CircleCI][ci-badge]][ci-url]
+![CI][ci-badge]
 [![Releases][Badge-SonatypeReleases]][Link-SonatypeReleases]
 [![Snapshots][Badge-SonatypeSnapshots]][Link-SonatypeSnapshots]
 
@@ -86,8 +86,7 @@ def loadUsers: Stream[Task, User] =
 val allUsers: List[User] = unsafeRun(loadUsers.compile.toList)
 ```
 
-[ci-badge]: https://circleci.com/gh/zio/interop-cats/tree/master.svg?style=svg
-[ci-url]: https://circleci.com/gh/zio/interop-cats/tree/master
+[ci-badge]: https://github.com/zio/interop-cats/workflows/CI/badge.svg
 [Link-SonatypeReleases]: https://oss.sonatype.org/content/repositories/releases/dev/zio/zio-interop-cats_2.12/
 [Badge-SonatypeReleases]: https://img.shields.io/nexus/r/https/oss.sonatype.org/dev.zio/zio-interop-cats_2.12.svg
 [Link-SonatypeSnapshots]: https://oss.sonatype.org/content/repositories/snapshots/dev/zio/zio-interop-cats_2.12/
