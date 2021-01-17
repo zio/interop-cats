@@ -25,11 +25,11 @@ import zio.{ Chunk, ChunkBuilder }
 import scala.annotation.tailrec
 
 /**
- * The same instances for [[Chunk]] that Cats defines for [[Vector]].
+ * The same instances for [[Chunk]] that Cats defines for [[scala.collection.immutable.Vector]].
  */
 trait CatsChunkInstances extends CatsKernelChunkInstances {
 
-  /** @see [[cats.instances.VectorInstances.catsStdInstancesForVector]] */
+  /* @see [[cats.instances.VectorInstances.catsStdInstancesForVector]] */
   implicit val chunkStdInstances
     : Traverse[Chunk] with Monad[Chunk] with Alternative[Chunk] with CoflatMap[Chunk] with Align[Chunk] =
     new Traverse[Chunk] with Monad[Chunk] with Alternative[Chunk] with CoflatMap[Chunk] with Align[Chunk] {
@@ -152,7 +152,7 @@ trait CatsChunkInstances extends CatsKernelChunkInstances {
       }
     }
 
-  /** @see [[cats.instances.VectorInstancesBinCompat0.catsStdTraverseFilterForVector]] */
+  /* @see [[cats.instances.VectorInstancesBinCompat0.catsStdTraverseFilterForVector]] */
   implicit val chunkTraverseFilter: TraverseFilter[Chunk] = new TraverseFilter[Chunk] {
 
     // TraverseFilter
@@ -182,7 +182,7 @@ trait CatsKernelChunkInstances extends CatsKernelChunkInstances1 {
   implicit def chunkMonoid[A]: Monoid[Chunk[A]] = new ChunkMonoid[A]
 }
 
-/** @see [[cats.kernel.instances.VectorOrder]] */
+/* @see [[cats.kernel.instances.VectorOrder]] */
 private class ChunkOrder[A](implicit ev: Order[A]) extends Order[Chunk[A]] {
   override def compare(xs: Chunk[A], ys: Chunk[A]): Int =
     if (xs eq ys) 0
@@ -206,14 +206,14 @@ private[interop] trait CatsKernelChunkInstances1 extends CatsKernelChunkInstance
   implicit def chunkHash[A: Hash]: Hash[Chunk[A]] = new ChunkHash[A]
 }
 
-/** @see [[cats.kernel.instances.VectorPartialOrder]] */
+/* @see [[cats.kernel.instances.VectorPartialOrder]] */
 private class ChunkPartialOrder[A](implicit ev: PartialOrder[A]) extends PartialOrder[Chunk[A]] {
   override def partialCompare(xs: Chunk[A], ys: Chunk[A]): Double =
     if (xs eq ys) 0.0
     else StaticMethods.iteratorPartialCompare(xs.iterator, ys.iterator)
 }
 
-/** @see [[cats.kernel.instances.VectorHash]] */
+/* @see [[cats.kernel.instances.VectorHash]] */
 private class ChunkHash[A](implicit ev: Hash[A]) extends ChunkEq[A] with Hash[Chunk[A]] {
   override def hash(xs: Chunk[A]): Int = StaticMethods.orderedHash(xs)
 }
@@ -223,7 +223,7 @@ private[interop] trait CatsKernelChunkInstances2 {
   implicit def chunkEq[A: Eq]: Eq[Chunk[A]] = new ChunkEq[A]
 }
 
-/** @see [[cats.kernel.instances.VectorEq]] */
+/* @see [[cats.kernel.instances.VectorEq]] */
 private class ChunkEq[A](implicit ev: Eq[A]) extends Eq[Chunk[A]] {
   override def eqv(xs: Chunk[A], ys: Chunk[A]): Boolean =
     if (xs eq ys) true
