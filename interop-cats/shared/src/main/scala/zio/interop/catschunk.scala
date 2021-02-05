@@ -45,10 +45,8 @@ trait CatsChunkInstances extends CatsKernelChunkInstances {
         if (fb.isEmpty) Chunk.empty                // do O(1) work if either is empty
         else fa.flatMap(a => fb.map(b => f(a, b))) // already O(1) if fa is empty
 
-      private[this] val evalEmpty: Eval[Chunk[Nothing]] = Eval.now(Chunk.empty)
-
       override def map2Eval[A, B, Z](fa: Chunk[A], fb: Eval[Chunk[B]])(f: (A, B) => Z): Eval[Chunk[Z]] =
-        if (fa.isEmpty) evalEmpty // no need to evaluate fb
+        if (fa.isEmpty) Eval.now(Chunk.empty) // no need to evaluate fb
         else fb.map(fb => map2(fa, fb)(f))
 
       // FlatMap

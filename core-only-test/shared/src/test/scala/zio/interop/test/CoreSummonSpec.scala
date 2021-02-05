@@ -13,7 +13,7 @@ object CoreSummonSpec extends DefaultRunnableSpec {
     suite("summons from catz.core work with only a cats-core dependency")(
       test("ZIO instances") {
         val monad      = implicitly[Monad[UIO]]
-        val monadError = implicitly[MonadError[Task, Throwable]]
+        val monadError: MonadError[Task, Throwable] = implicitly[MonadError[Task, Throwable]]
         val semigroupK = implicitly[SemigroupK[IO[NonEmptyList[Unit], *]]]
         val bifunctor  = implicitly[Bifunctor[IO]]
 

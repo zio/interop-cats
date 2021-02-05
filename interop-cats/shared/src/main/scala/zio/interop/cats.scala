@@ -161,7 +161,7 @@ sealed abstract class CatsInstances2 {
     new CatsSemigroupKLossy[Any, Any]
 }
 
-private class CatsDefer[R, E] extends Defer[ZIO[R, E, ?]] {
+private class CatsDefer[R, E] extends Defer[ZIO[R, E, *]] {
   def defer[A](fa: => ZIO[R, E, A]): ZIO[R, E, A] = ZIO.effectSuspendTotal(fa)
 }
 
