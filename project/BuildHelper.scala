@@ -8,12 +8,12 @@ import sbtbuildinfo._
 import BuildInfoKeys._
 
 object BuildHelper {
-  val testDeps        = Seq("org.scalacheck"  %% "scalacheck"  % "1.15.2" % Test)
+  val testDeps        = Seq("org.scalacheck" %% "scalacheck" % "1.15.2" % Test)
   val silencerVersion = "1.7.1"
 
-  val Scala212 = "2.12.13" 
+  val Scala212 = "2.12.13"
   val Scala213 = "2.13.4"
-  val Scala3 = "3.0.0-M3" 
+  val Scala3   = "3.0.0-M3"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -87,18 +87,18 @@ object BuildHelper {
     scalaVersion in ThisBuild := crossScalaVersions.value.head,
     scalacOptions := stdOptions ++ extraOptions(scalaVersion.value),
     libraryDependencies ++= testDeps ++ {
-        if (isDotty.value)
-          Seq(
-            ("com.github.ghik" % s"silencer-lib_$Scala213" % silencerVersion % Provided)
-              .withDottyCompat(scalaVersion.value)
-          )
-        else
-          Seq(
-            "com.github.ghik" % "silencer-lib" % silencerVersion % Provided cross CrossVersion.full,
-            compilerPlugin("com.github.ghik" % "silencer-plugin" % silencerVersion cross CrossVersion.full),
-            compilerPlugin("org.typelevel"   % "kind-projector"  % "0.11.3") cross CrossVersion.full,
-          )
-      },
+      if (isDotty.value)
+        Seq(
+          ("com.github.ghik" % s"silencer-lib_$Scala213" % silencerVersion % Provided)
+            .withDottyCompat(scalaVersion.value)
+        )
+      else
+        Seq(
+          "com.github.ghik" % "silencer-lib" % silencerVersion % Provided cross CrossVersion.full,
+          compilerPlugin("com.github.ghik" % "silencer-plugin" % silencerVersion cross CrossVersion.full),
+          compilerPlugin("org.typelevel"   % "kind-projector"  % "0.11.3") cross CrossVersion.full
+        )
+    },
     parallelExecution in Test := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
     autoAPIMappings := true,
@@ -107,13 +107,13 @@ object BuildHelper {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, x)) if x <= 11 =>
           CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2")) ++
-          CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2.11")) ++
-          CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2")) ++
+            CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2.11")) ++
+            CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2")) ++
             CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2.11"))
         case Some((2, x)) if x >= 12 =>
           CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2")) ++
-          CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2.12+")) ++
-          CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2")) ++
+            CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2.12+")) ++
+            CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2")) ++
             CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2.12+"))
         case Some((3, 0)) =>
           CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-3")) ++
