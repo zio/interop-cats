@@ -8,7 +8,7 @@ import sbtbuildinfo._
 import BuildInfoKeys._
 
 object BuildHelper {
-  val testDeps        = Seq("org.scalacheck" %% "scalacheck" % "1.15.2" % Test)
+  val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.15.2" % Test)
 
   val Scala212 = "2.12.13"
   val Scala213 = "2.13.4"
@@ -90,7 +90,7 @@ object BuildHelper {
         Seq.empty
       else
         Seq(
-          compilerPlugin("org.typelevel"   % "kind-projector"  % "0.11.3") cross CrossVersion.full
+          compilerPlugin("org.typelevel" % "kind-projector" % "0.11.3") cross CrossVersion.full
         )
     },
     parallelExecution in Test := true,
