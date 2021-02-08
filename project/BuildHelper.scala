@@ -9,7 +9,6 @@ import BuildInfoKeys._
 
 object BuildHelper {
   val testDeps        = Seq("org.scalacheck" %% "scalacheck" % "1.15.2" % Test)
-  val silencerVersion = "1.7.1"
 
   val Scala212 = "2.12.13"
   val Scala213 = "2.13.4"
@@ -88,14 +87,9 @@ object BuildHelper {
     scalacOptions := stdOptions ++ extraOptions(scalaVersion.value),
     libraryDependencies ++= testDeps ++ {
       if (isDotty.value)
-        Seq(
-          ("com.github.ghik" % s"silencer-lib_$Scala213" % silencerVersion % Provided)
-            .withDottyCompat(scalaVersion.value)
-        )
+        Seq.empty
       else
         Seq(
-          "com.github.ghik" % "silencer-lib" % silencerVersion % Provided cross CrossVersion.full,
-          compilerPlugin("com.github.ghik" % "silencer-plugin" % silencerVersion cross CrossVersion.full),
           compilerPlugin("org.typelevel"   % "kind-projector"  % "0.11.3") cross CrossVersion.full
         )
     },
