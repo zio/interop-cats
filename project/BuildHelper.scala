@@ -39,7 +39,7 @@ object BuildHelper {
   val optimizerOptions = {
     Seq(
       "-opt:l:inline",
-      "-opt-inline-from:zio.**"
+      "-opt-inline-from:zio.interop.**"
     )
   }
 

@@ -46,15 +46,19 @@ abstract class CatsEffectPlatform
   }
 
   object implicits {
-    implicit final def ioTimer[E]: effect.Timer[IO[E, *]] = ioTimer0.asInstanceOf[effect.Timer[IO[E, *]]]
+    implicit final def ioTimer[R, E]: effect.Timer[ZIO[R, E, *]] = ioTimer0.asInstanceOf[effect.Timer[ZIO[R, E, *]]]
 
-    private[this] val ioTimer0: effect.Timer[IO[Any, *]] =
+    private[this] val ioTimer0: effect.Timer[UIO] =
       zioClock.toTimer
   }
 
 }
 
-abstract class CatsPlatform extends CatsInstances with CatsZManagedInstances
+abstract class CatsPlatform
+    extends CatsInstances
+    with CatsZManagedInstances
+    with CatsChunkInstances
+    with CatsNonEmptyChunkInstances
 
 abstract class CatsEffectInstances extends CatsInstances with CatsEffectInstances1 {
 
