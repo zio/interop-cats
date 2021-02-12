@@ -1,14 +1,18 @@
 import sbt._
 import Keys._
 
+import dotty.tools.sbtplugin.DottyPlugin.autoImport._
 import explicitdeps.ExplicitDepsPlugin.autoImport._
 import sbtcrossproject.CrossPlugin.autoImport.CrossType
 import sbtbuildinfo._
 import BuildInfoKeys._
 
 object BuildHelper {
-  val testDeps        = Seq("org.scalacheck"  %% "scalacheck"  % "1.15.2" % Test)
-  val compileOnlyDeps = Seq("com.github.ghik" % "silencer-lib" % "1.7.1"  % Provided cross CrossVersion.full)
+  val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.15.2" % Test)
+
+  val Scala212 = "2.12.13"
+  val Scala213 = "2.13.4"
+  val Scala3   = "3.0.0-M3"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -30,6 +34,11 @@ object BuildHelper {
     "-Ywarn-value-discard"
   )
 
+  private val std3xOptions = Seq(
+    "-Xfatal-warnings",
+    "-Ykind-projector"
+  )
+
   val buildInfoSettings = Seq(
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
     buildInfoPackage := "zio",
@@ -45,6 +54,8 @@ object BuildHelper {
 
   def extraOptions(scalaVersion: String) =
     CrossVersion.partialVersion(scalaVersion) match {
+      case Some((3, 0)) =>
+        std3xOptions
       case Some((2, 13)) =>
         Seq(
           "-Wextra-implicit",
@@ -71,13 +82,17 @@ object BuildHelper {
   def stdSettings(prjName: String) = Seq(
     name := s"$prjName",
     scalacOptions := stdOptions,
-    crossScalaVersions := Seq("2.13.2", "2.12.11"),
+    crossScalaVersions := Seq(Scala213, Scala212, Scala3),
     scalaVersion in ThisBuild := crossScalaVersions.value.head,
     scalacOptions := stdOptions ++ extraOptions(scalaVersion.value),
-    libraryDependencies ++= compileOnlyDeps ++ testDeps ++ Seq(
-      compilerPlugin("org.typelevel"   % "kind-projector"  % "0.11.0") cross CrossVersion.full,
-      compilerPlugin("com.github.ghik" % "silencer-plugin" % "1.7.1") cross CrossVersion.full
-    ),
+    libraryDependencies ++= testDeps ++ {
+      if (isDotty.value)
+        Seq.empty
+      else
+        Seq(
+          compilerPlugin("org.typelevel" % "kind-projector" % "0.11.3") cross CrossVersion.full
+        )
+    },
     parallelExecution in Test := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
     autoAPIMappings := true,
@@ -85,11 +100,18 @@ object BuildHelper {
     Compile / unmanagedSourceDirectories ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, x)) if x <= 11 =>
-          CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2.11")) ++
+          CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2")) ++
+            CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2.11")) ++
+            CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2")) ++
             CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2.11"))
         case Some((2, x)) if x >= 12 =>
-          CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2.12+")) ++
+          CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2")) ++
+            CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2.12+")) ++
+            CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2")) ++
             CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2.12+"))
+        case Some((3, 0)) =>
+          CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-3")) ++
+            CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-3"))
         case _ => Nil
       }
     },

@@ -12,27 +12,27 @@ class catzSpec extends catzSpecZStreamBase with GenStreamInteropCats {
     Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
 
   checkAllAsync(
-    "MonadError[Stream[Int, ?]]",
-    implicit tc => MonadErrorTests[Stream[Int, ?], Int].monadError[Int, Int, Int]
+    "MonadError[Stream[Int, *]]",
+    implicit tc => MonadErrorTests[Stream[Int, *], Int].monadError[Int, Int, Int]
   )
   checkAllAsync(
-    "Parallel[Stream[Throwable, ?]]",
-    implicit tc => ParallelTests[Stream[Throwable, ?], ParStream[Any, Throwable, ?]].parallel[Int, Int]
+    "Parallel[Stream[Throwable, *]]",
+    implicit tc => ParallelTests[Stream[Throwable, *], ParStream[Any, Throwable, *]].parallel[Int, Int]
   )
-  checkAllAsync("MonoidK[Stream[Int, ?]]", implicit tc => MonoidKTests[Stream[Int, ?]].monoidK[Int])
+  checkAllAsync("MonoidK[Stream[Int, *]]", implicit tc => MonoidKTests[Stream[Int, *]].monoidK[Int])
   checkAllAsync(
-    "SemigroupK[Stream[Option[Unit], ?]]",
-    implicit tc => SemigroupKTests[Stream[Option[Unit], ?]].semigroupK[Int]
+    "SemigroupK[Stream[Option[Unit], *]]",
+    implicit tc => SemigroupKTests[Stream[Option[Unit], *]].semigroupK[Int]
   )
   checkAllAsync(
-    "SemigroupK[Stream[Throwable, ?]]",
-    implicit tc => SemigroupKTests[Stream[Throwable, ?]].semigroupK[Int]
+    "SemigroupK[Stream[Throwable, *]]",
+    implicit tc => SemigroupKTests[Stream[Throwable, *]].semigroupK[Int]
   )
   checkAllAsync("Bifunctor[Stream]", implicit tc => BifunctorTests[Stream].bifunctor[Int, Int, Int, Int, Int, Int])
   checkAllAsync(
-    "Monad[Stream[Nothing, ?]]", { implicit tc =>
+    "Monad[Stream[Nothing, *]]", { implicit tc =>
       implicit def streamArbitrary[A: Arbitrary: Cogen]: Arbitrary[Stream[Nothing, A]] = Arbitrary(genUStream[A])
-      MonadTests[Stream[Nothing, ?]].apply[Int, Int, Int]
+      MonadTests[Stream[Nothing, *]].apply[Int, Int, Int]
     }
   )
   checkAllAsync(
@@ -43,12 +43,12 @@ class catzSpec extends catzSpecZStreamBase with GenStreamInteropCats {
   object summoningInstancesTest {
     import cats._
 
-    Alternative[ZStream[String, Throwable, ?]]
-    MonadError[ZStream[String, Throwable, ?], Throwable]
-    Monad[ZStream[String, Throwable, ?]]
-    Applicative[ZStream[String, Throwable, ?]]
-    Functor[ZStream[String, Throwable, ?]]
-    SemigroupK[ZStream[String, Throwable, ?]]
-    Apply[ZStream[Any, Nothing, ?]]
+    Alternative[ZStream[String, Throwable, *]]
+    MonadError[ZStream[String, Throwable, *], Throwable]
+    Monad[ZStream[String, Throwable, *]]
+    Applicative[ZStream[String, Throwable, *]]
+    Functor[ZStream[String, Throwable, *]]
+    SemigroupK[ZStream[String, Throwable, *]]
+    Apply[ZStream[Any, Nothing, *]]
   }
 }
