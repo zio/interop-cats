@@ -6,5 +6,5 @@ addSbtPlugin("org.scoverage"                     % "sbt-scoverage"             %
 addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings"          % "3.0.0")
 addSbtPlugin("com.github.cb372"                  % "sbt-explicit-dependencies" % "0.2.15")
 addSbtPlugin("de.heikoseeberger"                 % "sbt-header"                % "5.6.0")
-addSbtPlugin("ch.epfl.scala"                     % "sbt-bloop"                 % "1.4.4")
+addSbtPlugin("ch.epfl.scala"                     % "sbt-bloop"                 % "1.4.7")
 addSbtPlugin("com.geirsson"                      % "sbt-ci-release"            % "1.5.5")
