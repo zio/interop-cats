@@ -28,7 +28,7 @@ import scala.annotation.tailrec
  */
 trait CatsNonEmptyChunkInstances extends CatsKernelNonEmptyChunkInstances {
 
-  /** @see [[cats.data.NonEmptyVectorInstances.catsDataInstancesForNonEmptyVector]] */
+  /* @see [[cats.data.NonEmptyVectorInstances.catsDataInstancesForNonEmptyVector]] */
   implicit val nonEmptyChunkStdInstances: SemigroupK[NonEmptyChunk]
     with Bimonad[NonEmptyChunk]
     with NonEmptyTraverse[NonEmptyChunk]

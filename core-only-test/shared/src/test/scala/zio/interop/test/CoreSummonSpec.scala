@@ -6,7 +6,7 @@ import zio._
 import zio.interop.catz.core._
 import zio.stream.interop.catz.core._
 import zio.stream.{ Stream, ZStream }
-import zio.test.{ DefaultRunnableSpec, test, _ }
+import zio.test.{ DefaultRunnableSpec, _ }
 
 object CoreSummonSpec extends DefaultRunnableSpec {
   override def spec =

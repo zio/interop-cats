@@ -18,7 +18,6 @@ package zio
 package interop
 
 import cats.arrow.{ ArrowChoice, FunctionK }
-import cats.effect.Resource.{ Allocate, Bind, Suspend }
 import cats.effect.{ Async, Effect, ExitCase, LiftIO, Resource, Sync, IO => CIO }
 import cats.{ ~>, Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
 import zio.ZManaged.ReleaseMap
@@ -29,37 +28,12 @@ trait CatsZManagedSyntax {
   implicit final def catsIOResourceSyntax[F[_], A](resource: Resource[F, A]): CatsIOResourceSyntax[F, A] =
     new CatsIOResourceSyntax(resource)
 
-  implicit final def zioResourceSyntax[R, E <: Throwable, A](r: Resource[ZIO[R, E, ?], A]): ZIOResourceSyntax[R, E, A] =
+  implicit final def zioResourceSyntax[R, E <: Throwable, A](r: Resource[ZIO[R, E, *], A]): ZIOResourceSyntax[R, E, A] =
     new ZIOResourceSyntax(r)
 
   implicit final def zManagedSyntax[R, E, A](managed: ZManaged[R, E, A]): ZManagedSyntax[R, E, A] =
     new ZManagedSyntax(managed)
 
-}
-
-final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resource[ZIO[R, E, ?], A]) extends AnyVal {
-
-  /**
-   * Convert a cats Resource into a ZManaged.
-   * Beware that unhandled error during release of the resource will result in the fiber dying.
-   */
-  def toManagedZIO: ZManaged[R, E, A] = {
-    def go[A1](res: Resource[ZIO[R, E, ?], A1]): ZManaged[R, E, A1] =
-      res match {
-        case alloc: Allocate[ZIO[R, E, ?], A1] =>
-          ZManaged.makeReserve(alloc.resource.map {
-            case (a, r) => Reservation(ZIO.succeedNow(a), e => r(exitToExitCase(e)).orDie)
-          })
-
-        case bind: Bind[ZIO[R, E, ?], a, A1] =>
-          go(bind.source).flatMap(s => go(bind.fs(s)))
-
-        case suspend: Suspend[ZIO[R, E, ?], A1] =>
-          ZManaged.unwrap(suspend.resource.map(go))
-      }
-
-    go(resource)
-  }
 }
 
 final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) extends AnyVal {
@@ -68,20 +42,25 @@ final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) 
    * Convert a cats Resource into a ZManaged.
    * Beware that unhandled error during release of the resource will result in the fiber dying.
    */
-  def toManaged[R](implicit L: LiftIO[ZIO[R, Throwable, ?]], F: Effect[F]): ZManaged[R, Throwable, A] = {
+  def toManaged[R](implicit L: LiftIO[ZIO[R, Throwable, *]], F: Effect[F]): ZManaged[R, Throwable, A] = {
     import catz.core._
 
     new ZIOResourceSyntax(
-      resource.mapK(Lambda[F ~> ZIO[R, Throwable, ?]](L liftIO F.toIO(_)))
+      resource.mapK(
+        new ~>[F, ZIO[R, Throwable, *]] {
+          def apply[A](fa: F[A]): ZIO[R, Throwable, A] =
+            L liftIO F.toIO(fa)
+        }
+      )
     ).toManagedZIO
   }
 }
 
 final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) extends AnyVal {
 
-  def toResourceZIO: Resource[ZIO[R, E, ?], A] =
+  def toResourceZIO: Resource[ZIO[R, E, *], A] =
     Resource
-      .applyCase[ZIO[R, E, ?], ReleaseMap](
+      .applyCase[ZIO[R, E, *], ReleaseMap](
         ZManaged.ReleaseMap.make.map(
           releaseMap =>
             (
@@ -100,29 +79,32 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
           )
       )
 
-  def toResource[F[_]](implicit F: Async[F], ev: Effect[ZIO[R, E, ?]]): Resource[F, A] =
-    toResourceZIO.mapK(Lambda[FunctionK[ZIO[R, E, ?], F]](F liftIO ev.toIO(_)))
+  def toResource[F[_]](implicit F: Async[F], ev: Effect[ZIO[R, E, *]]): Resource[F, A] =
+    toResourceZIO.mapK(new FunctionK[ZIO[R, E, *], F] {
+      def apply[A](fa: ZIO[R, E, A]): F[A] =
+        F liftIO ev.toIO(fa)
+    })
 
 }
 
 trait CatsEffectZManagedInstances {
 
   implicit def liftIOZManagedInstances[R](
-    implicit ev: LiftIO[ZIO[R, Throwable, ?]]
-  ): LiftIO[ZManaged[R, Throwable, ?]] =
-    new LiftIO[ZManaged[R, Throwable, ?]] {
+    implicit ev: LiftIO[ZIO[R, Throwable, *]]
+  ): LiftIO[ZManaged[R, Throwable, *]] =
+    new LiftIO[ZManaged[R, Throwable, *]] {
       override def liftIO[A](ioa: CIO[A]): ZManaged[R, Throwable, A] =
         ZManaged.fromEffect(ev.liftIO(ioa))
     }
 
-  implicit def syncZManagedInstances[R]: Sync[ZManaged[R, Throwable, ?]] =
+  implicit def syncZManagedInstances[R]: Sync[ZManaged[R, Throwable, *]] =
     new CatsZManagedSync[R]
 
 }
 
 trait CatsZManagedInstances extends CatsZManagedInstances1 {
 
-  implicit def monadErrorZManagedInstances[R, E]: MonadError[ZManaged[R, E, ?], E] =
+  implicit def monadErrorZManagedInstances[R, E]: MonadError[ZManaged[R, E, *], E] =
     new CatsZManagedMonadError
 
   implicit def monoidZManagedInstances[R, E, A](implicit ev: Monoid[A]): Monoid[ZManaged[R, E, A]] =
@@ -138,14 +120,14 @@ trait CatsZManagedInstances extends CatsZManagedInstances1 {
 
 sealed trait CatsZManagedInstances1 extends CatsZManagedInstances2 {
 
-  implicit def monadZManagedInstances[R, E]: Monad[ZManaged[R, E, ?]] = new CatsZManagedMonad
+  implicit def monadZManagedInstances[R, E]: Monad[ZManaged[R, E, *]] = new CatsZManagedMonad
 
   implicit def semigroupZManagedInstances[R, E, A](implicit ev: Semigroup[A]): Semigroup[ZManaged[R, E, A]] =
     (x: ZManaged[R, E, A], y: ZManaged[R, E, A]) => x.zipWith(y)(ev.combine)
 
-  implicit def semigroupKZManagedInstances[R, E]: SemigroupK[ZManaged[R, E, ?]] = new CatsZManagedSemigroupK
+  implicit def semigroupKZManagedInstances[R, E]: SemigroupK[ZManaged[R, E, *]] = new CatsZManagedSemigroupK
 
-  implicit def bifunctorZManagedInstances[R]: Bifunctor[ZManaged[R, ?, ?]] = new Bifunctor[ZManaged[R, ?, ?]] {
+  implicit def bifunctorZManagedInstances[R]: Bifunctor[ZManaged[R, *, *]] = new Bifunctor[ZManaged[R, *, *]] {
     override def bimap[A, B, C, D](fab: ZManaged[R, A, B])(f: A => C, g: B => D): ZManaged[R, C, D] =
       fab.bimap(f, g)
   }
@@ -159,7 +141,7 @@ sealed trait CatsZManagedInstances2 {
     CatsZManagedArrowChoice.asInstanceOf[ArrowChoice[ZManaged[*, E, *]]]
 }
 
-private class CatsZManagedMonad[R, E] extends Monad[ZManaged[R, E, ?]] {
+private class CatsZManagedMonad[R, E] extends Monad[ZManaged[R, E, *]] {
   override def pure[A](x: A): ZManaged[R, E, A] = ZManaged.succeedNow(x)
 
   override def flatMap[A, B](fa: ZManaged[R, E, A])(f: A => ZManaged[R, E, B]): ZManaged[R, E, B] = fa.flatMap(f)
@@ -171,7 +153,7 @@ private class CatsZManagedMonad[R, E] extends Monad[ZManaged[R, E, ?]] {
     }
 }
 
-private class CatsZManagedMonadError[R, E] extends CatsZManagedMonad[R, E] with MonadError[ZManaged[R, E, ?], E] {
+private class CatsZManagedMonadError[R, E] extends CatsZManagedMonad[R, E] with MonadError[ZManaged[R, E, *], E] {
   override def raiseError[A](e: E): ZManaged[R, E, A] = ZManaged.fromEffect(ZIO.fail(e))
 
   override def handleErrorWith[A](fa: ZManaged[R, E, A])(f: E => ZManaged[R, E, A]): ZManaged[R, E, A] =
@@ -181,12 +163,12 @@ private class CatsZManagedMonadError[R, E] extends CatsZManagedMonad[R, E] with 
 /**
  * lossy, throws away errors using the "first success" interpretation of SemigroupK
  */
-private class CatsZManagedSemigroupK[R, E] extends SemigroupK[ZManaged[R, E, ?]] {
+private class CatsZManagedSemigroupK[R, E] extends SemigroupK[ZManaged[R, E, *]] {
   override def combineK[A](x: ZManaged[R, E, A], y: ZManaged[R, E, A]): ZManaged[R, E, A] =
     x.orElse(y)
 }
 
-private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] with Sync[ZManaged[R, Throwable, ?]] {
+private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] with Sync[ZManaged[R, Throwable, *]] {
 
   override final def delay[A](thunk: => A): ZManaged[R, Throwable, A] = ZManaged.fromEffect(ZIO.effect(thunk))
 

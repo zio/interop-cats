@@ -46,9 +46,9 @@ abstract class CatsEffectPlatform
   }
 
   object implicits {
-    implicit final def ioTimer[E]: effect.Timer[IO[E, *]] = ioTimer0.asInstanceOf[effect.Timer[IO[E, *]]]
+    implicit final def ioTimer[R, E]: effect.Timer[ZIO[R, E, *]] = ioTimer0.asInstanceOf[effect.Timer[ZIO[R, E, *]]]
 
-    private[this] val ioTimer0: effect.Timer[IO[Any, *]] =
+    private[this] val ioTimer0: effect.Timer[UIO] =
       zioClock.toTimer
   }
 
@@ -161,7 +161,7 @@ sealed abstract class CatsInstances2 {
     new CatsSemigroupKLossy[Any, Any]
 }
 
-private class CatsDefer[R, E] extends Defer[ZIO[R, E, ?]] {
+private class CatsDefer[R, E] extends Defer[ZIO[R, E, *]] {
   def defer[A](fa: => ZIO[R, E, A]): ZIO[R, E, A] = ZIO.effectSuspendTotal(fa)
 }
 

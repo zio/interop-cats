@@ -31,7 +31,7 @@ object fs2StreamSpec extends DefaultRunnableSpec {
 
   def spec = suite("zio.stream.ZStream <-> fs2.Stream")(
     suite("test toFs2Stream conversion")(
-      testM("simple stream")(checkM(Gen.chunkOf(Gen.anyInt)) { chunk: Chunk[Int] =>
+      testM("simple stream")(checkM(Gen.chunkOf(Gen.anyInt)) { (chunk: Chunk[Int]) =>
         assertEqual(ZStream.fromChunk(chunk).toFs2Stream, fs2StreamFromChunk(chunk))
       }),
       testM("non empty stream")(checkM(Gen.chunkOf1(Gen.anyLong)) { chunk =>
@@ -48,7 +48,7 @@ object fs2StreamSpec extends DefaultRunnableSpec {
       }
     ),
     suite("test toZStream conversion")(
-      testM("simple stream")(checkM(Gen.chunkOf(Gen.anyInt)) { chunk: Chunk[Int] =>
+      testM("simple stream")(checkM(Gen.chunkOf(Gen.anyInt)) { (chunk: Chunk[Int]) =>
         assertEqual(fs2StreamFromChunk(chunk).toZStream(), ZStream.fromChunk(chunk))
       }),
       testM("non empty stream")(checkM(Gen.chunkOf1(Gen.anyLong)) { chunk =>
