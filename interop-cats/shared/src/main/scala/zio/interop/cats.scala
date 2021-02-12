@@ -36,7 +36,8 @@ abstract class CatsEffectPlatform
     with CatsEffectZManagedInstances
     with CatsZManagedInstances
     with CatsZManagedSyntax
-    with CatsConcurrentEffectSyntax {
+    with CatsConcurrentEffectSyntax
+    with CatsClockSyntax {
 
   val console: interop.console.cats.type = interop.console.cats
 
@@ -45,26 +46,19 @@ abstract class CatsEffectPlatform
   }
 
   object implicits {
-    implicit final def ioTimer[E]: effect.Timer[IO[E, *]] = ioTimer0.asInstanceOf[effect.Timer[IO[E, *]]]
+    implicit final def ioTimer[R, E]: effect.Timer[ZIO[R, E, *]] = ioTimer0.asInstanceOf[effect.Timer[ZIO[R, E, *]]]
 
-    private[this] val ioTimer0: effect.Timer[IO[Any, *]] =
-      new effect.Timer[IO[Any, *]] {
-        override final val clock: effect.Clock[IO[Any, *]] = new effect.Clock[IO[Any, *]] {
-          override final def monotonic(unit: TimeUnit): IO[Any, Long] =
-            zioClock.nanoTime.map(unit.convert(_, NANOSECONDS))
-
-          override final def realTime(unit: TimeUnit): IO[Any, Long] =
-            zioClock.currentTime(unit)
-        }
-
-        override final def sleep(duration: FiniteDuration): IO[Any, Unit] =
-          zioClock.sleep(zio.duration.Duration.fromNanos(duration.toNanos))
-      }
+    private[this] val ioTimer0: effect.Timer[UIO] =
+      zioClock.toTimer
   }
 
 }
 
-abstract class CatsPlatform extends CatsInstances with CatsZManagedInstances
+abstract class CatsPlatform
+    extends CatsInstances
+    with CatsZManagedInstances
+    with CatsChunkInstances
+    with CatsNonEmptyChunkInstances
 
 abstract class CatsEffectInstances extends CatsInstances with CatsEffectInstances1 {
 
