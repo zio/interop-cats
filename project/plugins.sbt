@@ -8,4 +8,4 @@ addSbtPlugin("com.github.cb372"                  % "sbt-explicit-dependencies" %
 addSbtPlugin("de.heikoseeberger"                 % "sbt-header"                % "5.6.0")
 addSbtPlugin("ch.epfl.scala"                     % "sbt-bloop"                 % "1.4.7")
 addSbtPlugin("com.geirsson"                      % "sbt-ci-release"            % "1.5.5")
-addSbtPlugin("ch.epfl.lamp"                      % "sbt-dotty"                 % "0.5.1")
+addSbtPlugin("ch.epfl.lamp"                      % "sbt-dotty"                 % "0.5.2")
