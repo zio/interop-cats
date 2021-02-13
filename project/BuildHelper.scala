@@ -128,4 +128,36 @@ object BuildHelper {
       }
     }
   )
+
+  val dottySettings = Seq(
+    crossScalaVersions += Scala3,
+    scalacOptions ++= {
+      if (isDotty.value)
+        Seq("-noindent")
+      else
+        Seq()
+    },
+    scalacOptions --= {
+      if (isDotty.value)
+        Seq("-Xfatal-warnings")
+      else
+        Seq()
+    },
+    sources in (Compile, doc) := {
+      val old = (Compile / doc / sources).value
+      if (isDotty.value) {
+        Nil
+      } else {
+        old
+      }
+    },
+    parallelExecution in Test := {
+      val old = (Test / parallelExecution).value
+      if (isDotty.value) {
+        false
+      } else {
+        old
+      }
+    }
+  )
 }
