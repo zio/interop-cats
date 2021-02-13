@@ -77,7 +77,8 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
 
-lazy val interopCatsJVM = interopCats.jvm
+lazy val interopCatsJVM = interopCats.jvm.settings(dottySettings)
+
 lazy val interopCatsJS = interopCats.js
   .settings(
     libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.1.0" % Test
@@ -96,7 +97,8 @@ lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
 
-lazy val coreOnlyTestJVM = coreOnlyTest.jvm
+lazy val coreOnlyTestJVM = coreOnlyTest.jvm.settings(dottySettings)
+
 lazy val coreOnlyTestJS = coreOnlyTest.js
   .settings(
     libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.1.0" % Test
