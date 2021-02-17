@@ -51,7 +51,7 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
       "dev.zio"       %%% "zio"                  % zioVersion,
       "dev.zio"       %%% "zio-test-sbt"         % zioVersion % Test,
       "org.typelevel" %%% "cats-testkit"         % "2.3.1" % Test,
-      "org.typelevel" %%% "cats-effect-laws"     % "2.3.1" % Test,
+      "org.typelevel" %%% "cats-effect-laws"     % "2.3.3" % Test,
       "org.typelevel" %%% "cats-mtl-laws"        % "1.1.1" % Test,
       "org.typelevel" %%% "discipline-scalatest" % "2.1.1" % Test
     ),
@@ -60,7 +60,7 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
         Seq(
           "dev.zio"       %%% "zio-streams" % zioVersion,
           "dev.zio"       %%% "zio-test"    % zioVersion,
-          "org.typelevel" %%% "cats-effect" % "2.3.1",
+          "org.typelevel" %%% "cats-effect" % "2.3.3",
           "org.typelevel" %%% "cats-mtl"    % "1.1.1",
           "co.fs2"        %%% "fs2-core"    % "2.5.0"
         )
@@ -68,7 +68,7 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
         Seq(
           "dev.zio"       %%% "zio-streams" % zioVersion % Optional,
           "dev.zio"       %%% "zio-test"    % zioVersion % Optional,
-          "org.typelevel" %%% "cats-effect" % "2.3.1"    % Optional,
+          "org.typelevel" %%% "cats-effect" % "2.3.3"    % Optional,
           "org.typelevel" %%% "cats-mtl"    % "1.1.1"    % Optional,
           "co.fs2"        %%% "fs2-core"    % "2.5.0"    % Optional
         )
