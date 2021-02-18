@@ -50,8 +50,8 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies ++= Seq(
       "dev.zio"       %%% "zio"                  % zioVersion,
       "dev.zio"       %%% "zio-test-sbt"         % zioVersion % Test,
-      "org.typelevel" %%% "cats-testkit"         % "2.3.1" % Test,
-      "org.typelevel" %%% "cats-effect-laws"     % "2.3.3" % Test,
+      "org.typelevel" %%% "cats-testkit"         % "2.4.2" % Test,
+      "org.typelevel" %%% "cats-effect-laws"     % "2.3.1" % Test,
       "org.typelevel" %%% "cats-mtl-laws"        % "1.1.1" % Test,
       "org.typelevel" %%% "discipline-scalatest" % "2.1.1" % Test
     ),
