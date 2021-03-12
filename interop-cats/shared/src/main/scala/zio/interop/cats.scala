@@ -173,8 +173,9 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
     cb: Either[Throwable, A] => effect.IO[Unit]
   ): effect.SyncIO[Unit] =
     effect.SyncIO {
-      rts.unsafeRunAsync(fa.run) { exit =>
-        cb(exit.flatMap(identity).toEither).unsafeRunAsync(_ => ())
+      rts.unsafeRunSync(fa) match {
+        case Exit.Success(value) => cb(Right(value)).unsafeRunSync()
+        case Exit.Failure(cause) => cb(Left(cause.squash)).unsafeRunSync()
       }
     }
 
