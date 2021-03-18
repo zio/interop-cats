@@ -79,22 +79,26 @@ final class CQueue[F[+_], -A, +B] private[interop] (
   /**
    * @see [[ZQueue.&&]]
    */
+  @deprecated("use ZStream", "2.0.0")
   def &&[A0 <: A, C](that: CQueue[F, A0, C]): CQueue[F, A0, (B, C)] = new CQueue(underlying && that.underlying)
 
   /**
    * @see [[ZQueue.both]]
    */
+  @deprecated("use ZStream", "2.0.0")
   def both[A0 <: A, C](that: CQueue[F, A0, C]): CQueue[F, A0, (B, C)] = new CQueue(underlying.both(that.underlying))
 
   /**
    * @see [[ZQueue.bothWith]]
    */
+  @deprecated("use ZStream", "2.0.0")
   def bothWith[A0 <: A, C, D](that: CQueue[F, A0, C])(f: (B, C) => D): CQueue[F, A0, D] =
     new CQueue(underlying.bothWith(that.underlying)(f))
 
   /**
    * @see [[ZQueue.bothWithM]]
    */
+  @deprecated("use ZStream", "2.0.0")
   def bothWithM[A0 <: A, C, D](
     that: CQueue[F, A0, C]
   )(f: (B, C) => F[D])(implicit R: Runtime[Any], E: Effect[F]): CQueue[F, A0, D] =
