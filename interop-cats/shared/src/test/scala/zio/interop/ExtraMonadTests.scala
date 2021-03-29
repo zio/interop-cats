@@ -2,16 +2,13 @@ package zio.interop
 
 import cats.kernel.laws.discipline.catsLawsIsEqToProp
 import cats.{ Eq, Monad }
-import org.scalacheck.{ Arbitrary, Prop }
+import org.scalacheck.Prop
 import org.typelevel.discipline.Laws
 
 trait ExtraMonadTests[F[_]] extends Laws {
   def laws: ExtraMonadLaws[F]
 
-  def monadExtras[A: Arbitrary: Eq](
-    implicit
-    EqFInt: Eq[F[Int]]
-  ): RuleSet =
+  def monadExtras[A](implicit EqFInt: Eq[F[Int]]): RuleSet =
     new RuleSet {
       def name: String                  = "monadExtras"
       def bases: Seq[(String, RuleSet)] = Nil

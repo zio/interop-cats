@@ -10,9 +10,9 @@ import cats.effect.{ Concurrent, ConcurrentEffect, ContextShift, Effect }
 import cats.implicits._
 import cats.laws._
 import cats.laws.discipline._
-import org.scalacheck.{ Arbitrary, Cogen, Gen }
-import zio.interop.catz._
+import org.scalacheck.{ Arbitrary, Gen }
 import zio._
+import zio.interop.catz._
 
 class catzSpec extends catzSpecZIOBase {
 
@@ -32,7 +32,7 @@ class catzSpec extends catzSpecZIOBase {
   checkAllAsync("Bifunctor[IO]", implicit tc => BifunctorTests[IO].bifunctor[Int, Int, Int, Int, Int, Int])
   checkAllAsync("Parallel[Task]", implicit tc => ParallelTests[Task, ParIO[Any, Throwable, *]].parallel[Int, Int])
   checkAllAsync("Monad[UIO]", { implicit tc =>
-    implicit def ioArbitrary[A: Arbitrary: Cogen]: Arbitrary[UIO[A]] = Arbitrary(genUIO[A])
+    implicit def ioArbitrary[A: Arbitrary]: Arbitrary[UIO[A]] = Arbitrary(genUIO[A])
     MonadTests[UIO].apply[Int, Int, Int]
   })
   checkAllAsync(
