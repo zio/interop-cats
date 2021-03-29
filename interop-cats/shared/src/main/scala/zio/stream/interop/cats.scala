@@ -44,7 +44,11 @@ sealed abstract class CatsInstances2 extends CatsInstances3 {
   implicit def zstreamParallelInstance[R, E]: Parallel.Aux[ZStream[R, E, *], ParStream[R, E, *]] =
     new CatsParallel[R, E](zstreamMonadErrorInstance)
 
-  implicit def zstreamSemigroupKInstance[R, E: Semigroup]: SemigroupK[ZStream[R, E, *]] =
+  implicit def zstreamSemigroupKInstanceBincompat0[R, E]: SemigroupK[ZStream[R, E, *]] = new CatsSemigroupK[R, E]
+
+  private[zio] implicit def zstreamSemigroupKInstance[R, E](
+    implicit @deprecated("bincompat", "2.4.1.0") evidence$1: Semigroup[E]
+  ): SemigroupK[ZStream[R, E, *]] =
     new CatsSemigroupK[R, E]
 }
 

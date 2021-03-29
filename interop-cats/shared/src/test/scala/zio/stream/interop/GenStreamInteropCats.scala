@@ -1,7 +1,7 @@
 package zio.stream.interop
 
-import zio.stream._
 import org.scalacheck._
+import zio.stream._
 
 trait GenStreamInteropCats {
 
@@ -40,7 +40,7 @@ trait GenStreamInteropCats {
    * Given a generator for `Stream[E, A]`, produces a sized generator for `Stream[E, A]` which represents a transformatstreamn,
    * by using methods that can have no effect on the resulting value (e.g. `map(identity)`).
    */
-  def genIdentityTrans[E, A: Arbitrary](gen: Gen[Stream[E, A]]): Gen[Stream[E, A]] = {
+  def genIdentityTrans[E, A](gen: Gen[Stream[E, A]]): Gen[Stream[E, A]] = {
     val functstreamns: Stream[E, A] => Gen[Stream[E, A]] = stream =>
       Gen.oneOf(
         genOfIdentityFlatMaps[E, A](stream),
@@ -74,7 +74,7 @@ trait GenStreamInteropCats {
   private def genOfIdentityMapErrors[E, A](stream: Stream[E, A]): Gen[Stream[E, A]] =
     Gen.const(stream.mapError(identity))
 
-  private def genOfFlatMaps[E, A: Cogen](stream: Stream[E, A])(
+  private def genOfFlatMaps[E, A](stream: Stream[E, A])(
     gen: Gen[Stream[E, A]]
   ): Gen[Stream[E, A]] =
     gen.map(nextIO => stream.flatMap(_ => nextIO))

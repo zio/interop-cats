@@ -62,9 +62,13 @@ private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
   }
 
   // 'R =!= Any' evidence fixes the 'diverging implicit expansion for type Arbitrary' error reproducible on scala 2.12 and 2.11.
-  type NotAny[A] = A =!= Any
-  implicit def zmanagedEq[R: NotAny: Arbitrary, E: Eq, A: Eq](
-    implicit rts: Runtime[Any],
+  implicit def zmanagedEq[R, E, A](
+    implicit
+    @deprecated("unused", "unused") notAny: R =!= Any,
+    arb: Arbitrary[R],
+    eqE: Eq[E],
+    eqA: Eq[A],
+    rts: Runtime[Any],
     tc: TestContext
   ): Eq[ZManaged[R, E, A]] = {
     def run(r: R, zm: ZManaged[R, E, A]) =
