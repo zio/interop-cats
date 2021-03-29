@@ -1,6 +1,5 @@
 import java.util.concurrent.TimeUnit
 
-import cats.effect.Timer
 import fs2.Stream
 import zio._
 import zio.clock._
@@ -11,6 +10,7 @@ import zio.test.TestAspect._
 import zio.test._
 
 import scala.concurrent.duration.FiniteDuration
+import cats.effect.Temporal
 
 object catzClockSpec extends DefaultRunnableSpec {
 
@@ -18,7 +18,7 @@ object catzClockSpec extends DefaultRunnableSpec {
     suite("catzClockSpec") {
       testM("Timer can be constructed from ZIO Clock") {
         ZIO.environment[Clock].flatMap { clock =>
-          implicit val timer: Timer[Task] =
+          implicit val timer: Temporal[Task] =
             clock.get.toTimer
 
           val stream: Stream[Task, Int] =

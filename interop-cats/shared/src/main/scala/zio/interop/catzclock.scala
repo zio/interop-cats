@@ -17,11 +17,12 @@
 package zio
 package interop
 
-import cats.effect.{ Timer, Clock => CatsClock }
+import cats.effect.{ Clock => CatsClock }
 import zio._
 import zio.clock._
 
 import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS, TimeUnit }
+import cats.effect.Temporal
 
 trait CatsClockSyntax {
   import scala.language.implicitConversions
@@ -32,8 +33,8 @@ trait CatsClockSyntax {
 
 final class ClockSyntax(private val zioClock: Clock.Service) extends AnyVal {
 
-  def toTimer[R, E]: Timer[ZIO[R, E, *]] =
-    new Timer[ZIO[R, E, *]] {
+  def toTimer[R, E]: Temporal[ZIO[R, E, *]] =
+    new Temporal[ZIO[R, E, *]] {
       override final val clock: CatsClock[ZIO[R, E, *]] = new CatsClock[ZIO[R, E, *]] {
         override final def monotonic(unit: TimeUnit): ZIO[R, E, Long] =
           zioClock.nanoTime.map(unit.convert(_, NANOSECONDS))
