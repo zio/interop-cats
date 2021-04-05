@@ -81,7 +81,7 @@ lazy val interopCatsJVM = interopCats.jvm.settings(dottySettings)
 
 lazy val interopCatsJS = interopCats.js
   .settings(
-    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.2.0" % Test
+    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.2.1" % Test
   )
 
 lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
@@ -101,5 +101,5 @@ lazy val coreOnlyTestJVM = coreOnlyTest.jvm.settings(dottySettings)
 
 lazy val coreOnlyTestJS = coreOnlyTest.js
   .settings(
-    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.2.0" % Test
+    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.2.1" % Test
   )
