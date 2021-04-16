@@ -14,6 +14,7 @@ import zio.duration._
 import zio.internal.{ Executor, Platform, Tracing }
 
 import java.time.{ DateTimeException, Instant, OffsetDateTime, ZoneOffset }
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration.Infinite
 import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS, TimeUnit }
 import scala.language.implicitConversions
@@ -78,8 +79,24 @@ private[zio] trait catzSpecBase
   implicit val eqForCauseOfNothing: Eq[Cause[Nothing]] =
     Eq.fromUniversalEquals
 
-  implicit def eqForUIO[A: Eq](implicit ticker: Ticker): Eq[UIO[A]] =
-    Eq.by(toEffect[effect.IO, Any, A])
+  implicit def eqForExitOfNothing[A: Eq]: Eq[Exit[Nothing, A]] = {
+    case (Exit.Success(x), Exit.Success(y)) => x eqv y
+    case (Exit.Failure(x), Exit.Failure(y)) => x eqv y
+    case _                                  => false
+  }
+
+  implicit def eqForUIO[A: Eq](implicit ticker: Ticker): Eq[UIO[A]] = Eq.by { uio =>
+    try {
+      var exit: Exit[Nothing, A] = null
+      runtime.unsafeRunAsync(uio.flatMap(ZIO.succeedNow).catchAllCause(ZIO.halt(_)))(exit = _)
+      ticker.ctx.tickAll(FiniteDuration(1, TimeUnit.SECONDS))
+      exit
+    } catch {
+      case error: Throwable =>
+        error.printStackTrace()
+        throw error
+    }
+  }
 
   implicit def eqForURIO[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[URIO[R, A]] =
     eqForZIO[R, Nothing, A]
