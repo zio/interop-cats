@@ -91,7 +91,7 @@ lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   .settings(skip in publish := true)
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core"    % "2.4.2"    % Test,
+      "org.typelevel" %%% "cats-core"    % "2.5.0"    % Test,
       "dev.zio"       %%% "zio-test-sbt" % zioVersion % Test
     )
   )
