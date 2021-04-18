@@ -16,9 +16,8 @@
 
 package zio
 
+import cats.effect.kernel.{ Async, Outcome, Resource }
 import cats.effect.std.Dispatcher
-import cats.effect.syntax.all._
-import cats.effect.{ Async, Outcome, Resource }
 import cats.syntax.all._
 
 import scala.concurrent.Future
@@ -71,7 +70,7 @@ package object interop extends interop.PlatformSpecific {
   @inline private[zio] def toEffect[F[_], R, A](rio: RIO[R, A])(implicit R: Runtime[R], F: Async[F]): F[A] =
     F.uncancelable { poll =>
       F.delay(R.unsafeRunToFuture(rio)).flatMap { future =>
-        poll(F.fromFuture(F.pure[Future[A]](future)).onCancel(F.fromFuture(F.delay(future.cancel())).void))
+        poll(F.onCancel(F.fromFuture(F.pure[Future[A]](future)), F.fromFuture(F.delay(future.cancel())).void))
       }
     }
 }

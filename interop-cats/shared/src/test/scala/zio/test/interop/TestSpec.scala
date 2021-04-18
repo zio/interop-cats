@@ -1,6 +1,6 @@
 package zio.test.interop
 
-import cats.effect.IO
+import cats.effect.{ IO => CIO }
 import zio.duration._
 import zio.interop.CatsRunnableSpec
 import zio.test.Assertion._
@@ -14,13 +14,13 @@ object TestSpec extends CatsRunnableSpec {
     suite("TestSpec")(
       testF("arbitrary effects can be tested") {
         for {
-          result <- IO("Hello from Cats!")
+          result <- CIO("Hello from Cats!")
         } yield assert(result)(equalTo("Hello from Cats!"))
       },
       timeout(0.milliseconds) {
         testF("ZIO interruption is tied to F interruption") {
           for {
-            _ <- IO.never[Nothing]
+            _ <- CIO.never[Nothing]
           } yield assertCompletes
         }
       } @@ failing

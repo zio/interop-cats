@@ -1,8 +1,7 @@
 package zio
 package interop
 
-import cats.effect.Sync
-import cats.effect.kernel.Async
+import cats.effect.kernel.{ Async, Sync }
 import fs2.Stream
 import zio.interop.catz._
 import zio.test.Assertion.equalTo

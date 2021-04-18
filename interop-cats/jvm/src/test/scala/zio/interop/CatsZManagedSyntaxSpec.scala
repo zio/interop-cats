@@ -1,6 +1,7 @@
 package zio.interop
 
-import cats.effect.{ Resource, IO => CIO }
+import cats.effect.kernel.Resource
+import cats.effect.{ IO => CIO }
 import zio._
 import zio.interop.catz._
 import zio.test.Assertion._

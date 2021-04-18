@@ -16,7 +16,7 @@
 
 package zio.interop
 
-import cats.effect.Async
+import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
 import zio.{ Runtime, ZQueue }
 

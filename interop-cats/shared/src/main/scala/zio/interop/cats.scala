@@ -18,9 +18,9 @@ package zio.interop
 
 import cats.arrow.ArrowChoice
 import cats.data.State
-import cats.effect.kernel.Unique
+import cats.effect.kernel.{ Unique, Fiber => _, _ }
 import cats.effect.unsafe.IORuntime
-import cats.effect.{ Fiber => _, IO => _, _ }
+import cats.effect.{ LiftIO, IO => CIO }
 import cats.kernel.{ CommutativeMonoid, CommutativeSemigroup }
 import cats.{ effect, _ }
 import zio._
@@ -486,6 +486,6 @@ private class ZioParMonoid[R, E, A](implicit monoid: CommutativeMonoid[A])
 }
 
 private class ZioLiftIO[R](implicit runtime: IORuntime) extends LiftIO[RIO[R, *]] {
-  override final def liftIO[A](ioa: effect.IO[A]): RIO[R, A] =
+  override final def liftIO[A](ioa: CIO[A]): RIO[R, A] =
     ZIO.effectAsync(k => ioa.unsafeRunAsync(k.compose(ZIO.fromEither(_))))
 }

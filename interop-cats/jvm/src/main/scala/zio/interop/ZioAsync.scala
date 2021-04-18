@@ -1,7 +1,6 @@
 package zio.interop
 
-import cats.effect.kernel.Unique
-import cats.effect.{ Async, Cont, Sync }
+import cats.effect.kernel.{ Async, Cont, Sync, Unique }
 import zio.blocking.{ effectBlocking, effectBlockingInterrupt, Blocking }
 import zio.clock.Clock
 import zio.{ Promise, RIO, ZIO }

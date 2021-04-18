@@ -56,11 +56,11 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .settings(
     libraryDependencies += "dev.zio" %%% "zio" % zioVersion,
     libraryDependencies ++= Seq(
-      "dev.zio"       %%% "zio-streams"        % zioVersion,
-      "dev.zio"       %%% "zio-test"           % zioVersion,
-      "org.typelevel" %%% "cats-effect-kernel" % catsEffectVersion,
-      "org.typelevel" %%% "cats-mtl"           % catsMtlVersion,
-      "co.fs2"        %%% "fs2-core"           % fs2Version
+      "dev.zio"       %%% "zio-streams"     % zioVersion,
+      "dev.zio"       %%% "zio-test"        % zioVersion,
+      "org.typelevel" %%% "cats-effect-std" % catsEffectVersion,
+      "org.typelevel" %%% "cats-mtl"        % catsMtlVersion,
+      "co.fs2"        %%% "fs2-core"        % fs2Version
     ).map { module =>
       if (isDotty.value) module else module % Optional
     },

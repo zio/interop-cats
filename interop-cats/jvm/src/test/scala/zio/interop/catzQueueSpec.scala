@@ -1,7 +1,8 @@
 package zio.interop
 
+import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
-import cats.effect.{ Async, IO => CIO }
+import cats.effect.{ IO => CIO }
 import cats.implicits._
 import zio.test.Assertion._
 import zio.test._
