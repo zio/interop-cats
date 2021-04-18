@@ -2,7 +2,7 @@ package zio
 package interop
 
 import cats.effect
-import cats.effect.{ Concurrent, ConcurrentEffect, ContextShift, Sync }
+import cats.effect.{ Concurrent, ConcurrentEffect, Sync }
 import fs2.Stream
 import zio.interop.catz._
 import zio.test.Assertion.equalTo

@@ -2,7 +2,7 @@ package zio.interop
 
 import java.util.concurrent.TimeUnit
 
-import cats.effect.{ ContextShift, ExitCase, Resource, IO => CIO }
+import cats.effect.{ ExitCase, Resource, IO => CIO }
 import zio.interop.catz._
 import zio.test.Assertion._
 import zio.test._

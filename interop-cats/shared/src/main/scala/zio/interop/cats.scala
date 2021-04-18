@@ -17,7 +17,7 @@
 package zio.interop
 
 import cats.arrow.ArrowChoice
-import cats.effect.{ Concurrent, ContextShift, ExitCase }
+import cats.effect.{ Concurrent, ExitCase }
 import cats.{ effect, _ }
 import zio._
 import zio.clock.Clock
@@ -46,9 +46,9 @@ abstract class CatsEffectPlatform
   }
 
   object implicits {
-    implicit final def ioTimer[R, E]: effect.Timer[ZIO[R, E, *]] = ioTimer0.asInstanceOf[effect.Timer[ZIO[R, E, *]]]
+    implicit final def ioTimer[R, E]: effect.Temporal[ZIO[R, E, *]] = ioTimer0.asInstanceOf[effect.Temporal[ZIO[R, E, *]]]
 
-    private[this] val ioTimer0: effect.Timer[UIO] =
+    private[this] val ioTimer0: effect.Temporal[UIO] =
       zioClock.toTimer
   }
 
@@ -65,8 +65,8 @@ abstract class CatsEffectInstances extends CatsInstances with CatsEffectInstance
   implicit final def zioContextShift[R, E]: ContextShift[ZIO[R, E, *]] =
     zioContextShift0.asInstanceOf[ContextShift[ZIO[R, E, *]]]
 
-  implicit final def zioTimer[R <: Clock, E]: effect.Timer[ZIO[R, E, *]] =
-    zioTimer0.asInstanceOf[effect.Timer[ZIO[R, E, *]]]
+  implicit final def zioTimer[R <: Clock, E]: effect.Temporal[ZIO[R, E, *]] =
+    zioTimer0.asInstanceOf[effect.Temporal[ZIO[R, E, *]]]
 
   implicit final def taskEffectInstance[R](implicit runtime: Runtime[R]): effect.ConcurrentEffect[RIO[R, *]] =
     new CatsConcurrentEffect[R](runtime)
@@ -77,7 +77,7 @@ abstract class CatsEffectInstances extends CatsInstances with CatsEffectInstance
       override final def evalOn[A](ec: ExecutionContext)(fa: ZIO[Any, Any, A]): ZIO[Any, Any, A] = fa.on(ec)
     }
 
-  private[this] final val zioTimer0: effect.Timer[ZIO[Clock, Any, *]] = new effect.Timer[ZIO[Clock, Any, *]] {
+  private[this] final val zioTimer0: effect.Temporal[ZIO[Clock, Any, *]] = new effect.Temporal[ZIO[Clock, Any, *]] {
     override final def clock: effect.Clock[ZIO[Clock, Any, *]] = zioCatsClock0
     override final def sleep(duration: FiniteDuration): ZIO[Clock, Any, Unit] =
       zio.clock.sleep(zio.duration.Duration.fromNanos(duration.toNanos))
@@ -190,7 +190,7 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
                 exit match {
                   case Exit.Failure(cause) if !cause.interruptors.forall(_ == descriptor.id) => ()
                   case _ =>
-                    effect.IO.suspend(cb(exit.toEither)).unsafeRunAsync(_ => ())
+                    effect.IO.defer(cb(exit.toEither)).unsafeRunAsync(_ => ())
                 }
               },
             _ => fa

@@ -1,6 +1,6 @@
 package zio.interop
 
-import cats.effect.{ Effect, Concurrent, ContextShift, IO => CIO }
+import cats.effect.{ Effect, Concurrent, IO => CIO }
 import cats.implicits._
 import zio.test.Assertion._
 import zio.test._

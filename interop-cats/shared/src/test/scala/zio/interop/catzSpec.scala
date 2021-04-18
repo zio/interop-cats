@@ -2,17 +2,17 @@ package zio.interop
 
 import cats.Monad
 import cats.arrow.ArrowChoice
-import cats.effect.concurrent.Deferred
 import cats.effect.laws._
 import cats.effect.laws.discipline.arbitrary._
 import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests, SyncTests }
-import cats.effect.{ Concurrent, ConcurrentEffect, ContextShift, Effect }
+import cats.effect.{ Concurrent, ConcurrentEffect, Effect }
 import cats.implicits._
 import cats.laws._
 import cats.laws.discipline._
 import org.scalacheck.{ Arbitrary, Gen }
 import zio._
 import zio.interop.catz._
+import cats.effect.{ Deferred, Temporal }
 
 class catzSpec extends catzSpecZIOBase {
 
@@ -95,11 +95,11 @@ class catzSpec extends catzSpecZIOBase {
     ContextShift[Task]
     ContextShift[RIO[String, *]]
     cats.effect.Clock[Task]
-    Timer[Task]
+    Temporal[Task]
 
     ContextShift[UIO]
     cats.effect.Clock[UIO]
-    Timer[UIO]
+    Temporal[UIO]
     Monad[UIO]
   }
 
@@ -163,7 +163,7 @@ object EffectTestsOverrides {
 
 object ConcurrentTestsOverrides {
 
-  def apply[F[_]](implicit ev: Concurrent[F], cs: ContextShift[F]): ConcurrentTests[F] =
+  def apply[F[_]](implicit ev: Concurrent[F]): ConcurrentTests[F] =
     new ConcurrentTests[F] {
       def laws: ConcurrentLaws[F] =
         new ConcurrentLaws[F] with AsyncLawsOverrides[F] {
@@ -175,7 +175,7 @@ object ConcurrentTestsOverrides {
 
 object ConcurrentEffectTestsOverrides {
 
-  def apply[F[_]](implicit ev: ConcurrentEffect[F], cs: ContextShift[F]): ConcurrentEffectTests[F] =
+  def apply[F[_]](implicit ev: ConcurrentEffect[F]): ConcurrentEffectTests[F] =
     new ConcurrentEffectTests[F] {
       def laws: ConcurrentEffectLaws[F] =
         new ConcurrentEffectLaws[F] with AsyncLawsOverrides[F] {
