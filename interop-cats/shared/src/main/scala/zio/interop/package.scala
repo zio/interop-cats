@@ -23,7 +23,7 @@ import cats.syntax.all._
 
 import scala.concurrent.Future
 
-package object interop extends interop.VersionSpecific {
+package object interop extends interop.PlatformSpecific {
   type Queue[F[+_], A] = CQueue[F, A, A]
 
   @inline private[interop] def toOutcome[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, *], E, A] =

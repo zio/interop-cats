@@ -4,8 +4,7 @@ import cats.effect.kernel.Unique
 import cats.effect.{ Async, Cont, Sync }
 import zio.blocking.{ effectBlocking, effectBlockingInterrupt, Blocking }
 import zio.clock.Clock
-import zio.{ RIO, ZIO }
-import zio.Promise
+import zio.{ Promise, RIO, ZIO }
 
 import scala.concurrent.{ ExecutionContext, Future }
 

@@ -4,11 +4,7 @@ import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio._
 import zio.clock.Clock
 
-private[interop] trait catzSpecZIOBase
-    extends catzSpecBase
-    with catzSpecZIOBaseLowPriority
-    with GenIOInteropCats
-    with VersionSpecific {
+private[interop] trait catzSpecZIOBase extends catzSpecBase with catzSpecZIOBaseLowPriority with GenIOInteropCats {
 
   implicit def arbitraryUIO[A: Arbitrary]: Arbitrary[UIO[A]] =
     Arbitrary(genUIO[A])

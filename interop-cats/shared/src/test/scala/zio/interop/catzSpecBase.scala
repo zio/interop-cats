@@ -9,7 +9,6 @@ import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio._
-import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.duration._
 import zio.internal.{ Executor, Platform, Tracing }
@@ -26,14 +25,15 @@ private[zio] trait catzSpecBase
     with FunSuiteDiscipline
     with Configuration
     with TestInstances
-    with catzSpecBaseLowPriority {
+    with catzSpecBaseLowPriority
+    with zio.interop.PlatformSpecific {
 
   def checkAllAsync(name: String, f: Ticker => Laws#RuleSet): Unit =
     checkAll(name, f(Ticker()))
 
   def environment(implicit ticker: Ticker): ZEnv = {
 
-    val testBlocking = new Blocking.Service {
+    val testBlocking = new CBlockingService {
       def blockingExecutor: Executor =
         Executor.fromExecutionContext(1024)(ticker.ctx)
     }
@@ -103,9 +103,6 @@ private[zio] trait catzSpecBase
       case (x, y)                                   => x == y
     }
 
-  implicit val eqForExecutionContext: Eq[ExecutionContext] =
-    Eq.allEqual
-
   implicit def eqForExitOfNothing[A: Eq]: Eq[Exit[Nothing, A]] = {
     case (Exit.Success(x), Exit.Success(y)) => x eqv y
     case (Exit.Failure(x), Exit.Failure(y)) => x eqv y
@@ -119,6 +116,7 @@ private[zio] trait catzSpecBase
       println(s"$exit1 was not equal to $exit2")
       false
     }
+  }
 
   implicit def eqForURIO[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[URIO[R, A]] =
     eqForZIO[R, Nothing, A]

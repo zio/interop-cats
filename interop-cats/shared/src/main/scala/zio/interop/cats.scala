@@ -210,13 +210,10 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     fa.memoize
 
   override final def racePair[A, B](fa: F[A], fb: F[B]) =
-    fa.interruptible.raceWith(fb.interruptible)(
+    (fa.interruptible raceWith fb.interruptible)(
       (exit, fiber) => ZIO.succeedNow(Left((toOutcome(exit), toFiber(fiber)))),
       (exit, fiber) => ZIO.succeedNow(Right((toFiber(fiber), toOutcome(exit))))
     )
-
-  override final def race[A, B](fa: ZIO[R, E, A], fb: ZIO[R, E, B]): ZIO[R, E, Either[A, B]] =
-    fa raceEither fb
 
   override final def both[A, B](fa: F[A], fb: F[B]): F[(A, B)] =
     fa zipPar fb
