@@ -9,14 +9,15 @@ import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio._
+import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.duration._
 import zio.internal.{ Executor, Platform, Tracing }
 
 import java.time.{ DateTimeException, Instant, OffsetDateTime, ZoneOffset }
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration.Infinite
-import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS, TimeUnit }
+import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS, SECONDS, TimeUnit }
+import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
 
 private[zio] trait catzSpecBase
@@ -30,6 +31,12 @@ private[zio] trait catzSpecBase
     checkAll(name, f(Ticker()))
 
   def environment(implicit ticker: Ticker): ZEnv = {
+
+    val testBlocking = new Blocking.Service {
+      def blockingExecutor: Executor =
+        Executor.fromExecutionContext(1024)(ticker.ctx)
+    }
+
     val testClock = new Clock.Service {
       def currentTime(unit: TimeUnit): UIO[Long] =
         ZIO.effectTotal(unit.convert(Duration.fromScala(ticker.ctx.now())))
@@ -53,7 +60,7 @@ private[zio] trait catzSpecBase
       }
     }
 
-    ZEnv.Services.live ++ Has(testClock)
+    ZEnv.Services.live ++ Has(testClock) ++ Has(testBlocking)
   }
 
   implicit def runtime(implicit ticker: Ticker): Runtime[Any] = Runtime(
@@ -79,24 +86,40 @@ private[zio] trait catzSpecBase
   implicit val eqForCauseOfNothing: Eq[Cause[Nothing]] =
     Eq.fromUniversalEquals
 
+  implicit val eqForExecutionContext: Eq[ExecutionContext] =
+    Eq.allEqual
+
   implicit def eqForExitOfNothing[A: Eq]: Eq[Exit[Nothing, A]] = {
     case (Exit.Success(x), Exit.Success(y)) => x eqv y
     case (Exit.Failure(x), Exit.Failure(y)) => x eqv y
     case _                                  => false
   }
 
-  implicit def eqForUIO[A: Eq](implicit ticker: Ticker): Eq[UIO[A]] = Eq.by { uio =>
+  def unsafeRun[A](zio: UIO[A])(implicit ticker: Ticker): Exit[Nothing, Option[A]] =
     try {
-      var exit: Exit[Nothing, A] = null
-      runtime.unsafeRunAsync(uio.flatMap(ZIO.succeedNow).catchAllCause(ZIO.halt(_)))(exit = _)
-      ticker.ctx.tickAll(FiniteDuration(1, TimeUnit.SECONDS))
+
+      var exit: Exit[Nothing, Option[A]] = Exit.succeed(None)
+
+      runtime(ticker).unsafeRunAsync {
+        zio
+          .flatMap(ZIO.succeed(_))
+          .on(ticker.ctx)
+      } {
+        case Exit.Success(a)     => exit = Exit.Success(Some(a))
+        case Exit.Failure(cause) => exit = Exit.halt(cause)
+      }
+
+      ticker.ctx.tickAll(FiniteDuration(1L, SECONDS))
+
       exit
     } catch {
-      case error: Throwable =>
-        error.printStackTrace()
-        throw error
+      case t: Throwable =>
+        t.printStackTrace()
+        throw t
     }
-  }
+
+  implicit def eqForUIO[A: Eq](implicit ticker: Ticker): Eq[UIO[A]] =
+    Eq.by(unsafeRun)
 
   implicit def eqForURIO[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[URIO[R, A]] =
     eqForZIO[R, Nothing, A]

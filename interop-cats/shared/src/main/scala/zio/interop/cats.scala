@@ -186,7 +186,7 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     Promise.make[E, A].map(new ZioDeferred(_))
 
   override final def start[A](fa: F[A]): F[effect.Fiber[F, E, A]] =
-    fa.fork.map(toFiber)
+    fa.interruptible.fork.map(toFiber)
 
   override def never[A]: F[A] =
     ZIO.never
@@ -204,15 +204,16 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     ZIO.halt(Cause.interrupt(Fiber.Id.None))
 
   override final def onCancel[A](fa: F[A], fin: F[Unit]): F[A] =
-    fa.onInterrupt(fin.orDieWith(fiberFailure))
+    fa.onInterrupt(fin.ignore)
 
   override final def memoize[A](fa: F[A]): F[F[A]] =
     fa.memoize
 
-  override final def racePair[A, B](fa: F[A], fb: F[B]) = fa.raceWith(fb)(
-    (exit, fiber) => ZIO.succeedNow(Left((toOutcome(exit), toFiber(fiber)))),
-    (exit, fiber) => ZIO.succeedNow(Right((toFiber(fiber), toOutcome(exit))))
-  )
+  override final def racePair[A, B](fa: F[A], fb: F[B]) =
+    fa.interruptible.raceWith(fb.interruptible)(
+      (exit, fiber) => ZIO.succeedNow(Left((toOutcome(exit), toFiber(fiber)))),
+      (exit, fiber) => ZIO.succeedNow(Right((toFiber(fiber), toOutcome(exit))))
+    )
 
   override final def both[A, B](fa: F[A], fb: F[B]): F[(A, B)] =
     fa zipPar fb
