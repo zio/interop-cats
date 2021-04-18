@@ -33,8 +33,10 @@ private[interop] trait catzSpecZStreamBaseLowPriority { self: catzSpecZStreamBas
   implicit def eqForZStream[R: Arbitrary, E: Eq, A: Eq](implicit ticker: Ticker): Eq[ZStream[R, E, A]] =
     zStreamEq[R, E, A]
 
-  implicit def arbitraryStream[E: CanFail: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[Stream[E, A]] =
+  implicit def arbitraryStream[E: CanFail: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[Stream[E, A]] = {
+    implicitly[CanFail[E]]
     Arbitrary(Gen.oneOf(genStream[E, A], genLikeTrans(genStream[E, A]), genIdentityTrans(genStream[E, A])))
+  }
 
   implicit def arbitraryZStream[
     R: Cogen,
