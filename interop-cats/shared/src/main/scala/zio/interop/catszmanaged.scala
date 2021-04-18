@@ -43,7 +43,9 @@ trait CatsZManagedSyntax {
 
 final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) extends AnyVal {
   def toManaged(implicit F: MonadCancel[F, _], D: Dispatcher[F]): TaskManaged[A] =
-    new ZIOResourceSyntax(resource.mapK(λ[F ~> Task](fromEffect(_)))).toManagedZIO
+    new ZIOResourceSyntax(resource.mapK(new (F ~> Task) {
+      override def apply[B](fb: F[B]) = fromEffect(fb)
+    })).toManagedZIO
 }
 
 final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resource[ZIO[R, E, *], A]) extends AnyVal {
@@ -97,7 +99,9 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
   }
 
   def toResource[F[_]: Async](implicit R: Runtime[R], ev: E <:< Throwable): Resource[F, A] =
-    toResourceZIO.mapK(λ[ZIO[R, E, *] ~> F](zio => toEffect(zio.mapError(ev))))
+    toResourceZIO.mapK(new (ZIO[R, E, *] ~> F) {
+      override def apply[B](zio: ZIO[R, E, B]) = toEffect(zio.mapError(ev))
+    })
 }
 
 trait CatsEffectZManagedInstances {

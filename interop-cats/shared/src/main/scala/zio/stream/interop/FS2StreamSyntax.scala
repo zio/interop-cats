@@ -20,7 +20,7 @@ class ZStreamSyntax[R, E, A](private val stream: ZStream[R, E, A]) extends AnyVa
 
   /** Convert a [[zio.stream.ZStream]] into an [[fs2.Stream]]. */
   def toFs2Stream: fs2.Stream[ZIO[R, E, *], A] =
-    fs2.Stream.resource(stream.process.toResourceZIO).flatMap { pull =>
+    fs2.Stream.resource[ZIO[R, E, *], ZIO[R, Option[E], Chunk[A]]](stream.process.toResourceZIO).flatMap { pull =>
       fs2.Stream.repeatEval(pull.optional).unNoneTerminate.flatMap { chunk =>
         fs2.Stream.chunk(fs2.Chunk.indexedSeq(chunk))
       }
@@ -43,12 +43,12 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, *], A]) {
   private def toZStreamSingle[R1 <: R]: ZStream[R1, Throwable, A] =
     ZStream.managed {
       for {
-        queue <- Queue.bounded[Take[Throwable, A]](1).toManaged(_.shutdown)
+        queue <- Queue.bounded[Take[Throwable, A]](1).toManaged[R](_.shutdown)
         _ <- {
           (stream.evalTap(a => queue.offer(Take.single(a))) ++ fs2.Stream
             .eval(queue.offer(Take.end)))
             .handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
-            .compile
+            .compile[RIO[R, *], RIO[R, *], Any]
             .resource
             .drain
             .toManagedZIO
@@ -66,7 +66,7 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, *], A]) {
             .evalTap(a => queue.offer(Take.chunk(zio.Chunk.fromIterable(a.toList))))
             .unchunk ++ fs2.Stream.eval(queue.offer(Take.end))
         }.handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
-          .compile
+          .compile[RIO[R, *], RIO[R, *], Any]
           .resource
           .drain
           .toManagedZIO

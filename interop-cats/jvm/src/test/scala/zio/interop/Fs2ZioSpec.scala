@@ -45,7 +45,7 @@ object Fs2ZioSpec extends CatsRunnableSpec {
       _ <- Stream
             .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
             .evalMap[Task, Unit](_ => fail.await *> IO.fail(new Exception()))
-            .compile
+            .compile[Task, Task, Unit]
             .drain
             .fork
       _ <- started.await
@@ -61,7 +61,7 @@ object Fs2ZioSpec extends CatsRunnableSpec {
       _ <- Stream
             .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
             .evalMap[Task, Unit](_ => terminate.await *> IO.die(new Exception()))
-            .compile
+            .compile[Task, Task, Unit]
             .drain
             .fork
       _ <- started.await
@@ -76,7 +76,7 @@ object Fs2ZioSpec extends CatsRunnableSpec {
       f <- Stream
             .bracket(IO.unit)(_ => released.succeed(()).unit)
             .evalMap[Task, Unit](_ => started.succeed(()) *> IO.never)
-            .compile
+            .compile[Task, Task, Unit]
             .drain
             .fork
       _ <- started.await

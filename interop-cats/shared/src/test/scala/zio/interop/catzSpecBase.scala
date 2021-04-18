@@ -65,7 +65,7 @@ private[zio] trait catzSpecBase
   def unsafeRun[A](uio: UIO[A])(implicit ticker: Ticker): Exit[Nothing, Option[A]] =
     try {
       var exit = Exit.succeed(Option.empty[A])
-      runtime.unsafeRunAsync(uio.asSome)(exit = _)
+      runtime.unsafeRunAsync[Nothing, Option[A]](uio.asSome)(exit = _)
       ticker.ctx.tickAll(FiniteDuration(1, TimeUnit.SECONDS))
       exit
     } catch {
