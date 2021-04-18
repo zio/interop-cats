@@ -1,34 +1,15 @@
 package zio
 package interop
 
+import cats.effect.Sync
 import cats.effect.kernel.Async
-import cats.effect.std.Dispatcher
-import cats.effect.unsafe.{ IORuntime, IORuntimeConfig, Scheduler }
-import cats.effect.{ Sync, IO => CIO }
 import fs2.Stream
-import zio.blocking.Blocking
-import zio.duration._
 import zio.interop.catz._
 import zio.test.Assertion.equalTo
 import zio.test._
 import zio.test.interop.catz.test._
 
-object Fs2ZioSpec extends DefaultRunnableSpec {
-  implicit val zioRuntime: Runtime[ZEnv] = Runtime.default
-  implicit val ioRuntime: IORuntime = Scheduler.createDefaultScheduler() match {
-    case (scheduler, shutdown) =>
-      IORuntime(
-        zioRuntime.platform.executor.asEC,
-        zioRuntime.environment.get[Blocking.Service].blockingExecutor.asEC,
-        scheduler,
-        shutdown,
-        IORuntimeConfig()
-      )
-  }
-
-  implicit val dispatcher: Dispatcher[CIO] =
-    Dispatcher[CIO].allocated.unsafeRunSync()._1
-
+object Fs2ZioSpec extends CatsRunnableSpec {
   def spec =
     suite("ZIO with Fs2")(
       suite("fs2 parJoin")(
@@ -54,7 +35,7 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
           bracketInterrupt
         }
       )
-    ) @@ TestAspect.timeout(10.seconds)
+    )
 
   def bracketFail: ZIO[Any, Nothing, TestResult] =
     for {
@@ -63,13 +44,10 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
       fail     <- Promise.make[Nothing, Unit]
       _ <- Stream
             .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
-            .evalMap[Task, Unit] { _ =>
-              fail.await *> IO.fail(new Exception())
-            }
+            .evalMap[Task, Unit](_ => fail.await *> IO.fail(new Exception()))
             .compile
             .drain
             .fork
-
       _ <- started.await
       _ <- fail.succeed(())
       _ <- released.await
@@ -82,13 +60,10 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
       terminate <- Promise.make[Nothing, Unit]
       _ <- Stream
             .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
-            .evalMap[Task, Unit] { _ =>
-              terminate.await *> IO.die(new Exception())
-            }
+            .evalMap[Task, Unit](_ => terminate.await *> IO.die(new Exception()))
             .compile
             .drain
             .fork
-
       _ <- started.await
       _ <- terminate.succeed(())
       _ <- released.await
@@ -104,7 +79,6 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
             .compile
             .drain
             .fork
-
       _ <- started.await
       _ <- f.interrupt
       _ <- released.await
