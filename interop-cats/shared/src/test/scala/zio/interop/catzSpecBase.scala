@@ -9,6 +9,7 @@ import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio._
+import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.duration._
 import zio.internal.{ Executor, Platform, Tracing }
@@ -31,6 +32,12 @@ private[zio] trait catzSpecBase
     checkAll(name, f(Ticker()))
 
   def environment(implicit ticker: Ticker): ZEnv = {
+
+    val testBlocking = new Blocking.Service {
+      def blockingExecutor: Executor =
+        Executor.fromExecutionContext(1024)(ticker.ctx)
+    }
+
     val testClock = new Clock.Service {
       def currentTime(unit: TimeUnit): UIO[Long] =
         ZIO.effectTotal(ticker.ctx.now().toUnit(unit).toLong)
@@ -52,7 +59,7 @@ private[zio] trait catzSpecBase
       }
     }
 
-    ZEnv.Services.live ++ Has(testClock)
+    ZEnv.Services.live ++ Has(testClock) ++ Has(testBlocking)
   }
 
   def unsafeRun[A](uio: UIO[A])(implicit ticker: Ticker): Exit[Nothing, Option[A]] =
@@ -96,6 +103,9 @@ private[zio] trait catzSpecBase
       case (x, y)                                   => x == y
     }
 
+  implicit val eqForExecutionContext: Eq[ExecutionContext] =
+    Eq.allEqual
+
   implicit def eqForExitOfNothing[A: Eq]: Eq[Exit[Nothing, A]] = {
     case (Exit.Success(x), Exit.Success(y)) => x eqv y
     case (Exit.Failure(x), Exit.Failure(y)) => x eqv y
@@ -109,7 +119,6 @@ private[zio] trait catzSpecBase
       println(s"$exit1 was not equal to $exit2")
       false
     }
-  }
 
   implicit def eqForURIO[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[URIO[R, A]] =
     eqForZIO[R, Nothing, A]

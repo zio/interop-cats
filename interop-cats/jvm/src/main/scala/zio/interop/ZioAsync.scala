@@ -5,6 +5,7 @@ import cats.effect.{ Async, Cont, Sync }
 import zio.blocking.{ effectBlocking, effectBlockingInterrupt, Blocking }
 import zio.clock.Clock
 import zio.{ RIO, ZIO }
+import zio.Promise
 
 import scala.concurrent.{ ExecutionContext, Future }
 
@@ -41,7 +42,11 @@ private class ZioAsync[R <: Clock with Blocking] extends ZioTemporal[R, Throwabl
     effectBlockingInterrupt(thunk)
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] =
-    ZIO.effectAsyncM(register => k(register.compose(fromEither)))
+    Promise.make[Nothing, Unit].flatMap { promise =>
+      ZIO.effectAsyncM { register =>
+        k(either => register(promise.await *> ZIO.fromEither(either))) *> promise.succeed(())
+      }
+    }
 
   override final def async_[A](k: (Either[Throwable, A] => Unit) => Unit): F[A] =
     ZIO.effectAsync(register => k(register.compose(fromEither)))
