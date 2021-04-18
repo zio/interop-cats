@@ -201,7 +201,7 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     ZIO.uninterruptibleMask(body.compose(toPoll))
 
   override final val canceled: F[Unit] =
-    ZIO.halt(Cause.interrupt(Fiber.Id.None))
+    ZIO.interrupt.unit
 
   override final def onCancel[A](fa: F[A], fin: F[Unit]): F[A] =
     fa.onInterrupt(fin.ignore)
@@ -214,6 +214,9 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
       (exit, fiber) => ZIO.succeedNow(Left((toOutcome(exit), toFiber(fiber)))),
       (exit, fiber) => ZIO.succeedNow(Right((toFiber(fiber), toOutcome(exit))))
     )
+
+  override final def race[A, B](fa: ZIO[R, E, A], fb: ZIO[R, E, B]): ZIO[R, E, Either[A, B]] =
+    fa raceEither fb
 
   override final def both[A, B](fa: F[A], fb: F[B]): F[(A, B)] =
     fa zipPar fb
