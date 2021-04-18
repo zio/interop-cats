@@ -27,6 +27,7 @@ import zio._
 import zio.clock.{ currentTime, nanoTime, Clock }
 import zio.duration.Duration
 
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.duration._
 
 object catz extends CatsEffectPlatform {
@@ -186,7 +187,7 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     Promise.make[E, A].map(new ZioDeferred(_))
 
   override final def start[A](fa: F[A]): F[effect.Fiber[F, E, A]] =
-    fa.interruptible.fork.map(toFiber)
+    fa.interruptible.forkDaemon.map(toFiber)
 
   override def never[A]: F[A] =
     ZIO.never
@@ -201,10 +202,17 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     ZIO.uninterruptibleMask(body.compose(toPoll))
 
   override final val canceled: F[Unit] =
-    ZIO.interrupt.unit
+    ZIO.interrupt
 
   override final def onCancel[A](fa: F[A], fin: F[Unit]): F[A] =
-    fa.onInterrupt(fin.ignore)
+    fa.onExit {
+      case Exit.Failure(cause) =>
+        cause.failureOrCause.fold(
+          _ => ZIO.unit,
+          _ => fin.ignore
+        )
+      case _ => ZIO.unit
+    }
 
   override final def memoize[A](fa: F[A]): F[F[A]] =
     fa.memoize
@@ -247,11 +255,22 @@ private final class ZioDeferred[R, E, A](promise: Promise[E, A]) extends Deferre
 private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E, *], A] {
   type F[T] = ZIO[R, E, T]
 
-  private def trySet(a: A): F[Boolean] =
-    set(a).as(true)
-
   override def access: F[(A, A => F[Boolean])] =
-    get.map(_ -> trySet)
+    get.map { currentValue =>
+      val called = new AtomicBoolean(false)
+      def setter(a: A): F[Boolean] =
+        ZIO.effectSuspendTotal {
+          if (called.getAndSet(true)) {
+            ZIO.succeedNow(false)
+          } else {
+            ref.modify { updatedValue =>
+              if (currentValue == updatedValue) (true, a)
+              else (false, updatedValue)
+            }
+          }
+        }
+      (currentValue, setter)
+    }
 
   override def tryUpdate(f: A => A): F[Boolean] =
     update(f).as(true)
@@ -315,7 +334,7 @@ private class ZioMonadError[R, E] extends MonadError[ZIO[R, E, *], E] with Stack
     fa.as(b)
 
   override final def whenA[A](cond: Boolean)(f: => F[A]): F[Unit] =
-    ZIO.effectSuspendTotal(f).when(cond)
+    ZIO.when(cond)(f)
 
   override final def unit: F[Unit] =
     ZIO.unit
