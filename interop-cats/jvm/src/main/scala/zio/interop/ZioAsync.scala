@@ -4,7 +4,6 @@ import cats.effect.kernel.Unique
 import cats.effect.{ Async, Cont, Sync }
 import zio.blocking.{ effectBlocking, effectBlockingInterrupt, Blocking }
 import zio.clock.Clock
-import zio.internal.Executor
 import zio.{ RIO, ZIO }
 
 import scala.concurrent.{ ExecutionContext, Future }
@@ -12,14 +11,10 @@ import scala.concurrent.{ ExecutionContext, Future }
 private class ZioAsync[R <: Clock with Blocking] extends ZioTemporal[R, Throwable] with Async[RIO[R, *]] {
 
   override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] =
-    ZIO.effectSuspendTotalWith { (platform, _) =>
-      fa.lock(Executor.fromExecutionContext(platform.executor.yieldOpCount)(ec))
-    }
+    fa.on(ec)
 
   override final val executionContext: F[ExecutionContext] =
-    ZIO.effectSuspendTotalWith { (platform, _) =>
-      ZIO.succeedNow(platform.executor.asEC)
-    }
+    ZIO.executor.map(_.asEC)
 
   override final val unique: F[Unique.Token] =
     ZIO.effectTotal(new Unique.Token)

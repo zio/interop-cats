@@ -15,8 +15,9 @@ import zio.internal.{ Executor, Platform, Tracing }
 
 import java.time.{ DateTimeException, Instant, OffsetDateTime, ZoneOffset }
 import java.util.concurrent.TimeUnit
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration.Infinite
-import scala.concurrent.duration.{ FiniteDuration, MILLISECONDS, TimeUnit }
+import scala.concurrent.duration.{ FiniteDuration, TimeUnit }
 import scala.language.implicitConversions
 
 private[zio] trait catzSpecBase
@@ -32,21 +33,19 @@ private[zio] trait catzSpecBase
   def environment(implicit ticker: Ticker): ZEnv = {
     val testClock = new Clock.Service {
       def currentTime(unit: TimeUnit): UIO[Long] =
-        ZIO.effectTotal(unit.convert(Duration.fromScala(ticker.ctx.now())))
+        ZIO.effectTotal(ticker.ctx.now().toUnit(unit).toLong)
 
       val currentDateTime: IO[DateTimeException, OffsetDateTime] =
-        currentTime(MILLISECONDS).map { millis =>
-          OffsetDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneOffset.UTC)
-        }
+        ZIO.effectTotal(OffsetDateTime.ofInstant(Instant.ofEpochMilli(ticker.ctx.now().toMillis), ZoneOffset.UTC))
 
       val nanoTime: UIO[Long] =
         ZIO.effectTotal(ticker.ctx.now().toNanos)
 
       def sleep(duration: Duration): UIO[Unit] = duration.asScala match {
-        case finiteDuration: FiniteDuration =>
+        case finite: FiniteDuration =>
           ZIO.effectAsyncInterrupt { cb =>
-            val canceler = ticker.ctx.schedule(finiteDuration, () => cb(UIO.unit))
-            Left(UIO.effectTotal(canceler()))
+            val cancel = ticker.ctx.schedule(finite, () => cb(UIO.unit))
+            Left(UIO.effectTotal(cancel()))
           }
         case infinite: Infinite =>
           ZIO.dieMessage(s"Unexpected infinite duration $infinite passed to Ticker")
@@ -55,6 +54,18 @@ private[zio] trait catzSpecBase
 
     ZEnv.Services.live ++ Has(testClock)
   }
+
+  def unsafeRun[A](uio: UIO[A])(implicit ticker: Ticker): Exit[Nothing, Option[A]] =
+    try {
+      var exit = Exit.succeed(Option.empty[A])
+      runtime.unsafeRunAsync(uio.asSome)(exit = _)
+      ticker.ctx.tickAll(FiniteDuration(1, TimeUnit.SECONDS))
+      exit
+    } catch {
+      case error: Throwable =>
+        error.printStackTrace()
+        throw error
+    }
 
   implicit def runtime(implicit ticker: Ticker): Runtime[Any] = Runtime(
     (),
@@ -76,8 +87,14 @@ private[zio] trait catzSpecBase
   implicit val eqForNothing: Eq[Nothing] =
     Eq.allEqual
 
-  implicit val eqForCauseOfNothing: Eq[Cause[Nothing]] =
-    Eq.fromUniversalEquals
+  implicit val eqForExecutionContext: Eq[ExecutionContext] =
+    Eq.allEqual
+
+  implicit val eqForCauseOfNothing: Eq[Cause[Nothing]] = (x, y) =>
+    (x.untraced, y.untraced) match {
+      case (Cause.Interrupt(_), Cause.Interrupt(_)) => true
+      case (x, y)                                   => x == y
+    }
 
   implicit def eqForExitOfNothing[A: Eq]: Eq[Exit[Nothing, A]] = {
     case (Exit.Success(x), Exit.Success(y)) => x eqv y
@@ -85,16 +102,12 @@ private[zio] trait catzSpecBase
     case _                                  => false
   }
 
-  implicit def eqForUIO[A: Eq](implicit ticker: Ticker): Eq[UIO[A]] = Eq.by { uio =>
-    try {
-      var exit: Exit[Nothing, A] = null
-      runtime.unsafeRunAsync(uio.flatMap(ZIO.succeedNow).catchAllCause(ZIO.halt(_)))(exit = _)
-      ticker.ctx.tickAll(FiniteDuration(1, TimeUnit.SECONDS))
-      exit
-    } catch {
-      case error: Throwable =>
-        error.printStackTrace()
-        throw error
+  implicit def eqForUIO[A: Eq](implicit ticker: Ticker): Eq[UIO[A]] = { (uio1, uio2) =>
+    val exit1 = unsafeRun(uio1)
+    val exit2 = unsafeRun(uio2)
+    (exit1 eqv exit2) || {
+      println(s"$exit1 was not equal to $exit2")
+      false
     }
   }
 
