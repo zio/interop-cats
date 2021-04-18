@@ -25,6 +25,15 @@ import scala.concurrent.Future
 package object interop extends interop.PlatformSpecific {
   type Queue[F[+_], A] = CQueue[F, A, A]
 
+  /** A queue that can only be dequeued. */
+  type Dequeue[F[+_], +A] = CQueue[F, Nothing, A]
+
+  /** A queue that can only be enqueued. */
+  type Enqueue[F[+_], -A] = CQueue[F, A, Nothing]
+
+  type Hub[F[+_], A] = CHub[F, A, A]
+  val Hub: CHub.type = CHub
+
   @inline private[interop] def toOutcome[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, *], E, A] =
     exit match {
       case Exit.Success(value) =>
@@ -73,4 +82,8 @@ package object interop extends interop.PlatformSpecific {
         poll(F.onCancel(F.fromFuture(F.pure[Future[A]](future)), F.fromFuture(F.delay(future.cancel())).void))
       }
     }
+
+  private[zio] implicit class ToEffectSyntax[R, A](private val rio: RIO[R, A]) extends AnyVal {
+    def toEffect[F[_]: Async](implicit R: Runtime[R]): F[A] = interop.toEffect(rio)
+  }
 }

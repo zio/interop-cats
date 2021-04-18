@@ -36,7 +36,7 @@ lazy val root = project
   .enablePlugins(ScalaJSPlugin)
   .aggregate(interopCatsJVM, interopCatsJS)
   .settings(
-    skip in publish := true,
+    publish / skip := true,
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
@@ -84,7 +84,7 @@ lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   .in(file("core-only-test"))
   .dependsOn(interopCats)
   .settings(stdSettings("core-only-test"))
-  .settings(skip in publish := true)
+  .settings(publish / skip := true)
   .settings(
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core"    % catsVersion,
