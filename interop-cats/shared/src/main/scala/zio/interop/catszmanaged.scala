@@ -139,7 +139,7 @@ trait CatsZManagedInstances extends CatsZManagedInstances1 {
   private[this] val contravariantInstance0: Contravariant[RManaged[*, Any]] =
     new ZManagedContravariant
 
-  private[this] val parallelInstance0: Parallel.Aux[TaskManaged, ParallelF[TaskManaged, *]] =
+  private[this] lazy val parallelInstance0: Parallel.Aux[TaskManaged, ParallelF[TaskManaged, *]] =
     new ZManagedParallel
 }
 

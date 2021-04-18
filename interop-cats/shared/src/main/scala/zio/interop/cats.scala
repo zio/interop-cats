@@ -134,10 +134,10 @@ sealed abstract class CatsZioInstances1 extends CatsZioInstances2 {
   implicit final def semigroupKInstance[R, E]: SemigroupK[ZIO[R, E, *]] =
     semigroupKInstance0.asInstanceOf[SemigroupK[ZIO[R, E, *]]]
 
-  private[this] val parallelInstance0: Parallel.Aux[Task, ParallelF[Task, *]] =
+  private[this] lazy val parallelInstance0: Parallel.Aux[Task, ParallelF[Task, *]] =
     new ZioParallel
 
-  private[this] val commutativeApplicativeInstance0: CommutativeApplicative[ParallelF[Task, *]] =
+  private[this] lazy val commutativeApplicativeInstance0: CommutativeApplicative[ParallelF[Task, *]] =
     new ZioParApplicative
 
   private[this] val semigroupKInstance0: SemigroupK[Task] =
