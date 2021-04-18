@@ -24,6 +24,19 @@ package object interop {
 
   type Queue[F[+_], A] = CQueue[F, A, A]
 
+  /**
+   * A queue that can only be dequeued.
+   */
+  type Dequeue[F[+_], +A] = CQueue[F, Nothing, A]
+
+  /**
+   * A queue that can only be enqueued.
+   */
+  type Enqueue[F[+_], -A] = CQueue[F, A, Nothing]
+
+  type Hub[F[+_], A] = CHub[F, A, A]
+  val Hub: CHub.type = CHub
+
   @inline private[interop] final def exitToExitCase(exit: Exit[Any, Any]): ExitCase[Throwable] = exit match {
     case Exit.Success(_)                          => ExitCase.Completed
     case Exit.Failure(cause) if cause.interrupted => ExitCase.Canceled
