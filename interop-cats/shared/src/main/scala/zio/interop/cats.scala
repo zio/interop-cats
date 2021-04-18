@@ -98,7 +98,7 @@ abstract class CatsZioInstances extends CatsZioInstances1 {
     bifunctorInstance0.asInstanceOf[Bifunctor[ZIO[R, *, *]]]
 
   implicit final def rioArrowChoiceInstance: ArrowChoice[RIO] =
-    arrowChoiceInstance0.asInstanceOf[ArrowChoice[RIO]]
+    arrowChoiceInstance0
 
   implicit final def contravariantInstance[E, A]: Contravariant[ZIO[*, E, A]] =
     contravariantInstance0.asInstanceOf[Contravariant[ZIO[*, E, A]]]
@@ -177,9 +177,6 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     override final val join: F[Outcome[F, E, A]] = fiber.await.map(toOutcome)
   }
 
-  private def fiberFailure(error: E) =
-    FiberFailure(Cause.fail(error))
-
   override def ref[A](a: A): F[effect.Ref[F, A]] =
     ZRef.make(a).map(new ZioRef(_))
 
@@ -201,18 +198,11 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
   override final def uncancelable[A](body: Poll[F] => F[A]): F[A] =
     ZIO.uninterruptibleMask(body.compose(toPoll))
 
-  override final val canceled: F[Unit] =
+  override final def canceled: F[Unit] =
     ZIO.interrupt
 
   override final def onCancel[A](fa: F[A], fin: F[Unit]): F[A] =
-    fa.onExit {
-      case Exit.Failure(cause) =>
-        cause.failureOrCause.fold(
-          _ => ZIO.unit,
-          _ => fin.ignore
-        )
-      case _ => ZIO.unit
-    }
+    fa.onError(cause => fin.ignore.unless(cause.failed))
 
   override final def memoize[A](fa: F[A]): F[F[A]] =
     fa.memoize
@@ -227,10 +217,10 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     fa zipPar fb
 
   override final def guarantee[A](fa: F[A], fin: F[Unit]): F[A] =
-    fa.ensuring(fin.orDieWith(fiberFailure))
+    fa.ensuring(fin.ignore)
 
   override final def bracket[A, B](acquire: F[A])(use: A => F[B])(release: A => F[Unit]): F[B] =
-    acquire.bracket(release.andThen(_.orDieWith(fiberFailure)), use)
+    acquire.bracket(release.andThen(_.ignore), use)
 
   override val unique: F[Unique.Token] =
     ZIO.effectTotal(new Unique.Token)
@@ -256,20 +246,21 @@ private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E
   type F[T] = ZIO[R, E, T]
 
   override def access: F[(A, A => F[Boolean])] =
-    get.map { currentValue =>
+    get.map { current =>
       val called = new AtomicBoolean(false)
       def setter(a: A): F[Boolean] =
         ZIO.effectSuspendTotal {
           if (called.getAndSet(true)) {
             ZIO.succeedNow(false)
           } else {
-            ref.modify { updatedValue =>
-              if (currentValue == updatedValue) (true, a)
-              else (false, updatedValue)
+            ref.modify { updated =>
+              if (current == updated) (true, a)
+              else (false, updated)
             }
           }
         }
-      (currentValue, setter)
+
+      (current, setter)
     }
 
   override def tryUpdate(f: A => A): F[Boolean] =

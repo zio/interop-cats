@@ -124,7 +124,7 @@ trait CatsZManagedInstances extends CatsZManagedInstances1 {
     new ZManagedMonoidK
 
   implicit final def arrowChoiceRManagedInstances: ArrowChoice[RManaged] =
-    arrowChoiceZManagedInstance0.asInstanceOf[ArrowChoice[RManaged]]
+    arrowChoiceZManagedInstance0
 
   implicit final def parallelZManagedInstances[R, E]: Parallel.Aux[ZManaged[R, E, *], ParallelF[ZManaged[R, E, *], *]] =
     parallelInstance0.asInstanceOf[Parallel.Aux[ZManaged[R, E, *], ParallelF[ZManaged[R, E, *], *]]]
@@ -197,7 +197,7 @@ private class ZManagedMonadError[R, E] extends MonadError[ZManaged[R, E, *], E] 
     fa.as(b)
 
   override final def whenA[A](cond: Boolean)(f: => F[A]): F[Unit] =
-    ZManaged.suspend(f).when(cond)
+    ZManaged.when(cond)(f)
 
   override final def unit: F[Unit] =
     ZManaged.unit
