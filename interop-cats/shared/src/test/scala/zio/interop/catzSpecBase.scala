@@ -97,11 +97,8 @@ private[zio] trait catzSpecBase
   implicit val eqForExecutionContext: Eq[ExecutionContext] =
     Eq.allEqual
 
-  implicit val eqForCauseOfNothing: Eq[Cause[Nothing]] = (x, y) =>
-    (x.untraced, y.untraced) match {
-      case (Cause.Interrupt(_), Cause.Interrupt(_)) => true
-      case (x, y)                                   => x == y
-    }
+  implicit val eqForCauseOfNothing: Eq[Cause[Nothing]] =
+    (x, y) => (x.interrupted && y.interrupted) || x == y
 
   implicit def eqForExitOfNothing[A: Eq]: Eq[Exit[Nothing, A]] = {
     case (Exit.Success(x), Exit.Success(y)) => x eqv y

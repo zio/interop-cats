@@ -65,14 +65,16 @@ object catzQueueSpec extends DefaultRunnableSpec {
 
   def spec = {
     implicit val zioRuntime: Runtime[ZEnv] = Runtime.default
-    val (scheduler, shutdown)              = Scheduler.createDefaultScheduler()
-    implicit val ioRuntime: IORuntime = IORuntime(
-      zioRuntime.platform.executor.asEC,
-      zioRuntime.environment.get[Blocking.Service].blockingExecutor.asEC,
-      scheduler,
-      shutdown,
-      IORuntimeConfig()
-    )
+    implicit val ioRuntime: IORuntime = Scheduler.createDefaultScheduler() match {
+      case (scheduler, shutdown) =>
+        IORuntime(
+          zioRuntime.platform.executor.asEC,
+          zioRuntime.environment.get[Blocking.Service].blockingExecutor.asEC,
+          scheduler,
+          shutdown,
+          IORuntimeConfig()
+        )
+    }
 
     implicit val dispatcher: Dispatcher[CIO] =
       Dispatcher[CIO].allocated.unsafeRunSync()._1

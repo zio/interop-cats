@@ -1,12 +1,11 @@
 package zio.stream.interop
 
 import cats.Eq
-import cats.effect.ParallelF
 import cats.syntax.all._
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.interop.catzSpecBase
 import zio.stream._
-import zio.{ Chunk, ZIO }
+import zio.{ CanFail, Chunk, ZIO }
 
 private[interop] trait catzSpecZStreamBase
     extends catzSpecBase
@@ -34,17 +33,16 @@ private[interop] trait catzSpecZStreamBaseLowPriority { self: catzSpecZStreamBas
   implicit def eqForZStream[R: Arbitrary, E: Eq, A: Eq](implicit ticker: Ticker): Eq[ZStream[R, E, A]] =
     zStreamEq[R, E, A]
 
-  implicit def arbitraryStream[E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[Stream[E, A]] =
+  implicit def arbitraryStream[E: CanFail: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[Stream[E, A]] =
     Arbitrary(Gen.oneOf(genStream[E, A], genLikeTrans(genStream[E, A]), genIdentityTrans(genStream[E, A])))
 
-  implicit def arbitraryZStream[R: Cogen, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZStream[R, E, A]] =
-    Arbitrary(
-      Gen
-        .function1[R, Stream[E, A]](arbitraryStream[E, A].arbitrary)
-        .map(ZStream.fromEffect(ZIO.environment[R]).flatMap)
-    )
-
-  implicit def arbitraryParallelStream[R: Cogen, E: Arbitrary: Cogen, A: Arbitrary: Cogen]
-    : Arbitrary[ParallelF[ZStream[R, E, *], A]] =
-    Arbitrary(Arbitrary.arbitrary[ZStream[R, E, A]].map(ParallelF.apply))
+  implicit def arbitraryZStream[
+    R: Cogen,
+    E: CanFail: Arbitrary: Cogen,
+    A: Arbitrary: Cogen
+  ]: Arbitrary[ZStream[R, E, A]] = Arbitrary(
+    Gen
+      .function1[R, Stream[E, A]](arbitraryStream[E, A].arbitrary)
+      .map(ZStream.fromEffect(ZIO.environment[R]).flatMap)
+  )
 }

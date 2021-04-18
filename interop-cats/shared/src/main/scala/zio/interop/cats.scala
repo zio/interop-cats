@@ -75,7 +75,7 @@ abstract class CatsEffectInstances extends CatsZioInstances {
     new ZioTemporal
 
   private[this] val concurrentInstance0: Concurrent[Task] =
-    new ZioConcurrent
+    new ZioConcurrent[Any, Throwable]
 }
 
 abstract class CatsZioInstances extends CatsZioInstances1 {
@@ -103,10 +103,10 @@ abstract class CatsZioInstances extends CatsZioInstances1 {
     contravariantInstance0.asInstanceOf[Contravariant[ZIO[*, E, A]]]
 
   private[this] val deferInstance0: Defer[UIO] =
-    new ZioDefer
+    new ZioDefer[Any, Nothing]
 
   private[this] val bifunctorInstance0: Bifunctor[IO] =
-    new ZioBifunctor
+    new ZioBifunctor[Any]
 
   private[this] val contravariantInstance0: Contravariant[RIO[*, Any]] =
     new ZioContravariant
@@ -140,7 +140,7 @@ sealed abstract class CatsZioInstances1 extends CatsZioInstances2 {
     new ZioParApplicative
 
   private[this] val semigroupKInstance0: SemigroupK[Task] =
-    new ZioSemigroupK
+    new ZioSemigroupK[Any, Throwable]
 }
 
 sealed abstract class CatsZioInstances2 {
@@ -155,7 +155,7 @@ sealed abstract class CatsZioInstances2 {
     new ZioArrowChoice
 
   private[this] val monadErrorInstance0: MonadError[Task, Throwable] =
-    new ZioMonadError
+    new ZioMonadError[Any, Throwable]
 }
 
 private class ZioDefer[R, E] extends Defer[ZIO[R, E, *]] {

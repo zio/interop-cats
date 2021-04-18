@@ -3,25 +3,27 @@ package zio.interop
 import cats.effect.std.Dispatcher
 import cats.effect.unsafe.{ IORuntime, IORuntimeConfig, Scheduler }
 import cats.effect.{ Resource, IO => CIO }
+import zio._
 import zio.blocking.Blocking
 import zio.interop.catz._
 import zio.test.Assertion._
 import zio.test._
-import zio._
 
 import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 
 object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
   implicit val zioRuntime: Runtime[ZEnv] = Runtime.default
-  val (scheduler, shutdown)              = Scheduler.createDefaultScheduler()
-  implicit val ioRuntime: IORuntime = IORuntime(
-    zioRuntime.platform.executor.asEC,
-    zioRuntime.environment.get[Blocking.Service].blockingExecutor.asEC,
-    scheduler,
-    shutdown,
-    IORuntimeConfig()
-  )
+  implicit val ioRuntime: IORuntime = Scheduler.createDefaultScheduler() match {
+    case (scheduler, shutdown) =>
+      IORuntime(
+        zioRuntime.platform.executor.asEC,
+        zioRuntime.environment.get[Blocking.Service].blockingExecutor.asEC,
+        scheduler,
+        shutdown,
+        IORuntimeConfig()
+      )
+  }
 
   implicit val dispatcher: Dispatcher[CIO] =
     Dispatcher[CIO].allocated.unsafeRunSync()._1

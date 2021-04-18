@@ -46,5 +46,5 @@ object Queue {
     create(ZioQueue.unbounded[A])
 
   private final def create[F[+_]: Async, A](in: UIO[ZioQueue[A]])(implicit R: Runtime[ZEnv]): F[Queue[F, A]] =
-    toEffect(in.map(new CQueue[F, A, A](_)))
+    toEffect[F, ZEnv, Queue[F, A]](in.map(new CQueue[F, A, A](_)))
 }

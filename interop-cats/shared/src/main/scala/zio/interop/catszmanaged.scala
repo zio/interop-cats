@@ -130,7 +130,7 @@ trait CatsZManagedInstances extends CatsZManagedInstances1 {
     parallelInstance0.asInstanceOf[Parallel.Aux[ZManaged[R, E, *], ParallelF[ZManaged[R, E, *], *]]]
 
   private[this] val monadErrorInstance0: MonadError[TaskManaged, Throwable] =
-    new ZManagedMonadError
+    new ZManagedMonadError[Any, Throwable]
 
   private[this] val contravariantInstance0: Contravariant[RManaged[*, Any]] =
     new ZManagedContravariant
@@ -158,10 +158,10 @@ sealed trait CatsZManagedInstances1 extends CatsZManagedInstances2 {
     arrowChoiceZManagedInstance0.asInstanceOf[ArrowChoice[URManaged]]
 
   private[this] val semigroupKInstance0: SemigroupK[TaskManaged] =
-    new ZManagedSemigroupK
+    new ZManagedSemigroupK[Any, Throwable]
 
   private[this] val bifunctorInstance0: Bifunctor[Managed] =
-    new ZManagedBifunctor
+    new ZManagedBifunctor[Any]
 }
 
 sealed trait CatsZManagedInstances2 {
