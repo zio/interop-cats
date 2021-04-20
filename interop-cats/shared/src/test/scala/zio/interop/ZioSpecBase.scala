@@ -18,10 +18,10 @@ private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPrior
   implicit def arbitraryURManaged[R: Cogen, A: Arbitrary]: Arbitrary[URManaged[R, A]] =
     zManagedArbitrary[R, Nothing, A]
 
-  implicit def arbitraryClockAndBlocking(implicit ticker: Ticker): Arbitrary[Clock with CBlocking] =
+  implicit def arbitraryClockAndBlocking(implicit ticker: Ticker): Arbitrary[Clock & CBlocking] =
     Arbitrary(Arbitrary.arbitrary[ZEnv])
 
-  implicit val cogenForClockAndBlocking: Cogen[Clock with CBlocking] =
+  implicit val cogenForClockAndBlocking: Cogen[Clock & CBlocking] =
     Cogen(_.hashCode.toLong)
 }
 

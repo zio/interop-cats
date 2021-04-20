@@ -4,8 +4,8 @@ import cats.arrow.ArrowChoice
 import cats.effect.ParallelF
 import cats.effect.laws._
 import cats.effect.unsafe.IORuntime
-import cats.implicits._
 import cats.laws.discipline._
+import cats.syntax.all._
 import zio._
 import zio.clock.Clock
 import zio.interop.catz._
@@ -42,7 +42,7 @@ class CatsSpec extends ZioSpecBase {
   checkAllAsync("SemigroupK[Task]", implicit tc => SemigroupKTests[Task].semigroupK[Int])
   checkAllAsync("Bifunctor[IO]", implicit tc => BifunctorTests[IO].bifunctor[Int, Int, Int, Int, Int, Int])
   checkAllAsync("Parallel[Task]", implicit tc => ParallelTests[Task, ParallelF[Task, *]].parallel[Int, Int])
-  checkAllAsync("Monad[UIO]", implicit tc => MonadTests[UIO].apply[Int, Int, Int])
+  checkAllAsync("Monad[URIO[Int, *]]", implicit tc => MonadTests[URIO[Int, *]].apply[Int, Int, Int])
   checkAllAsync(
     "ArrowChoice[ZIO[*, Int, *]]",
     implicit tc => ArrowChoiceTests[ZIO[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]

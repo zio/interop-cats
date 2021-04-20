@@ -1,8 +1,9 @@
 package zio.interop
 
 import cats.effect.testkit.TestInstances
+import cats.effect.{ IO => CIO }
 import cats.syntax.all._
-import cats.{ effect, Eq, Order }
+import cats.{ Eq, Order }
 import org.scalacheck.{ Arbitrary, Cogen, Gen, Prop }
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.Configuration
@@ -120,7 +121,7 @@ private[zio] trait CatsSpecBase
     eqForZIO[R, Nothing, A]
 
   implicit def execRIO(rio: RIO[ZEnv, Boolean])(implicit ticker: Ticker): Prop =
-    toEffect[effect.IO, Any, Boolean](rio.provide(environment))
+    rio.provide(environment).toEffect[CIO]
 
   implicit def orderForUIOofFiniteDuration(implicit ticker: Ticker): Order[UIO[FiniteDuration]] =
     Order.by(unsafeRun(_).toEither.toOption)
