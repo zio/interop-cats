@@ -26,7 +26,7 @@ import zio.stm.{ TRef => ZTRef }
 final class TRef[F[+_], A] private (underlying: ZTRef[A]) {
 
   /**
-   * See [[zio.stm.TRef#get]]
+   * See [[zio.stm.ZTRef#get]]
    */
   def get: STM[F, A] =
     new STM(underlying.get)
@@ -38,19 +38,19 @@ final class TRef[F[+_], A] private (underlying: ZTRef[A]) {
     new TRef(underlying)
 
   /**
-   * See [[zio.stm.TRef#modify]]
+   * See [[zio.stm.ZTRef.UnifiedSyntax#modify]]
    */
   def modify[B](f: A => (B, A)): STM[F, B] =
     new STM(underlying.modify(f))
 
   /**
-   * See [[zio.stm.TRef#modifySome]]
+   * See [[zio.stm.ZTRef.UnifiedSyntax#modifySome]]
    */
   def modifySome[B](default: B)(f: PartialFunction[A, (B, A)]): STM[F, B] =
     new STM(underlying.modifySome(default)(f))
 
   /**
-   * See [[zio.stm.TRef#set]]
+   * See [[zio.stm.ZTRef#set]]
    */
   def set(newValue: A): STM[F, Unit] =
     new STM(underlying.set(newValue))
@@ -59,13 +59,13 @@ final class TRef[F[+_], A] private (underlying: ZTRef[A]) {
     underlying.toString
 
   /**
-   * See [[zio.stm.TRef#update]]
+   * See [[zio.stm.ZTRef.UnifiedSyntax#update]]
    */
   def update(f: A => A): STM[F, A] =
     new STM(underlying.updateAndGet(f))
 
   /**
-   * See [[zio.stm.TRef#updateSome]]
+   * See [[zio.stm.ZTRef.UnifiedSyntax#updateSome]]
    */
   def updateSome(f: PartialFunction[A, A]): STM[F, A] =
     new STM(underlying.updateSomeAndGet(f))
