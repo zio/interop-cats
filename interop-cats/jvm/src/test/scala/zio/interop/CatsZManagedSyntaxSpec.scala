@@ -1,20 +1,18 @@
 package zio.interop
 
-import java.util.concurrent.TimeUnit
-
-import cats.effect.{ ContextShift, ExitCase, Resource, IO => CIO }
+import cats.effect.kernel.Resource
+import cats.effect.{ IO => CIO }
+import zio._
 import zio.interop.catz._
 import zio.test.Assertion._
 import zio.test._
-import zio.{ blocking, Exit, Promise, Ref, Reservation, Runtime, Task, ZEnv, ZIO, ZManaged }
 
+import java.util.concurrent.TimeUnit
 import scala.collection.mutable
-import scala.concurrent.ExecutionContext.global
 
-object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
-
-  val runtime                                = Runtime.default
-  def unsafeRun[R, E, A](p: ZIO[ZEnv, E, A]) = runtime.unsafeRun(p)
+object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
+  def unsafeRun[E, A](p: ZIO[ZEnv, E, A]) =
+    zioRuntime.unsafeRun(p)
 
   def spec =
     suite("CatsZManagedSyntaxSpec")(
@@ -23,7 +21,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[CIO, Unit] =
             Resource.makeCase(CIO.delay { effects += x }.void) {
-              case (_, ExitCase.Canceled) =>
+              case (_, Resource.ExitCase.Canceled) =>
                 CIO.delay { effects += x + 1 }.void
               case _ => CIO.unit
             }
@@ -40,7 +38,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[CIO, Unit] =
             Resource.makeCase(CIO.delay { effects += x }.void) {
-              case (_, ExitCase.Error(_)) =>
+              case (_, Resource.ExitCase.Errored(_)) =>
                 CIO.delay { effects += x + 1 }.void
               case _ =>
                 CIO.unit
@@ -58,7 +56,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[CIO, Unit] =
             Resource.makeCase(CIO.delay { effects += x }.void) {
-              case (_, ExitCase.Error(_)) =>
+              case (_, Resource.ExitCase.Errored(_)) =>
                 CIO.delay { effects += x + 1 }.void
               case _ =>
                 CIO.unit
@@ -124,7 +122,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
             Resource.makeCase(Task { effects += x }.unit) {
-              case (_, ExitCase.Canceled) =>
+              case (_, Resource.ExitCase.Canceled) =>
                 Task { effects += x + 1 }.unit
               case _ => Task.unit
             }
@@ -141,7 +139,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
             Resource.makeCase(Task { effects += x }.unit) {
-              case (_, ExitCase.Error(_)) =>
+              case (_, Resource.ExitCase.Errored(_)) =>
                 Task { effects += x + 1 }.unit
               case _ =>
                 Task.unit
@@ -159,7 +157,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
             Resource.makeCase(Task { effects += x }.unit) {
-              case (_, ExitCase.Error(_)) =>
+              case (_, Resource.ExitCase.Errored(_)) =>
                 Task { effects += x + 1 }.unit
               case _ =>
                 Task.unit
@@ -226,9 +224,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
             ZManaged.make(ZIO.effectTotal(effects += x).unit)(_ => ZIO.effectTotal(effects += x + 1))
 
-          val testCase = ZIO.runtime[Any].flatMap { implicit r =>
-            man(1).toResource.use(_ => ZIO.unit)
-          }
+          val testCase = man(1).toResource[RIO[ZEnv, *]].use(_ => ZIO.unit)
           unsafeRun(testCase)
           assert(effects.toList)(equalTo(List(1, 2)))
         },
@@ -242,9 +238,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
                 ZIO.unit
             }
 
-          val testCase = ZIO.runtime[Any].flatMap { implicit r =>
-            man(1).toResource.use(_ => ZIO.fail(new RuntimeException()).unit)
-          }
+          val testCase = man(1).toResource[RIO[ZEnv, *]].use(_ => ZIO.fail(new RuntimeException()).unit)
           unsafeRun(testCase.orElse(ZIO.unit))
           assert(effects.toList)(equalTo(List(1, 2)))
         },
@@ -258,46 +252,36 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
                 ZIO.unit
             }
 
-          val testCase = ZIO.runtime[Any].flatMap { implicit r =>
-            man(1).toResource.use(_ => ZIO.interrupt)
-          }
+          val testCase = man(1).toResource[RIO[ZEnv, *]].use(_ => ZIO.interrupt)
           unsafeRun(testCase.orElse(ZIO.unit))
           assert(effects.toList)(equalTo(List(1, 2)))
         },
         test("acquisition of Reservation preserves cancellability in new F") {
-          unsafeRun {
-            ZIO.runtime[Any] >>= {
-              implicit runtime =>
-                implicit val ctx: ContextShift[CIO] = CIO.contextShift(global)
-
-                (for {
-                  startLatch <- Promise.make[Nothing, Unit]
-                  endLatch   <- Promise.make[Nothing, Unit]
-                  release    <- Ref.make(false)
-                  managed = ZManaged.reserve(
-                    Reservation(
-                      acquire = startLatch.succeed(()) *> ZIO.never,
-                      release = _ => release.set(true) *> endLatch.succeed(())
+          unsafeRun(for {
+            startLatch <- Promise.make[Nothing, Unit]
+            endLatch   <- Promise.make[Nothing, Unit]
+            release    <- Ref.make(false)
+            managed = ZManaged.reserve(
+              Reservation(
+                acquire = startLatch.succeed(()) *> ZIO.never,
+                release = _ => release.set(true) *> endLatch.succeed(())
+              )
+            )
+            resource = managed.toResource[CIO]
+            _ <- blocking.effectBlockingInterrupt {
+                  resource
+                    .use(_ => CIO.unit)
+                    .start
+                    .flatMap(
+                      f =>
+                        CIO(zioRuntime.unsafeRun(startLatch.await))
+                          .flatMap(_ => f.cancel)
                     )
-                  )
-                  resource = managed.toResource[CIO]
-
-                  _ <- blocking.effectBlockingInterrupt {
-                        resource
-                          .use(_ => CIO.unit)
-                          .start
-                          .flatMap(
-                            f =>
-                              CIO(runtime.unsafeRun(startLatch.await))
-                                .flatMap(_ => f.cancel)
-                          )
-                          .unsafeRunSync()
-                      }.timeoutFail("startLatch timed out")(zio.duration.Duration(10, TimeUnit.SECONDS))
-                  _   <- endLatch.await.timeoutFail("endLatch timed out")(zio.duration.Duration(10, TimeUnit.SECONDS))
-                  res <- release.get
-                } yield assert(res)(equalTo(true))).provideLayer(ZEnv.live)
-            }
-          }
+                    .unsafeRunSync()
+                }.timeoutFail("startLatch timed out")(zio.duration.Duration(10, TimeUnit.SECONDS))
+            _   <- endLatch.await.timeoutFail("endLatch timed out")(zio.duration.Duration(10, TimeUnit.SECONDS))
+            res <- release.get
+          } yield assert(res)(equalTo(true)))
         }
       )
     )

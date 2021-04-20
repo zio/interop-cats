@@ -2,12 +2,12 @@ package zio.interop
 
 import cats._
 import cats.kernel.laws.discipline._
-import cats.laws.discipline.{ SerializableTests => _, _ }
 import cats.laws.discipline.arbitrary._
+import cats.laws.discipline.{ SerializableTests => _, _ }
 import zio.Chunk
 import zio.interop.catz.core._
 
-class catzChunkSpec extends catzSpecZIOBase {
+class CatsChunkSpec extends CatsSpecBase {
 
   checkAll("Chunk[Int] with Option", TraverseTests[Chunk].traverse[Int, Int, Int, Set[Int], Option, Option])
   checkAll("Traverse[Chunk]", SerializableTests.serializable(Traverse[Chunk]))
@@ -47,15 +47,8 @@ class catzChunkSpec extends catzSpecZIOBase {
   checkAll("Eq[Chunk[Int]]", SerializableTests.serializable(Eq[Chunk[Int]]))
 
   test("traverse is stack-safe") {
-    val chunk = Chunk.fromIterable(0 until 100000)
-    val sumAll = Traverse[Chunk]
-      .traverse(chunk) { i => () =>
-        i
-      }
-      .apply()
-      .sum
-
+    val chunk  = Chunk.fromIterable(0 until 100000)
+    val sumAll = Traverse[Chunk].traverse(chunk)(i => () => i).apply().sum
     assert(sumAll == chunk.sum)
   }
-
 }
