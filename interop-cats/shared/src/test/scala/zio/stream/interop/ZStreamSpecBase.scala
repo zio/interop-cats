@@ -3,14 +3,11 @@ package zio.stream.interop
 import cats.Eq
 import cats.syntax.all._
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
-import zio.interop.catzSpecBase
+import zio.interop.CatsSpecBase
 import zio.stream._
 import zio.{ CanFail, Chunk, ZIO }
 
-private[interop] trait catzSpecZStreamBase
-    extends catzSpecBase
-    with catzSpecZStreamBaseLowPriority
-    with GenStreamInteropCats {
+private[interop] trait ZStreamSpecBase extends CatsSpecBase with ZStreamSpecBaseLowPriority with GenStreamInteropCats {
 
   implicit def eqForChunk[A: Eq]: Eq[Chunk[A]] =
     (x, y) => x.corresponds(y)(_ eqv _)
@@ -22,7 +19,7 @@ private[interop] trait catzSpecZStreamBase
     Arbitrary(Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A])))
 }
 
-private[interop] trait catzSpecZStreamBaseLowPriority { self: catzSpecZStreamBase =>
+private[interop] trait ZStreamSpecBaseLowPriority { self: ZStreamSpecBase =>
 
   def zStreamEq[R, E, A](implicit zio: Eq[ZIO[R, E, Chunk[A]]]): Eq[ZStream[R, E, A]] =
     Eq.by(_.runCollect)

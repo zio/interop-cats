@@ -28,6 +28,7 @@ import zio.clock.{ currentTime, nanoTime, Clock }
 import zio.duration.Duration
 
 import java.util.concurrent.atomic.AtomicBoolean
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 
 object catz extends CatsEffectPlatform {
@@ -60,7 +61,7 @@ abstract class CatsEffectInstances extends CatsZioInstances {
   implicit final def liftIOInstance[R](implicit runtime: IORuntime): LiftIO[RIO[R, *]] =
     new ZioLiftIO
 
-  implicit final def asyncInstance[R <: Clock with CBlocking]: Async[RIO[R, *]] =
+  implicit final def asyncInstance[R <: Clock & CBlocking]: Async[RIO[R, *]] =
     asyncInstance0.asInstanceOf[Async[RIO[R, *]]]
 
   implicit final def temporalInstance[R <: Clock, E]: GenTemporal[ZIO[R, E, *], E] =
@@ -68,6 +69,12 @@ abstract class CatsEffectInstances extends CatsZioInstances {
 
   implicit final def concurrentInstance[R, E]: GenConcurrent[ZIO[R, E, *], E] =
     concurrentInstance0.asInstanceOf[GenConcurrent[ZIO[R, E, *], E]]
+
+  implicit final def asyncRuntimeInstance[E](implicit runtime: Runtime[Clock & CBlocking]): Async[Task] =
+    new ZioRuntimeAsync
+
+  implicit final def temporalRuntimeInstance[E](implicit runtime: Runtime[Clock]): GenTemporal[IO[E, *], E] =
+    new ZioRuntimeTemporal[E]
 
   private[this] val asyncInstance0: Async[RIO[Clock with CBlocking, *]] =
     new ZioAsync
@@ -301,6 +308,70 @@ private class ZioTemporal[R <: Clock, E] extends ZioConcurrent[R, E] with GenTem
 
   override final val realTime: F[FiniteDuration] =
     currentTime(MILLISECONDS).map(FiniteDuration(_, MILLISECONDS))
+}
+
+private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Clock])
+    extends ZioConcurrent[Any, E]
+    with GenTemporal[IO[E, *], E] {
+
+  private[this] val underlying: GenTemporal[ZIO[Clock, E, *], E] = new ZioTemporal[Clock, E]
+  private[this] val clock: Clock                                 = runtime.environment
+
+  override final def sleep(time: FiniteDuration): F[Unit] =
+    underlying.sleep(time).provide(clock)
+
+  override final val monotonic: F[FiniteDuration] =
+    underlying.monotonic.provide(clock)
+
+  override final val realTime: F[FiniteDuration] =
+    underlying.realTime.provide(clock)
+}
+
+private class ZioRuntimeAsync(implicit runtime: Runtime[Clock & CBlocking])
+    extends ZioRuntimeTemporal[Throwable]
+    with Async[Task] {
+
+  private[this] val underlying: Async[RIO[Clock & CBlocking, *]] = new ZioAsync[Clock & CBlocking]
+  private[this] val environment: Clock & CBlocking               = runtime.environment
+
+  override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] =
+    underlying.evalOn(fa, ec).provide(environment)
+
+  override final val executionContext: F[ExecutionContext] =
+    underlying.executionContext.provide(environment)
+
+  override final val unique: F[Unique.Token] =
+    underlying.unique.provide(environment)
+
+  override final def cont[K, Q](body: Cont[F, K, Q]): F[Q] =
+    Async.defaultCont(body)(this)
+
+  override final def suspend[A](hint: Sync.Type)(thunk: => A): F[A] =
+    underlying.suspend(hint)(thunk).provide(environment)
+
+  override final def delay[A](thunk: => A): F[A] =
+    underlying.delay(thunk).provide(environment)
+
+  override final def defer[A](thunk: => F[A]): F[A] =
+    underlying.defer(thunk).provide(environment)
+
+  override final def blocking[A](thunk: => A): F[A] =
+    underlying.blocking(thunk).provide(environment)
+
+  override final def interruptible[A](many: Boolean)(thunk: => A): F[A] =
+    underlying.interruptible(many)(thunk).provide(environment)
+
+  override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] =
+    underlying.async(k).provide(environment)
+
+  override final def async_[A](k: (Either[Throwable, A] => Unit) => Unit): F[A] =
+    underlying.async_(k).provide(environment)
+
+  override final def fromFuture[A](fut: F[Future[A]]): F[A] =
+    underlying.fromFuture(fut).provide(environment)
+
+  override final def never[A]: F[A] =
+    ZIO.never
 }
 
 private class ZioMonadError[R, E] extends MonadError[ZIO[R, E, *], E] with StackSafeMonad[ZIO[R, E, *]] {

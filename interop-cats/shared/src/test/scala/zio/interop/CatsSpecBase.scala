@@ -20,16 +20,22 @@ import scala.concurrent.duration.Duration.Infinite
 import scala.concurrent.duration.{ FiniteDuration, TimeUnit }
 import scala.language.implicitConversions
 
-private[zio] trait catzSpecBase
+private[zio] trait CatsSpecBase
     extends AnyFunSuite
     with FunSuiteDiscipline
     with Configuration
     with TestInstances
-    with catzSpecBaseLowPriority
+    with CatsSpecBaseLowPriority
     with zio.interop.PlatformSpecific {
 
   def checkAllAsync(name: String, f: Ticker => Laws#RuleSet): Unit =
     checkAll(name, f(Ticker()))
+
+  def platform(implicit ticker: Ticker): Platform =
+    Platform
+      .fromExecutor(Executor.fromExecutionContext(1024)(ticker.ctx))
+      .withTracing(Tracing.disabled)
+      .withReportFailure(_ => ())
 
   def environment(implicit ticker: Ticker): ZEnv = {
 
@@ -74,13 +80,8 @@ private[zio] trait catzSpecBase
         throw error
     }
 
-  implicit def runtime(implicit ticker: Ticker): Runtime[Any] = Runtime(
-    (),
-    Platform
-      .fromExecutor(Executor.fromExecutionContext(1024)(ticker.ctx))
-      .withTracing(Tracing.disabled)
-      .withReportFailure(_ => ())
-  )
+  implicit def runtime(implicit ticker: Ticker): Runtime[Any] =
+    Runtime((), platform)
 
   implicit val arbitraryAny: Arbitrary[Any] =
     Arbitrary(Gen.const(()))
@@ -121,11 +122,11 @@ private[zio] trait catzSpecBase
   implicit def execRIO(rio: RIO[ZEnv, Boolean])(implicit ticker: Ticker): Prop =
     toEffect[effect.IO, Any, Boolean](rio.provide(environment))
 
-  implicit def orderForTaskOfFiniteDuration(implicit ticker: Ticker): Order[Task[FiniteDuration]] =
-    Order.by(toEffect[effect.IO, Any, FiniteDuration])
+  implicit def orderForUIOofFiniteDuration(implicit ticker: Ticker): Order[UIO[FiniteDuration]] =
+    Order.by(unsafeRun(_).toEither.toOption)
 
   implicit def orderForRIOofFiniteDuration[R: Arbitrary](implicit ticker: Ticker): Order[RIO[R, FiniteDuration]] =
-    (x, y) => Arbitrary.arbitrary[R].sample.fold(0)(r => x.provide(r) compare y.provide(r))
+    (x, y) => Arbitrary.arbitrary[R].sample.fold(0)(r => x.orDie.provide(r) compare y.orDie.provide(r))
 
   implicit def eqForUManaged[A: Eq](implicit ticker: Ticker): Eq[UManaged[A]] =
     zManagedEq[Any, Nothing, A]
@@ -134,7 +135,7 @@ private[zio] trait catzSpecBase
     zManagedEq[R, Nothing, A]
 }
 
-private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
+private[interop] sealed trait CatsSpecBaseLowPriority { this: CatsSpecBase =>
 
   implicit def eqForIO[E: Eq, A: Eq](implicit ticker: Ticker): Eq[IO[E, A]] =
     Eq.by(_.either)

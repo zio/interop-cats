@@ -12,10 +12,31 @@ import zio.interop.catz._
 
 import scala.concurrent.duration._
 
-class catzSpec extends catzSpecZIOBase {
-  checkAllAsync("Async[Task]", implicit tc => AsyncTests[RIO[Clock with CBlocking, *]].async[Int, Int, Int](1.second))
-  checkAllAsync("GenSpawn[IO[Int, *]]", implicit tc => GenSpawnTests[IO[Int, *], Int].spawn[Int, Int, Int])
-  checkAllAsync("MonadError[IO[Int, *]]", implicit tc => MonadErrorTests[IO[Int, *], Int].monadError[Int, Int, Int])
+class CatsSpec extends ZioSpecBase {
+
+  // ZIO tests
+  checkAllAsync(
+    "Async[RIO[Clock & Blocking, *]]",
+    implicit tc => AsyncTests[RIO[Clock & CBlocking, *]].async[Int, Int, Int](100.millis)
+  )
+  checkAllAsync(
+    "Async[Task]", { implicit tc =>
+      implicit val runtime: Runtime[Clock & CBlocking] = Runtime(environment, platform)
+      AsyncTests[Task].async[Int, Int, Int](100.millis)
+    }
+  )
+  checkAllAsync(
+    "Temporal[RIO[Clock, *]]",
+    implicit tc => GenTemporalTests[RIO[Clock, *], Throwable].temporal[Int, Int, Int](100.millis)
+  )
+  checkAllAsync(
+    "Temporal[Task]", { implicit tc =>
+      implicit val runtime: Runtime[Clock] = Runtime(environment, platform)
+      GenTemporalTests[Task, Throwable].temporal[Int, Int, Int](100.millis)
+    }
+  )
+  checkAllAsync("GenSpawn[IO[Int, *], Int]", implicit tc => GenSpawnTests[IO[Int, *], Int].spawn[Int, Int, Int])
+  checkAllAsync("MonadError[IO[In t, *]]", implicit tc => MonadErrorTests[IO[Int, *], Int].monadError[Int, Int, Int])
   checkAllAsync("MonoidK[IO[Int, *]]", implicit tc => MonoidKTests[IO[Int, *]].monoidK[Int])
   checkAllAsync("SemigroupK[IO[Option[Unit], *]]", implicit tc => SemigroupKTests[IO[Option[Unit], *]].semigroupK[Int])
   checkAllAsync("SemigroupK[Task]", implicit tc => SemigroupKTests[Task].semigroupK[Int])
@@ -23,31 +44,38 @@ class catzSpec extends catzSpecZIOBase {
   checkAllAsync("Parallel[Task]", implicit tc => ParallelTests[Task, ParallelF[Task, *]].parallel[Int, Int])
   checkAllAsync("Monad[UIO]", implicit tc => MonadTests[UIO].apply[Int, Int, Int])
   checkAllAsync(
-    "ArrowChoice[ZIO]",
+    "ArrowChoice[ZIO[*, Int, *]]",
     implicit tc => ArrowChoiceTests[ZIO[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
   )
-  checkAllAsync("Contravariant[ZIO]", implicit tc => ContravariantTests[ZIO[*, Int, Int]].contravariant[Int, Int, Int])
+  checkAllAsync(
+    "Contravariant[ZIO[*, Int, Int]]",
+    implicit tc => ContravariantTests[ZIO[*, Int, Int]].contravariant[Int, Int, Int]
+  )
 
   // ZManaged Tests
-  checkAllAsync("Monad[ZManaged]", implicit tc => MonadTests[ZManaged[Any, Throwable, *]].apply[Int, Int, Int])
-  checkAllAsync("Monad[ZManaged]", implicit tc => ExtraMonadTests[ZManaged[Any, Throwable, *]].monadExtras[Int])
-  checkAllAsync("SemigroupK[ZManaged]", implicit tc => SemigroupKTests[ZManaged[Any, Throwable, *]].semigroupK[Int])
+  checkAllAsync("Monad[TaskManaged]", implicit tc => MonadTests[TaskManaged].apply[Int, Int, Int])
+  checkAllAsync("Monad[TaskManaged]", implicit tc => ExtraMonadTests[TaskManaged].monadExtras[Int])
+  checkAllAsync("SemigroupK[TaskManaged]", implicit tc => SemigroupKTests[TaskManaged].semigroupK[Int])
   checkAllAsync(
-    "ArrowChoice[ZManaged]",
+    "ArrowChoice[ZManaged[*, Int, *]]",
     implicit tc => ArrowChoiceTests[ZManaged[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
   )
   checkAllAsync(
-    "MonadError[ZManaged]",
-    implicit tc => MonadErrorTests[ZManaged[Any, Int, *], Int].monadError[Int, Int, Int]
+    "MonadError[Managed[Int, *]]",
+    implicit tc => MonadErrorTests[Managed[Int, *], Int].monadError[Int, Int, Int]
   )
 
   object summoningInstancesTest {
     import cats._
     import cats.effect._
+    import zio.clock.{ Clock => ZClock }
 
+    Async[RIO[ZClock & CBlocking, *]]
+    Sync[RIO[ZClock & CBlocking, *]]
+    GenTemporal[ZIO[ZClock, Int, *], Int]
+    Temporal[RIO[ZClock, *]]
+    GenConcurrent[ZIO[String, Int, *], Int]
     Concurrent[RIO[String, *]]
-    Async[RIO[zio.clock.Clock with CBlocking, *]]
-    Sync[RIO[zio.clock.Clock with CBlocking, *]]
     MonadError[RIO[String, *], Throwable]
     Monad[RIO[String, *]]
     Applicative[RIO[String, *]]
@@ -62,8 +90,10 @@ class catzSpec extends catzSpecZIOBase {
     Functor[ZManaged[String, Throwable, *]]
     SemigroupK[ZManaged[String, Throwable, *]]
 
-    def liftRIO(implicit runtime: IORuntime)      = LiftIO[RIO[String, *]]
-    def liftZManaged(implicit runtime: IORuntime) = LiftIO[ZManaged[String, Throwable, *]]
+    def liftRIO(implicit runtime: IORuntime)                  = LiftIO[RIO[String, *]]
+    def liftZManaged(implicit runtime: IORuntime)             = LiftIO[ZManaged[String, Throwable, *]]
+    def runtimeGenTemporal(implicit runtime: Runtime[ZClock]) = GenTemporal[ZIO[Any, Int, *], Int]
+    def runtimeTemporal(implicit runtime: Runtime[ZClock])    = Temporal[Task]
 
     // related to issue #173
     def getArrow[F[-_, +_, +_], R, E, A](f: F[R, E, A])(implicit a: ArrowChoice[F[*, E, *]]): Any = (a, f)

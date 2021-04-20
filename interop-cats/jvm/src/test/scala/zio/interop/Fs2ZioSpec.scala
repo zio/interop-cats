@@ -19,7 +19,7 @@ object Fs2ZioSpec extends CatsRunnableSpec {
           }
         },
         testM("works if F is zio.interop.Task") {
-          testCaseJoin[zio.RIO[ZEnv, *]].map { ints =>
+          testCaseJoin[Task].map { ints =>
             assert(ints)(equalTo(List(1, 1)))
           }
         }
@@ -37,7 +37,7 @@ object Fs2ZioSpec extends CatsRunnableSpec {
       )
     )
 
-  def bracketFail: ZIO[Any, Nothing, TestResult] =
+  def bracketFail: UIO[TestResult] =
     for {
       started  <- Promise.make[Nothing, Unit]
       released <- Promise.make[Nothing, Unit]
@@ -53,7 +53,7 @@ object Fs2ZioSpec extends CatsRunnableSpec {
       _ <- released.await
     } yield assertCompletes
 
-  def bracketTerminate: ZIO[Any, Nothing, TestResult] =
+  def bracketTerminate: UIO[TestResult] =
     for {
       started   <- Promise.make[Nothing, Unit]
       released  <- Promise.make[Nothing, Unit]
@@ -69,7 +69,7 @@ object Fs2ZioSpec extends CatsRunnableSpec {
       _ <- released.await
     } yield assertCompletes
 
-  def bracketInterrupt: ZIO[Any, Nothing, TestResult] =
+  def bracketInterrupt: UIO[TestResult] =
     for {
       started  <- Promise.make[Nothing, Unit]
       released <- Promise.make[Nothing, Unit]

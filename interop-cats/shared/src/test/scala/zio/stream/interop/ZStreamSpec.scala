@@ -6,7 +6,7 @@ import cats.laws.discipline._
 import zio.stream._
 import zio.stream.interop.catz._
 
-class catzSpec extends catzSpecZStreamBase with GenStreamInteropCats {
+class ZStreamSpec extends ZStreamSpecBase with GenStreamInteropCats {
 
   checkAllAsync(
     "MonadError[Stream[Int, *]]",

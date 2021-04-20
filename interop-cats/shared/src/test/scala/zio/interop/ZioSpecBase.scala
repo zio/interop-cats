@@ -4,7 +4,7 @@ import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio._
 import zio.clock.Clock
 
-private[interop] trait catzSpecZIOBase extends catzSpecBase with catzSpecZIOBaseLowPriority with GenIOInteropCats {
+private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPriority with GenIOInteropCats {
 
   implicit def arbitraryUIO[A: Arbitrary]: Arbitrary[UIO[A]] =
     Arbitrary(genUIO[A])
@@ -25,7 +25,13 @@ private[interop] trait catzSpecZIOBase extends catzSpecBase with catzSpecZIOBase
     Cogen(_.hashCode.toLong)
 }
 
-private[interop] trait catzSpecZIOBaseLowPriority { self: catzSpecZIOBase =>
+private[interop] trait ZioSpecBaseLowPriority { self: ZioSpecBase =>
+
+  implicit def arbitraryClock(implicit ticker: Ticker): Arbitrary[Clock] =
+    Arbitrary(Arbitrary.arbitrary[ZEnv])
+
+  implicit val cogenForClock: Cogen[Clock] =
+    Cogen(_.hashCode.toLong)
 
   implicit def arbitraryIO[E: CanFail: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[IO[E, A]] = {
     implicitly[CanFail[E]]
