@@ -7,7 +7,7 @@ import zio._
 import zio.interop.catz._
 import zio.interop.catz.mtl._
 
-class catzMtlSpec extends catzSpecZIOBase {
+class CatsMtlSpec extends ZioSpecBase {
   type Ctx   = String
   type Error = String
 

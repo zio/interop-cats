@@ -21,42 +21,48 @@ import zio.stm.{ TSemaphore => ZTSemaphore }
 /**
  * See [[zio.stm.TSemaphore]]
  */
-class TSemaphore[F[+_]] private (underlying: ZTSemaphore) {
+final class TSemaphore[F[+_]] private (underlying: ZTSemaphore) {
 
   /**
    * See [[zio.stm.TSemaphore#acquire]]
    */
-  final def acquire: STM[F, Unit] = acquireN(1L)
+  def acquire: STM[F, Unit] =
+    acquireN(1L)
 
   /**
    * See [[zio.stm.TSemaphore#acquireN]]
    */
-  final def acquireN(n: Long): STM[F, Unit] = new STM(underlying.acquireN(n))
+  def acquireN(n: Long): STM[F, Unit] =
+    new STM(underlying.acquireN(n))
 
   /**
    * See [[zio.stm.TSemaphore#available]]
    */
-  final def available: STM[F, Long] = new STM(underlying.available)
+  def available: STM[F, Long] =
+    new STM(underlying.available)
 
   /**
    * Switch from effect F to effect G.
    */
-  def mapK[G[+_]]: TSemaphore[G] = new TSemaphore(underlying)
+  def mapK[G[+_]]: TSemaphore[G] =
+    new TSemaphore(underlying)
 
   /**
    * See [[zio.stm.TSemaphore#release]]
    */
-  final def release: STM[F, Unit] = releaseN(1L)
+  def release: STM[F, Unit] =
+    releaseN(1L)
 
   /**
    * See [[zio.stm.TSemaphore#releaseN]]
    */
-  final def releaseN(n: Long): STM[F, Unit] = new STM(underlying.releaseN(n))
+  def releaseN(n: Long): STM[F, Unit] =
+    new STM(underlying.releaseN(n))
 
   /**
    * See [[zio.stm.TSemaphore#withPermit]]
    */
-  final def withPermit[B](stm: STM[F, B]): STM[F, B] =
+  def withPermit[B](stm: STM[F, B]): STM[F, B] =
     new STM(underlying.withPermit(stm.underlying))
 }
 

@@ -8,7 +8,7 @@ import org.scalacheck.{ Arbitrary, Cogen }
 import zio.{ Chunk, NonEmptyChunk }
 import zio.interop.catz.core._
 
-class catzNonEmptyChunkSpec extends catzSpecZIOBase {
+class CatsNonEmptyChunkSpec extends ZioSpecBase {
 
   implicit def arbitraryNonEmptyChunk[A](implicit A: Arbitrary[A]): Arbitrary[NonEmptyChunk[A]] =
     Arbitrary(
