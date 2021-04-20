@@ -10,7 +10,7 @@ import zio.test.interop.catz.test._
 
 object catzQueueSpec extends CatsRunnableSpec {
 
-  def boundedQueueTest[F[+_]: Async]: F[TestResult] =
+  def boundedQueueTest[F[+_]: Async: Dispatcher]: F[TestResult] =
     for {
       q  <- Queue.bounded[F, Int](1)
       _  <- q.offer(1)
@@ -19,21 +19,21 @@ object catzQueueSpec extends CatsRunnableSpec {
       r2 <- q.takeAll
     } yield assert(r1)(equalTo(List(1))) && assert(r2)(equalTo(List(2)))
 
-  def droppingQueueTest[F[+_]: Async]: F[TestResult] =
+  def droppingQueueTest[F[+_]: Async: Dispatcher]: F[TestResult] =
     for {
       q <- Queue.dropping[F, Int](2)
       _ <- q.offerAll(List(1, 2, 3))
       r <- q.takeAll
     } yield assert(r)(equalTo(List(1, 2)))
 
-  def slidingQueueTest[F[+_]: Async]: F[TestResult] =
+  def slidingQueueTest[F[+_]: Async: Dispatcher]: F[TestResult] =
     for {
       q <- Queue.sliding[F, Int](2)
       _ <- q.offerAll(List(1, 2, 3, 4))
       r <- q.takeAll
     } yield assert(r)(equalTo(List(3, 4)))
 
-  def unboundedQueueTest[F[+_]: Async]: F[TestResult] =
+  def unboundedQueueTest[F[+_]: Async: Dispatcher]: F[TestResult] =
     for {
       q        <- Queue.unbounded[F, Int]
       expected = Range.inclusive(0, 100)
@@ -41,7 +41,7 @@ object catzQueueSpec extends CatsRunnableSpec {
       actual   <- q.takeAll
     } yield assert(actual)(equalTo(expected.toList))
 
-  def contramapQueueTest[F[+_]: Async]: F[TestResult] =
+  def contramapQueueTest[F[+_]: Async: Dispatcher]: F[TestResult] =
     for {
       q        <- Queue.unbounded[F, String]
       q1       = q.contramap((i: Int) => i.toString)
@@ -51,10 +51,10 @@ object catzQueueSpec extends CatsRunnableSpec {
       expected = data.map(_.toString)
     } yield assert(actual)(equalTo(expected.toList))
 
-  def mapMQueueTest[F[+_]](implicit F: Async[F], D: Dispatcher[F]): F[TestResult] =
+  def mapMQueueTest[F[+_]: Async: Dispatcher]: F[TestResult] =
     for {
       q        <- Queue.unbounded[F, Int]
-      q1       = q.mapM(i => F.pure(i.toString))
+      q1       = q.mapM(_.toString.pure[F])
       data     = Range.inclusive(0, 100)
       _        <- q1.offerAll(data)
       actual   <- q1.takeAll

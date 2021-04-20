@@ -29,7 +29,7 @@ abstract class CatsRunnableSpec extends DefaultRunnableSpec {
   }
 
   override val aspects = List(
-    TestAspect.timeout(2.seconds),
+    TestAspect.timeout(1.minute),
     TestAspect.beforeAll(ZIO.fromFuture { implicit ec =>
       Dispatcher[CIO].allocated.unsafeToFuture().andThen {
         case Success((dispatcher, close)) =>

@@ -2,6 +2,7 @@ package zio
 package interop
 
 import cats.effect.kernel.{ Async, Sync }
+import cats.effect.{ IO => CIO }
 import fs2.Stream
 import zio.interop.catz._
 import zio.test.Assertion.equalTo
@@ -13,7 +14,7 @@ object Fs2ZioSpec extends CatsRunnableSpec {
     suite("ZIO with Fs2")(
       suite("fs2 parJoin")(
         testF("works if F is cats.effect.IO") {
-          testCaseJoin[cats.effect.IO].map { ints =>
+          testCaseJoin[CIO].map { ints =>
             assert(ints)(equalTo(List(1, 1)))
           }
         },

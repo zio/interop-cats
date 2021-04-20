@@ -177,6 +177,9 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     override final val join: F[Outcome[F, E, A]] = fiber.await.map(toOutcome)
   }
 
+  private def fiberFailure(error: E) =
+    FiberFailure(Cause.fail(error))
+
   override def ref[A](a: A): F[effect.Ref[F, A]] =
     ZRef.make(a).map(new ZioRef(_))
 
@@ -193,7 +196,7 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     ZIO.yieldNow
 
   override final def forceR[A, B](fa: F[A])(fb: F[B]): F[B] =
-    fa.either *> fb
+    fa.foldCauseM(cause => if (cause.interrupted) ZIO.halt(cause) else fb, _ => fb)
 
   override final def uncancelable[A](body: Poll[F] => F[A]): F[A] =
     ZIO.uninterruptibleMask(body.compose(toPoll))
@@ -202,7 +205,7 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     ZIO.interrupt
 
   override final def onCancel[A](fa: F[A], fin: F[Unit]): F[A] =
-    fa.onError(cause => fin.ignore.unless(cause.failed))
+    fa.onError(cause => fin.orDieWith(fiberFailure).unless(cause.failed))
 
   override final def memoize[A](fa: F[A]): F[F[A]] =
     fa.memoize
@@ -214,13 +217,13 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     )
 
   override final def both[A, B](fa: F[A], fb: F[B]): F[(A, B)] =
-    fa zipPar fb
+    fa.interruptible zipPar fb.interruptible
 
   override final def guarantee[A](fa: F[A], fin: F[Unit]): F[A] =
-    fa.ensuring(fin.ignore)
+    fa.ensuring(fin.orDieWith(fiberFailure))
 
   override final def bracket[A, B](acquire: F[A])(use: A => F[B])(release: A => F[Unit]): F[B] =
-    acquire.bracket(release.andThen(_.ignore), use)
+    acquire.bracket(release.andThen(_.orDieWith(fiberFailure)), use)
 
   override val unique: F[Unique.Token] =
     ZIO.effectTotal(new Unique.Token)
@@ -394,13 +397,13 @@ private class ZioParApplicative[R, E] extends CommutativeApplicative[ParallelF[Z
     ParallelF[G, A](ZIO.succeedNow(x))
 
   final override def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z] =
-    ParallelF(ParallelF.value(fa).zipWithPar(ParallelF.value(fb))(f))
+    ParallelF(ParallelF.value(fa).interruptible.zipWithPar(ParallelF.value(fb).interruptible)(f))
 
   final override def ap[A, B](ff: F[A => B])(fa: F[A]): F[B] =
     map2(ff, fa)(_ apply _)
 
   final override def product[A, B](fa: F[A], fb: F[B]): F[(A, B)] =
-    ParallelF(ParallelF.value(fa).zipPar(ParallelF.value(fb)))
+    ParallelF(ParallelF.value(fa).interruptible.zipPar(ParallelF.value(fb).interruptible))
 
   final override def map[A, B](fa: F[A])(f: A => B): F[B] =
     ParallelF(ParallelF.value(fa).map(f))

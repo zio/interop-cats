@@ -23,7 +23,9 @@ import cats.syntax.all._
 import scala.concurrent.Future
 
 package object interop extends interop.PlatformSpecific {
+
   type Queue[F[+_], A] = CQueue[F, A, A]
+  val Queue: CQueue.type = CQueue
 
   /** A queue that can only be dequeued. */
   type Dequeue[F[+_], +A] = CQueue[F, Nothing, A]
@@ -84,6 +86,6 @@ package object interop extends interop.PlatformSpecific {
     }
 
   private[zio] implicit class ToEffectSyntax[R, A](private val rio: RIO[R, A]) extends AnyVal {
-    def toEffect[F[_]: Async](implicit R: Runtime[R]): F[A] = interop.toEffect(rio)
+    @inline def toEffect[F[_]: Async](implicit R: Runtime[R]): F[A] = interop.toEffect(rio)
   }
 }
