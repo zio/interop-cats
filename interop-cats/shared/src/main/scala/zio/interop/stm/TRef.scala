@@ -16,50 +16,59 @@
 
 package zio.interop.stm
 
-import cats.effect.Async
+import cats.effect.kernel.Async
 import zio.Runtime
 import zio.stm.{ TRef => ZTRef }
 
-class TRef[F[+_], A] private (val underlying: ZTRef[A]) extends AnyVal {
-  self =>
+/**
+ * See [[zio.stm.TRef]]
+ */
+final class TRef[F[+_], A] private (underlying: ZTRef[A]) {
 
   /**
-   * See `zio.stm.TRef#get`
+   * See [[zio.stm.TRef#get]]
    */
-  final def get: STM[F, A] = new STM(underlying.get)
+  def get: STM[F, A] =
+    new STM(underlying.get)
 
   /**
    * Switch from effect F to effect G.
    */
-  def mapK[G[+_]]: TRef[G, A] = new TRef(underlying)
+  def mapK[G[+_]]: TRef[G, A] =
+    new TRef(underlying)
 
   /**
-   * See `zio.stm.TRef#modify`
+   * See [[zio.stm.TRef#modify]]
    */
-  final def modify[B](f: A => (B, A)): STM[F, B] = new STM(underlying.modify(f))
+  def modify[B](f: A => (B, A)): STM[F, B] =
+    new STM(underlying.modify(f))
 
   /**
-   * See `zio.stm.TRef#modifySome`
+   * See [[zio.stm.TRef#modifySome]]
    */
-  final def modifySome[B](default: B)(f: PartialFunction[A, (B, A)]): STM[F, B] =
+  def modifySome[B](default: B)(f: PartialFunction[A, (B, A)]): STM[F, B] =
     new STM(underlying.modifySome(default)(f))
 
   /**
-   * See `zio.stm.TRef#set`
+   * See [[zio.stm.TRef#set]]
    */
-  final def set(newValue: A): STM[F, Unit] = new STM(underlying.set(newValue))
+  def set(newValue: A): STM[F, Unit] =
+    new STM(underlying.set(newValue))
 
-  override final def toString = underlying.toString
-
-  /**
-   * See `zio.stm.TRef#update`
-   */
-  final def update(f: A => A): STM[F, A] = new STM(underlying.updateAndGet(f))
+  override def toString: String =
+    underlying.toString
 
   /**
-   * See `zio.stm.TRef#updateSome`
+   * See [[zio.stm.TRef#update]]
    */
-  final def updateSome(f: PartialFunction[A, A]): STM[F, A] = new STM(underlying.updateSomeAndGet(f))
+  def update(f: A => A): STM[F, A] =
+    new STM(underlying.updateAndGet(f))
+
+  /**
+   * See [[zio.stm.TRef#updateSome]]
+   */
+  def updateSome(f: PartialFunction[A, A]): STM[F, A] =
+    new STM(underlying.updateSomeAndGet(f))
 }
 
 object TRef {
@@ -67,6 +76,6 @@ object TRef {
   final def make[F[+_], A](a: => A): STM[F, TRef[F, A]] =
     new STM(ZTRef.make(a).map(new TRef(_)))
 
-  final def makeCommit[F[+_], A](a: => A)(implicit R: Runtime[Any], A: Async[F]): F[TRef[F, A]] =
+  final def makeCommit[F[+_]: Async, A](a: => A)(implicit R: Runtime[Any]): F[TRef[F, A]] =
     STM.atomically(make(a))
 }

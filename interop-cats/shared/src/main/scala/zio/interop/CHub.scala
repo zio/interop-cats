@@ -16,9 +16,10 @@
 
 package zio.interop
 
-import cats.effect.{ Effect, Resource }
+import cats.effect.kernel.{ Async, Resource }
+import cats.effect.std.Dispatcher
+import zio.interop.catz.zManagedSyntax
 import zio.{ Runtime, ZDequeue, ZEnqueue, ZHub, ZQueue }
-import zio.interop.catz._
 
 /**
  * A `CHub[F, A, B]` is an asynchronous message hub. Publishers can publish
@@ -149,8 +150,8 @@ object CHub {
    *
    * For best performance use capacities that are powers of two.
    */
-  def bounded[F[+_]: Effect, A](requestedCapacity: Int)(implicit runtime: Runtime[Any]): F[Hub[F, A]] =
-    toEffect(ZHub.bounded[A](requestedCapacity).map(hub => CHub(hub)))
+  def bounded[F[+_]: Async: Dispatcher, A](requestedCapacity: Int)(implicit runtime: Runtime[Any]): F[Hub[F, A]] =
+    ZHub.bounded[A](requestedCapacity).map(CHub(_)).toEffect[F]
 
   /**
    * Creates a bounded hub with the dropping strategy. The hub will drop new
@@ -158,8 +159,8 @@ object CHub {
    *
    * For best performance use capacities that are powers of two.
    */
-  def dropping[F[+_]: Effect, A](requestedCapacity: Int)(implicit runtime: Runtime[Any]): F[Hub[F, A]] =
-    toEffect(ZHub.dropping[A](requestedCapacity).map(hub => CHub(hub)))
+  def dropping[F[+_]: Async: Dispatcher, A](requestedCapacity: Int)(implicit runtime: Runtime[Any]): F[Hub[F, A]] =
+    ZHub.dropping[A](requestedCapacity).map(CHub(_)).toEffect[F]
 
   /**
    * Creates a bounded hub with the sliding strategy. The hub will add new
@@ -167,35 +168,35 @@ object CHub {
    *
    * For best performance use capacities that are powers of two.
    */
-  def sliding[F[+_]: Effect, A](requestedCapacity: Int)(implicit runtime: Runtime[Any]): F[Hub[F, A]] =
-    toEffect(ZHub.sliding[A](requestedCapacity).map(hub => CHub(hub)))
+  def sliding[F[+_]: Async: Dispatcher, A](requestedCapacity: Int)(implicit runtime: Runtime[Any]): F[Hub[F, A]] =
+    ZHub.sliding[A](requestedCapacity).map(CHub(_)).toEffect[F]
 
   /**
    * Creates an unbounded hub.
    */
-  def unbounded[F[+_]: Effect, A](implicit runtime: Runtime[Any]): F[Hub[F, A]] =
-    toEffect(ZHub.unbounded[A].map(hub => CHub(hub)))
+  def unbounded[F[+_]: Async: Dispatcher, A](implicit runtime: Runtime[Any]): F[Hub[F, A]] =
+    ZHub.unbounded[A].map(CHub(_)).toEffect[F]
 
-  private def apply[F[+_]: Effect, A, B](
+  private def apply[F[+_]: Async: Dispatcher, A, B](
     hub: ZHub[Any, Any, Throwable, Throwable, A, B]
   )(implicit runtime: Runtime[Any]): CHub[F, A, B] =
     new CHub[F, A, B] { self =>
-      def awaitShutdown: F[Unit] =
-        toEffect(hub.awaitShutdown)
+      val awaitShutdown: F[Unit] =
+        hub.awaitShutdown.toEffect[F]
       def capacity: Int =
         hub.capacity
-      def isShutdown: F[Boolean] =
-        toEffect(hub.isShutdown)
+      val isShutdown: F[Boolean] =
+        hub.isShutdown.toEffect[F]
       def publish(a: A): F[Boolean] =
-        toEffect(hub.publish(a))
+        hub.publish(a).toEffect[F]
       def publishAll(as: Iterable[A]): F[Boolean] =
-        toEffect(hub.publishAll(as))
-      def shutdown: F[Unit] =
-        toEffect(hub.shutdown)
-      def size: F[Int] =
-        toEffect(hub.size)
-      def subscribe: Resource[F, Dequeue[F, B]] =
-        hub.subscribe.map(dequeue => Dequeue[F, B](dequeue)).toResource[F]
+        hub.publishAll(as).toEffect[F]
+      val shutdown: F[Unit] =
+        hub.shutdown.toEffect[F]
+      val size: F[Int] =
+        hub.size.toEffect[F]
+      val subscribe: Resource[F, Dequeue[F, B]] =
+        hub.subscribe.map(Dequeue[F, B](_)).toResource[F]
       def contramap[C](f: C => A): CHub[F, C, B] =
         CHub(hub.contramap(f))
       def contramapM[C](f: C => F[A]): CHub[F, C, B] =
@@ -220,9 +221,13 @@ object CHub {
         Enqueue(hub.toQueue)
     }
 
-  private def Dequeue[F[+_], A](dequeue: ZDequeue[Any, Throwable, A]): Dequeue[F, A] =
-    new Dequeue(dequeue.asInstanceOf[ZQueue[Any, Any, Throwable, Throwable, Nothing, A]])
+  private def Dequeue[F[+_]: Async: Dispatcher, A](
+    dequeue: ZDequeue[Any, Throwable, A]
+  )(implicit runtime: Runtime[Any]): Dequeue[F, A] =
+    CQueue[F, Nothing, A](dequeue.asInstanceOf[ZQueue[Any, Any, Throwable, Throwable, Nothing, A]])
 
-  private def Enqueue[F[+_], A](enqueue: ZEnqueue[Any, Throwable, A]): Enqueue[F, A] =
-    new Enqueue(enqueue.asInstanceOf[ZQueue[Any, Any, Throwable, Throwable, A, Nothing]])
+  private def Enqueue[F[+_]: Async: Dispatcher, A](
+    enqueue: ZEnqueue[Any, Throwable, A]
+  )(implicit runtime: Runtime[Any]): Enqueue[F, A] =
+    CQueue[F, A, Nothing](enqueue.asInstanceOf[ZQueue[Any, Any, Throwable, Throwable, A, Nothing]])
 }

@@ -1,10 +1,10 @@
 package zio.interop
 
-import cats.effect.{ Concurrent, Resource }
-import zio.{ Promise, Runtime, Task }
+import cats.effect.kernel.{ Concurrent, Resource }
 import zio.interop.catz._
+import zio.{ Promise, Runtime, Task }
 
-class CatsInteropSpec extends catzSpecZIOBase {
+class CatsInteropSpec extends ZioSpecBase {
 
   test("cats fiber wrapped in Resource can be canceled") {
     val io = for {
