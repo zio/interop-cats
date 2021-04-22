@@ -36,70 +36,64 @@ lazy val root = project
   .enablePlugins(ScalaJSPlugin)
   .aggregate(interopCatsJVM, interopCatsJS)
   .settings(
-    skip in publish := true,
+    publish / skip := true,
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
-val zioVersion = "1.0.5"
+val zioVersion                 = "1.0.6"
+val catsVersion                = "2.6.0"
+val catsEffectVersion          = "3.1.0"
+val catsMtlVersion             = "1.2.0"
+val disciplineScalaTestVersion = "2.1.3"
+val fs2Version                 = "3.0.1"
+val scalaJavaTimeVersion       = "2.2.2"
+
 lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .in(file("interop-cats"))
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-interop-cats"))
   .settings(buildInfoSettings)
   .settings(
+    libraryDependencies += "dev.zio" %%% "zio" % zioVersion,
     libraryDependencies ++= Seq(
-      "dev.zio"       %%% "zio"                  % zioVersion,
-      "dev.zio"       %%% "zio-test-sbt"         % zioVersion % Test,
-      "org.typelevel" %%% "cats-testkit"         % "2.4.2" % Test,
-      "org.typelevel" %%% "cats-effect-laws"     % "2.4.0" % Test,
-      "org.typelevel" %%% "cats-mtl-laws"        % "1.1.2" % Test,
-      "org.typelevel" %%% "discipline-scalatest" % "2.1.2" % Test
-    ),
-    libraryDependencies ++= {
-      if (isDotty.value) {
-        Seq(
-          "dev.zio"       %%% "zio-streams" % zioVersion,
-          "dev.zio"       %%% "zio-test"    % zioVersion,
-          "org.typelevel" %%% "cats-effect" % "2.4.0",
-          "org.typelevel" %%% "cats-mtl"    % "1.1.2",
-          "co.fs2"        %%% "fs2-core"    % "2.5.3"
-        )
-      } else {
-        Seq(
-          "dev.zio"       %%% "zio-streams" % zioVersion % Optional,
-          "dev.zio"       %%% "zio-test"    % zioVersion % Optional,
-          "org.typelevel" %%% "cats-effect" % "2.4.0"    % Optional,
-          "org.typelevel" %%% "cats-mtl"    % "1.1.2"    % Optional,
-          "co.fs2"        %%% "fs2-core"    % "2.5.3"    % Optional
-        )
-      }
-    }
+      "dev.zio"       %%% "zio-streams"     % zioVersion,
+      "dev.zio"       %%% "zio-test"        % zioVersion,
+      "org.typelevel" %%% "cats-effect-std" % catsEffectVersion,
+      "org.typelevel" %%% "cats-mtl"        % catsMtlVersion,
+      "co.fs2"        %%% "fs2-core"        % fs2Version
+    ).map { module =>
+      if (isDotty.value) module else module % Optional
+    },
+    libraryDependencies ++= Seq(
+      "dev.zio"       %%% "zio-test-sbt"         % zioVersion,
+      "org.typelevel" %%% "cats-testkit"         % catsVersion,
+      "org.typelevel" %%% "cats-effect-laws"     % catsEffectVersion,
+      "org.typelevel" %%% "cats-effect-testkit"  % catsEffectVersion,
+      "org.typelevel" %%% "cats-mtl-laws"        % catsMtlVersion,
+      "org.typelevel" %%% "discipline-scalatest" % disciplineScalaTestVersion
+    ).map(_ % Test)
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
 
 lazy val interopCatsJVM = interopCats.jvm.settings(dottySettings)
 
 lazy val interopCatsJS = interopCats.js
-  .settings(
-    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.2.0" % Test
-  )
+  .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
 lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   .in(file("core-only-test"))
   .dependsOn(interopCats)
   .settings(stdSettings("core-only-test"))
-  .settings(skip in publish := true)
+  .settings(publish / skip := true)
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core"    % "2.4.2"    % Test,
-      "dev.zio"       %%% "zio-test-sbt" % zioVersion % Test
-    )
+      "org.typelevel" %%% "cats-core"    % catsVersion,
+      "dev.zio"       %%% "zio-test-sbt" % zioVersion
+    ).map(_ % Test)
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
 
 lazy val coreOnlyTestJVM = coreOnlyTest.jvm.settings(dottySettings)
 
 lazy val coreOnlyTestJS = coreOnlyTest.js
-  .settings(
-    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.2.0" % Test
-  )
+  .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)

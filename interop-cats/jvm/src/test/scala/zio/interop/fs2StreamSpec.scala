@@ -41,10 +41,8 @@ object fs2StreamSpec extends DefaultRunnableSpec {
         assertEqual(ZStream.fromChunk(chunk).toFs2Stream, fs2StreamFromChunk(chunk))
       }),
       testM("error propagation") {
-        Task.concurrentEffectWith { implicit CE =>
-          val result = ZStream.fail(exception).toFs2Stream.compile.drain.run
-          assertM(result)(fails(equalTo(exception)))
-        }
+        val result = ZStream.fail(exception).toFs2Stream.compile.drain.run
+        assertM(result)(fails(equalTo(exception)))
       }
     ),
     suite("test toZStream conversion")(
@@ -58,10 +56,8 @@ object fs2StreamSpec extends DefaultRunnableSpec {
         assertEqual(fs2StreamFromChunk(chunk).toZStream(), ZStream.fromChunk(chunk))
       }),
       testM("error propagation") {
-        Task.concurrentEffectWith { implicit CE =>
-          val result = Stream.raiseError[Task](exception).toZStream().runDrain.run
-          assertM(result)(fails(equalTo(exception)))
-        }
+        val result = Stream.raiseError[Task](exception).toZStream().runDrain.run
+        assertM(result)(fails(equalTo(exception)))
       },
       testM("releases all resources by the time the failover stream has started") {
         for {

@@ -1,28 +1,25 @@
 package zio
 package interop
 
-import cats.effect
-import cats.effect.{ Concurrent, ConcurrentEffect, ContextShift, Sync }
+import cats.effect.kernel.{ Async, Sync }
+import cats.effect.{ IO => CIO }
 import fs2.Stream
 import zio.interop.catz._
 import zio.test.Assertion.equalTo
 import zio.test._
 import zio.test.interop.catz.test._
 
-import scala.concurrent.ExecutionContext.global
-
-object Fs2ZioSpec extends DefaultRunnableSpec {
-
+object Fs2ZioSpec extends CatsRunnableSpec {
   def spec =
     suite("ZIO with Fs2")(
       suite("fs2 parJoin")(
         testF("works if F is cats.effect.IO") {
-          testCaseJoin[cats.effect.IO].map { ints =>
+          testCaseJoin[CIO].map { ints =>
             assert(ints)(equalTo(List(1, 1)))
           }
         },
         testM("works if F is zio.interop.Task") {
-          testCaseJoin[zio.Task].map { ints =>
+          testCaseJoin[Task].map { ints =>
             assert(ints)(equalTo(List(1, 1)))
           }
         }
@@ -40,64 +37,54 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
       )
     )
 
-  implicit val cs: ContextShift[effect.IO]                 = cats.effect.IO.contextShift(global)
-  implicit val catsConcurrent: ConcurrentEffect[effect.IO] = cats.effect.IO.ioConcurrentEffect(cs)
-
-  def bracketFail: ZIO[Any, Nothing, TestResult] =
+  def bracketFail: UIO[TestResult] =
     for {
       started  <- Promise.make[Nothing, Unit]
       released <- Promise.make[Nothing, Unit]
       fail     <- Promise.make[Nothing, Unit]
       _ <- Stream
             .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
-            .evalMap[Task, Unit] { _ =>
-              fail.await *> IO.fail(new Exception())
-            }
-            .compile
+            .evalMap[Task, Unit](_ => fail.await *> IO.fail(new Exception()))
+            .compile[Task, Task, Unit]
             .drain
             .fork
-
       _ <- started.await
       _ <- fail.succeed(())
       _ <- released.await
     } yield assertCompletes
 
-  def bracketTerminate: ZIO[Any, Nothing, TestResult] =
+  def bracketTerminate: UIO[TestResult] =
     for {
       started   <- Promise.make[Nothing, Unit]
       released  <- Promise.make[Nothing, Unit]
       terminate <- Promise.make[Nothing, Unit]
       _ <- Stream
             .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
-            .evalMap[Task, Unit] { _ =>
-              terminate.await *> IO.die(new Exception())
-            }
-            .compile
+            .evalMap[Task, Unit](_ => terminate.await *> IO.die(new Exception()))
+            .compile[Task, Task, Unit]
             .drain
             .fork
-
       _ <- started.await
       _ <- terminate.succeed(())
       _ <- released.await
     } yield assertCompletes
 
-  def bracketInterrupt: ZIO[Any, Nothing, TestResult] =
+  def bracketInterrupt: UIO[TestResult] =
     for {
       started  <- Promise.make[Nothing, Unit]
       released <- Promise.make[Nothing, Unit]
       f <- Stream
             .bracket(IO.unit)(_ => released.succeed(()).unit)
             .evalMap[Task, Unit](_ => started.succeed(()) *> IO.never)
-            .compile
+            .compile[Task, Task, Unit]
             .drain
             .fork
-
       _ <- started.await
       _ <- f.interrupt
       _ <- released.await
     } yield assertCompletes
 
-  def testCaseJoin[F[_]: Concurrent]: F[List[Int]] = {
+  def testCaseJoin[F[_]: Async]: F[List[Int]] = {
     def one: F[Int]                   = Sync[F].delay(1)
     val s: Stream[F, Int]             = Stream.eval(one)
     val ss: Stream[F, Stream[F, Int]] = Stream.emits(List(s, s))

@@ -16,35 +16,76 @@
 
 package zio
 
-import cats.effect.{ Effect, ExitCase, LiftIO }
-import zio.interop.catz.taskEffectInstance
+import cats.effect.kernel.{ Async, Outcome, Resource }
+import cats.effect.std.Dispatcher
+import cats.syntax.all._
 
-package object interop {
-  type ParIO[-R, +E, +A] = Par.T[R, E, A]
+import scala.concurrent.Future
+
+package object interop extends interop.PlatformSpecific {
 
   type Queue[F[+_], A] = CQueue[F, A, A]
+  val Queue: CQueue.type = CQueue
 
-  @inline private[interop] final def exitToExitCase(exit: Exit[Any, Any]): ExitCase[Throwable] = exit match {
-    case Exit.Success(_)                          => ExitCase.Completed
-    case Exit.Failure(cause) if cause.interrupted => ExitCase.Canceled
-    case Exit.Failure(cause) =>
-      cause.failureOrCause match {
-        case Left(t: Throwable) => ExitCase.Error(t)
-        case _                  => ExitCase.Error(FiberFailure(cause))
+  /** A queue that can only be dequeued. */
+  type Dequeue[F[+_], +A] = CQueue[F, Nothing, A]
+
+  /** A queue that can only be enqueued. */
+  type Enqueue[F[+_], -A] = CQueue[F, A, Nothing]
+
+  type Hub[F[+_], A] = CHub[F, A, A]
+  val Hub: CHub.type = CHub
+
+  @inline private[interop] def toOutcome[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, *], E, A] =
+    exit match {
+      case Exit.Success(value) =>
+        Outcome.Succeeded(ZIO.succeed(value))
+      case Exit.Failure(cause) if cause.interrupted =>
+        Outcome.Canceled()
+      case Exit.Failure(cause) =>
+        cause.failureOrCause match {
+          case Left(error)  => Outcome.Errored(error)
+          case Right(cause) => Outcome.Succeeded(ZIO.halt(cause))
+        }
+    }
+
+  @inline private[interop] def toExit(exitCase: Resource.ExitCase): Exit[Throwable, Unit] =
+    exitCase match {
+      case Resource.ExitCase.Succeeded      => Exit.unit
+      case Resource.ExitCase.Canceled       => Exit.interrupt(Fiber.Id.None)
+      case Resource.ExitCase.Errored(error) => Exit.fail(error)
+    }
+
+  @inline private[interop] def toExitCase(exit: Exit[Any, Any]): Resource.ExitCase =
+    exit match {
+      case Exit.Success(_) =>
+        Resource.ExitCase.Succeeded
+      case Exit.Failure(cause) if cause.interrupted =>
+        Resource.ExitCase.Canceled
+      case Exit.Failure(cause) =>
+        cause.failureOrCause match {
+          case Left(error: Throwable) => Resource.ExitCase.Errored(error)
+          case _                      => Resource.ExitCase.Errored(FiberFailure(cause))
+        }
+    }
+
+  @inline private[zio] def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F]): Task[A] =
+    ZIO
+      .effectTotal(F.unsafeToFutureCancelable(fa))
+      .flatMap {
+        case (future, cancel) =>
+          ZIO.fromFuture(_ => future).onInterrupt(ZIO.fromFuture(_ => cancel()).orDie).interruptible
       }
+      .uninterruptible
+
+  @inline private[zio] def toEffect[F[_], R, A](rio: RIO[R, A])(implicit R: Runtime[R], F: Async[F]): F[A] =
+    F.uncancelable { poll =>
+      F.delay(R.unsafeRunToFuture(rio)).flatMap { future =>
+        poll(F.onCancel(F.fromFuture(F.pure[Future[A]](future)), F.fromFuture(F.delay(future.cancel())).void))
+      }
+    }
+
+  private[zio] implicit class ToEffectSyntax[R, A](private val rio: RIO[R, A]) extends AnyVal {
+    @inline def toEffect[F[_]: Async](implicit R: Runtime[R]): F[A] = interop.toEffect(rio)
   }
-
-  @inline private[interop] final def exitCaseToExit[E](exitCase: ExitCase[E]): Exit[E, Unit] = exitCase match {
-    case ExitCase.Completed => Exit.unit
-    case ExitCase.Error(e)  => Exit.fail(e)
-    case ExitCase.Canceled  => Exit.interrupt(Fiber.Id.None)
-  }
-
-  private[interop] def fromEffect[F[+_], R, A](
-    eff: F[A]
-  )(implicit R: Runtime[R], F: Effect[F]): RIO[R, A] =
-    taskEffectInstance.liftIO[A](F.toIO(eff))
-
-  private[interop] def toEffect[F[+_], R, A](zio: RIO[R, A])(implicit R: Runtime[R], F: LiftIO[F]): F[A] =
-    F.liftIO(taskEffectInstance.toIO(zio))
 }

@@ -21,39 +21,42 @@ import zio.stm.{ TPromise => ZTPromise }
 /**
  * See [[zio.stm.TPromise]]
  */
-class TPromise[F[+_], E <: Throwable, A] private (underlying: ZTPromise[E, A]) {
+final class TPromise[F[+_], E <: Throwable, A] private (underlying: ZTPromise[E, A]) {
 
   /**
    * See [[zio.stm.TPromise#await]]
    */
-  final def await: STM[F, A] = new STM(underlying.await)
+  def await: STM[F, A] =
+    new STM(underlying.await)
 
   /**
    * See [[zio.stm.TPromise#done]]
    */
-  final def done(v: Either[E, A]): STM[F, Boolean] = new STM(underlying.done(v))
+  def done(v: Either[E, A]): STM[F, Boolean] =
+    new STM(underlying.done(v))
 
   /**
    * See [[zio.stm.TPromise#fail]]
    */
-  final def fail(e: E): STM[F, Boolean] =
+  def fail(e: E): STM[F, Boolean] =
     done(Left(e))
 
   /**
    * Switch from effect F to effect G.
    */
-  def mapK[G[+_]]: TPromise[G, E, A] = new TPromise(underlying)
+  def mapK[G[+_]]: TPromise[G, E, A] =
+    new TPromise(underlying)
 
   /**
    * See [[zio.stm.TPromise#poll]]
    */
-  final def poll: STM[F, Option[Either[E, A]]] =
+  def poll: STM[F, Option[Either[E, A]]] =
     new STM(underlying.poll)
 
   /**
    * See [[zio.stm.TPromise#succeed]]
    */
-  final def succeed(a: A): STM[F, Boolean] =
+  def succeed(a: A): STM[F, Boolean] =
     done(Right(a))
 }
 

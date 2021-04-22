@@ -12,7 +12,7 @@ object BuildHelper {
 
   val Scala212 = "2.12.13"
   val Scala213 = "2.13.5"
-  val Scala3   = "3.0.0-RC1"
+  val Scala3   = "3.0.0-RC2"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -83,7 +83,7 @@ object BuildHelper {
     name := s"$prjName",
     scalacOptions := stdOptions,
     crossScalaVersions := Seq(Scala213, Scala212),
-    scalaVersion in ThisBuild := crossScalaVersions.value.head,
+    ThisBuild / scalaVersion := crossScalaVersions.value.head,
     scalacOptions := stdOptions ++ extraOptions(scalaVersion.value),
     libraryDependencies ++= testDeps ++ {
       if (isDotty.value)
@@ -93,7 +93,7 @@ object BuildHelper {
           compilerPlugin("org.typelevel" % "kind-projector" % "0.11.3") cross CrossVersion.full
         )
     },
-    parallelExecution in Test := true,
+    Test / parallelExecution := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
     autoAPIMappings := true,
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library"),
@@ -143,7 +143,7 @@ object BuildHelper {
       else
         Seq()
     },
-    sources in (Compile, doc) := {
+    Compile / doc / sources := {
       val old = (Compile / doc / sources).value
       if (isDotty.value) {
         Nil
@@ -151,7 +151,7 @@ object BuildHelper {
         old
       }
     },
-    parallelExecution in Test := {
+    Test / parallelExecution := {
       val old = (Test / parallelExecution).value
       if (isDotty.value) {
         false
