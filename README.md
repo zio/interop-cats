@@ -6,57 +6,69 @@
 
 This library provides instances required by Cats Effect.
 
-## `ZIO` Cats Effect instances
+## `ZIO` Cats Effect 3 instances
 
-**ZIO** integrates with Typelevel libraries by providing an instance of `ConcurrentEffect` for `IO` as required, for instance, by `fs2`, `doobie` and `http4s`. Actually, I lied a little bit, it is not possible to implement `ConcurrentEffect` for any error type since `ConcurrentEffect` extends `MonadError` of `Throwable`.
+**ZIO** integrates with Typelevel libraries by providing an instance of `Concurrent`, `Temporal` and `Async` for `Task` 
+as required, for instance, by `fs2`, `doobie` and `http4s`.
 
-For convenience we have defined an alias as follow:
-
-```scala
-  type Task[A] = IO[Throwable, A]
-```
-
-Therefore, we provide an instance of `ConcurrentEffect[Task]`.
-
-## ConcurrentEffect
-
-In order to get a `ConcurrentEffect[Task]` or `ConcurrentEffect[RIO[R, *]]` we need an implicit `Runtime[R]` in scope. The easiest way to get it is using `ZIO.runtime`:
+For convenience, we have defined an alias as follows:
 
 ```scala
-import cats.effect._
-import zio._
-import zio.interop.catz._
-
-def getCE = {
-  ZIO.runtime.map { implicit r: Runtime[Any] =>
-    val F: ConcurrentEffect[Task] = implicitly
-  }
-}
+  type Task[A] = ZIO[Any, Throwable, A]
 ```
 
-`Task.concurrentEffectWith` method can automate this pattern:
+Therefore, we provide Cats Effect instances based on this specific datatype.
+
+## `Concurrent`
+
+In order to get a `Concurrent[Task]` or `Concurrent[RIO[R, *]]` (note `*` is kind-projector notation) we need an 
+implicit `Runtime[R]` in scope. The easiest way to get it is using `ZIO.runtime`:
 
 ```scala
 import cats.effect._
 import zio._
 import zio.interop.catz._
 
-def fork = {
-  Task.concurrentEffectWith { implicit CE =>
-    CE.start(Task(println("Started task")))
+def ceConcurrentForTaskExample = 
+  ZIO.runtime.flatMap { implicit r: Runtime[Any] =>
+    // the presence of a runtime allows you to summon Cats Effect Typeclasses
+    val F: cats.effect.Concurrent[Task] = implicitly
+    F.racePair(F.unit, F.unit)
   }
-}
 ```
 
-### Timer
+## `Temporal`
 
-In order to get a `cats.effect.Timer[Task]` instance we need an extra import:
+`Temporal` requires a `Runtime` with `zio.clock.Clock`.
 
 ```scala
-import zio.interop.catz.implicits._
+import cats.effect._
+import zio._
+import zio.interop.catz._
+
+def ceTemporal =
+  ZIO.runtime.flatMap { implicit r: Runtime[Clock] =>
+    val F: cats.effect.Temporal[Task] = implicitly
+    F.sleep(1.second) *> F.unit
+  }
 ```
 
-The reason it is not provided by the default "interop" import is that it makes testing programs that require timing capabilities hard so an extra import wherever needed makes reasoning about it much easier.
+## `Async`
+
+Similar to the other examples, we require a `Runtime` with the `zio.clock.Clock` and `zio.blocking.Blocking` layer.
+
+```scala
+import cats.effect._
+import zio._
+import zio.interop.catz._
+
+def ceAsync =
+  ZIO.runtime.flatMap { implicit r: Runtime[Clock with Blocking] =>
+    val F: cats.effect.Async[Task] = implicitly
+    F.racePair(F.unit, F.sleep(1.second) *> F.unit)
+  }
+```
+
 
 ### cats-core
 
@@ -70,20 +82,34 @@ Note that this library only has an `Optional` dependency on cats-effect – if y
 
 ### Example
 
-The following example shows how to use ZIO with Doobie (a library for JDBC access) and FS2 (a streaming library), which both rely on Cats Effect instances:
+The following example shows how to use ZIO with Doobie (a library for JDBC access) and FS2 (a streaming library), which both rely on Cats Effect instances (`cats.effect.Async` and `cats.effect.Temporal`):
 
 ```scala
-import doobie.imports._
-import fs2.Stream
-import zio.Task
+import zio._
 import zio.interop.catz._
+import doobie._
+import doobie.implicits._
+import zio.blocking.Blocking
+import zio.clock.Clock
+import scala.concurrent.duration._
 
-val xa: Transactor[Task] = Transactor.fromDriverManager[Task](...)
+object DoobieH2Example extends App {
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+    ZIO.runtime.flatMap { implicit r: Runtime[Clock with Blocking] =>
+      val xa: Transactor[Task] =
+        Transactor.fromDriverManager[Task]("org.h2.Driver", "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", "user", "")
 
-def loadUsers: Stream[Task, User] =
-  sql"""SELECT * FROM users""".query[User].stream.transact(xa)
-
-val allUsers: List[User] = unsafeRun(loadUsers.compile.toList)
+      sql"SELECT 42"
+        .query[Int]
+        .stream
+        .transact(xa)
+        .delayBy(1.second)
+        .evalTap(i => blocking.blocking(Task.effectTotal(println(s"Data $i"))))
+        .compile
+        .drain
+        .exitCode
+    }
+}
 ```
 
 [ci-badge]: https://github.com/zio/interop-cats/workflows/CI/badge.svg
