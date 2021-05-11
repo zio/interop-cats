@@ -56,7 +56,21 @@ In order to get a `cats.effect.Timer[Task]` instance we need an extra import:
 import zio.interop.catz.implicits._
 ```
 
-The reason it is not provided by the default "interop" import is that it makes testing programs that require timing capabilities hard so an extra import wherever needed makes reasoning about it much easier.
+The reason it is not provided by the default "interop" import is that it makes testing programs that require timing capabilities hard therefore an extra import wherever needed makes reasoning about it much easier.
+It is not a good idea to use this import as it causes limitations in testing since it uses the `live` implementation of `zio.Clock.Service`. If you want to retain testability, do the following instead:
+
+```scala
+import cats.effect._
+import zio._
+import zio.interop.catz._
+
+ZIO.runtime[Clock with Blocking].flatMap { implicit rts =>
+  val clock: Timer[Task] = rts.environment.get[ZClock.Service].toTimer
+  val ce: ConcurrentEffect[Task] = implicitly
+  
+  ce.race(clock.sleep(1.second), clock.sleep(1.second))
+}
+```
 
 ### cats-core
 
