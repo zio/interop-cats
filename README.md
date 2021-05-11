@@ -6,6 +6,11 @@
 
 This library provides instances required by Cats Effect.
 
+## Installation
+```sbt
+libraryDependencies += "dev.zio" %% "zio-interop-cats" % "<check-badge-for-latest-version>"
+```
+
 ## `ZIO` Cats Effect 3 instances
 
 **ZIO** integrates with Typelevel libraries by providing an instance of `Concurrent`, `Temporal` and `Async` for `Task` 
@@ -14,7 +19,7 @@ as required, for instance, by `fs2`, `doobie` and `http4s`.
 For convenience, we have defined an alias as follows:
 
 ```scala
-  type Task[A] = ZIO[Any, Throwable, A]
+type Task[A] = ZIO[Any, Throwable, A]
 ```
 
 Therefore, we provide Cats Effect instances based on this specific datatype.
@@ -69,14 +74,51 @@ def ceAsync =
   }
 ```
 
+## Other typeclasses
+
+There are many other typeclasses and useful conversions that this library provides implementations for:
+* See `zio/interop/cats.scala` file to see all available typeclass implementations for the Cats Effect 3 typeclasses
+* See `zio/stream/interop/cats.scala` for ZStream typeclass implementations
+* See `zio/stream/interop/FS2StreamSyntax.scala` for FS2 <-> ZStream conversions
+
+## Easier imports (at a cost)
+
+In the examples above, we had to bring the `Runtime[Clocking with Blocking]` via the `ZIO.runtime` combinator. This may
+not be ideal since everywhere you use these typeclasses, you will now be required to feed in the `Runtime`. 
+For example, with FS2: 
+
+```scala
+def example(implicit rts: Runtime[Clock with Blocking]): Task[Unit] =
+  fs2.Stream
+    .awakeDelay[Task](10.seconds) // this type annotation is mandatory
+    .evalTap(in => cats.effect.std.Console.make[Task].println(s"Hello $in"))
+    .compile
+    .drain
+```
+
+Rather than requiring the runtime implicit, we can add an import (if we don't mind depending on `Runtime.default`):
+```scala
+import zio.interop.catz._
+import zio.interop.catz.implicits._
+
+val example: Task[Unit] =
+  fs2.Stream
+    .awakeDelay[Task](10.seconds)
+    .evalTap(in => cats.effect.std.Console.make[Task].println(s"Hello $in"))
+    .compile
+    .drain
+```
+
+The major downside to doing this is you rely on live implementations of `Clock` and `Blocking` to summon instances which 
+makes testing much more difficult for any Cats Effect code that you use. 
 
 ### cats-core
 
 If you only need instances for `cats-core` typeclasses, not `cats-effect` import `zio.interop.catz.core._`:
 
-````scala
+```scala
 import zio.interop.catz.core._
-````
+```
 
 Note that this library only has an `Optional` dependency on cats-effect – if you or your libraries don't depend on it, this library will not add it to the classpath.
 

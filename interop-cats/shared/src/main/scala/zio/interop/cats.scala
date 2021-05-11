@@ -34,6 +34,21 @@ import scala.concurrent.duration._
 object catz extends CatsEffectPlatform {
   object core extends CatsPlatform
   object mtl  extends CatsMtlPlatform
+
+  /**
+   * `import zio.interop.implicits._` brings in the default Runtime in order to
+   * summon Cats Effect typeclasses without the ceremony of
+   *
+   * {{{
+   * ZIO.runtime[Clock with Blocking].flatMap { implicit runtime =>
+   *  implicit val asyncTask: Async[Task] = implicitly
+   *  ...
+   * }
+   * }}}
+   */
+  object implicits {
+    implicit val rts: Runtime[Clock & CBlocking] = Runtime.default
+  }
 }
 
 abstract class CatsEffectPlatform
