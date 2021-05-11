@@ -36,7 +36,7 @@ object catz extends CatsEffectPlatform {
   object mtl  extends CatsMtlPlatform
 
   /**
-   * `import zio.interop.implicits._` brings in the default Runtime in order to
+   * `import zio.interop.catz.implicits._` brings in the default Runtime in order to
    * summon Cats Effect typeclasses without the ceremony of
    *
    * {{{
