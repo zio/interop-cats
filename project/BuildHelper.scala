@@ -90,7 +90,7 @@ object BuildHelper {
         Seq.empty
       else
         Seq(
-          compilerPlugin("org.typelevel" % "kind-projector" % "0.12.0") cross CrossVersion.full
+          compilerPlugin("org.typelevel" % "kind-projector" % "0.13.0") cross CrossVersion.full
         )
     },
     Test / parallelExecution := true,
