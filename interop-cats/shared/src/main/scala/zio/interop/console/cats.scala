@@ -26,11 +26,11 @@ object cats {
    * Prints the string representation of an object to the console.
    */
   def putStr[A](a: A)(implicit ev: Show[A]): ZIO[Console, Nothing, Unit] =
-    zio.console.putStr(ev.show(a))
+    zio.console.putStr(ev.show(a)).orDie
 
   /**
    * Prints the string representation of an object to the console, including a newline character.
    */
   def putStrLn[A](a: A)(implicit ev: Show[A]): ZIO[Console, Nothing, Unit] =
-    zio.console.putStrLn(ev.show(a))
+    zio.console.putStrLn(ev.show(a)).orDie
 }
