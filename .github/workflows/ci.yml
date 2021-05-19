@@ -51,9 +51,16 @@ jobs:
         if: matrix.scala == '3.0.0' && matrix.platform == 'JVM'
         run: sbt ++${{ matrix.scala }}! testJVM
 
-  publish:
+  ci:
     runs-on: ubuntu-20.04
     needs: [lint, test]
+    steps:
+      - name: Aggregate outcomes
+        run: echo "build succeeded"
+
+  publish:
+    runs-on: ubuntu-20.04
+    needs: [ci]
     if: github.event_name != 'pull_request'
     steps:
       - name: Checkout current branch
