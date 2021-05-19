@@ -143,14 +143,6 @@ object BuildHelper {
       else
         Seq()
     },
-    Compile / doc / sources := {
-      val old = (Compile / doc / sources).value
-      if (isDotty.value) {
-        Nil
-      } else {
-        old
-      }
-    },
     Test / parallelExecution := {
       val old = (Test / parallelExecution).value
       if (isDotty.value) {
