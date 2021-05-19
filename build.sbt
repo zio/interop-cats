@@ -40,12 +40,12 @@ lazy val root = project
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
-val zioVersion                 = "1.0.7"
-val catsVersion                = "2.6.0"
-val catsEffectVersion          = "3.1.0"
-val catsMtlVersion             = "1.2.0"
-val disciplineScalaTestVersion = "2.1.4"
-val fs2Version                 = "3.0.2"
+val zioVersion                 = "1.0.8"
+val catsVersion                = "2.6.1"
+val catsEffectVersion          = "3.1.1"
+val catsMtlVersion             = "1.2.1"
+val disciplineScalaTestVersion = "2.1.5"
+val fs2Version                 = "3.0.3"
 val scalaJavaTimeVersion       = "2.3.0"
 
 lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
@@ -54,16 +54,14 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .settings(stdSettings("zio-interop-cats"))
   .settings(buildInfoSettings)
   .settings(
-    libraryDependencies += "dev.zio" %%% "zio" % zioVersion,
     libraryDependencies ++= Seq(
+      "dev.zio"       %%% "zio"             % zioVersion,
       "dev.zio"       %%% "zio-streams"     % zioVersion,
       "dev.zio"       %%% "zio-test"        % zioVersion,
       "org.typelevel" %%% "cats-effect-std" % catsEffectVersion,
       "org.typelevel" %%% "cats-mtl"        % catsMtlVersion,
       "co.fs2"        %%% "fs2-core"        % fs2Version
-    ).map { module =>
-      if (isDotty.value) module else module % Optional
-    },
+    ),
     libraryDependencies ++= Seq(
       "dev.zio"       %%% "zio-test-sbt"         % zioVersion,
       "org.typelevel" %%% "cats-testkit"         % catsVersion,

@@ -1,7 +1,6 @@
 import sbt._
 import Keys._
 
-import dotty.tools.sbtplugin.DottyPlugin.autoImport._
 import explicitdeps.ExplicitDepsPlugin.autoImport._
 import sbtcrossproject.CrossPlugin.autoImport.CrossType
 import sbtbuildinfo._
@@ -11,8 +10,8 @@ object BuildHelper {
   val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.15.4" % Test)
 
   val Scala212 = "2.12.13"
-  val Scala213 = "2.13.5"
-  val Scala3   = "3.0.0-RC3"
+  val Scala213 = "2.13.6"
+  val Scala3   = "3.0.0"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -86,12 +85,8 @@ object BuildHelper {
     ThisBuild / scalaVersion := crossScalaVersions.value.head,
     scalacOptions := stdOptions ++ extraOptions(scalaVersion.value),
     libraryDependencies ++= testDeps ++ {
-      if (isDotty.value)
-        Seq.empty
-      else
-        Seq(
-          compilerPlugin("org.typelevel" % "kind-projector" % "0.13.0") cross CrossVersion.full
-        )
+      if (isDotty(scalaVersion.value)) Seq.empty
+      else Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.0") cross CrossVersion.full)
     },
     Test / parallelExecution := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
@@ -129,31 +124,32 @@ object BuildHelper {
     }
   )
 
+  def isDotty(scalaVersion: String): Boolean =
+    CrossVersion.partialVersion(scalaVersion).forall {
+      case (major, _) =>
+        major >= 3
+    }
+
   val dottySettings = Seq(
     crossScalaVersions += Scala3,
     scalacOptions ++= {
-      if (isDotty.value)
-        Seq("-noindent")
-      else
-        Seq()
+      if (isDotty(scalaVersion.value)) Seq("-noindent")
+      else Seq()
     },
     scalacOptions --= {
-      if (isDotty.value)
-        Seq("-Xfatal-warnings")
-      else
-        Seq()
+      if (isDotty(scalaVersion.value)) Seq("-Xfatal-warnings")
+      else Seq()
     },
     Compile / doc / sources := {
       val old = (Compile / doc / sources).value
-      if (isDotty.value) {
-        Nil
-      } else {
+      if (isDotty(scalaVersion.value)) Nil
+      else {
         old
       }
     },
     Test / parallelExecution := {
       val old = (Test / parallelExecution).value
-      if (isDotty.value) {
+      if (isDotty(scalaVersion.value)) {
         false
       } else {
         old
