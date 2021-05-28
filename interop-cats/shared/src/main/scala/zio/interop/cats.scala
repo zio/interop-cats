@@ -35,6 +35,8 @@ abstract class CatsEffectPlatform
     extends CatsEffectInstances
     with CatsEffectZManagedInstances
     with CatsZManagedInstances
+    with CatsChunkInstances
+    with CatsNonEmptyChunkInstances
     with CatsZManagedSyntax
     with CatsConcurrentEffectSyntax
     with CatsClockSyntax {
