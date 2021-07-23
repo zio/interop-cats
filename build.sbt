@@ -62,7 +62,7 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
         "org.typelevel" %%% "cats-mtl"        % catsMtlVersion,
         "co.fs2"        %%% "fs2-core"        % fs2Version
       )
-      val optLibraries = if (scalaVersion.value.startsWith("3")) optLibraries0.map(_ % Optional) else optLibraries0
+      val optLibraries = if (scalaVersion.value.startsWith("3")) optLibraries0 else optLibraries0.map(_ % Optional)
       ("dev.zio" %%% "zio" % zioVersion) :: optLibraries
     },
     libraryDependencies ++= Seq(
