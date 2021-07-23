@@ -54,14 +54,17 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
   .settings(stdSettings("zio-interop-cats"))
   .settings(buildInfoSettings)
   .settings(
-    libraryDependencies ++= Seq(
-      "dev.zio"       %%% "zio"             % zioVersion,
-      "dev.zio"       %%% "zio-streams"     % zioVersion        % Provided,
-      "dev.zio"       %%% "zio-test"        % zioVersion        % Provided,
-      "org.typelevel" %%% "cats-effect-std" % catsEffectVersion % Provided,
-      "org.typelevel" %%% "cats-mtl"        % catsMtlVersion    % Provided,
-      "co.fs2"        %%% "fs2-core"        % fs2Version        % Provided
-    ),
+    libraryDependencies ++= {
+      val optLibraries = Seq(
+        "dev.zio"       %%% "zio"             % zioVersion,
+        "dev.zio"       %%% "zio-streams"     % zioVersion        % Provided,
+        "dev.zio"       %%% "zio-test"        % zioVersion        % Provided,
+        "org.typelevel" %%% "cats-effect-std" % catsEffectVersion % Provided,
+        "org.typelevel" %%% "cats-mtl"        % catsMtlVersion    % Provided,
+        "co.fs2"        %%% "fs2-core"        % fs2Version        % Provided
+      )
+      if (scalaVersion.value.beginsWith("3")) optLibraries.map(_ % Optional) else optLibraries
+    },
     libraryDependencies ++= Seq(
       "dev.zio"       %%% "zio-test-sbt"         % zioVersion,
       "org.typelevel" %%% "cats-testkit"         % catsVersion,
