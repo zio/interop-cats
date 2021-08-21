@@ -1,10 +1,10 @@
 package zio.stream.interop
 
 import cats.Eq
-import cats.syntax.all._
+import cats.syntax.all.*
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.interop.CatsSpecBase
-import zio.stream._
+import zio.stream.*
 import zio.{ CanFail, Chunk, ZIO }
 
 private[interop] trait ZStreamSpecBase extends CatsSpecBase with ZStreamSpecBaseLowPriority with GenStreamInteropCats {

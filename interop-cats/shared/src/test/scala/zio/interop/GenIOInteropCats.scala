@@ -1,13 +1,13 @@
 package zio.interop
 
-import org.scalacheck._
-import zio._
+import org.scalacheck.*
+import zio.*
 
 /**
  * Temporary fork of zio.GenIO that overrides `genParallel` with ZManaged-based code
  * instead of `io.zipPar(parIo).map(_._1)`
  * because ZIP-PAR IS NON-DETERMINISTIC IN ITS SPAWNED EC TASKS (required for TestContext equality)
- * */
+ */
 trait GenIOInteropCats {
 
   /**

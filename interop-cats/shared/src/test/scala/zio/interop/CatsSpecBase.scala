@@ -1,17 +1,17 @@
 package zio.interop
 
 import cats.effect.testkit.TestInstances
-import cats.effect.{ IO => CIO }
-import cats.syntax.all._
+import cats.effect.IO as CIO
+import cats.syntax.all.*
 import cats.{ Eq, Order }
 import org.scalacheck.{ Arbitrary, Cogen, Gen, Prop }
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
-import zio._
+import zio.*
 import zio.clock.Clock
-import zio.duration._
+import zio.duration.*
 import zio.internal.{ Executor, Platform, Tracing }
 
 import java.time.{ DateTimeException, Instant, OffsetDateTime, ZoneOffset }
@@ -26,8 +26,7 @@ private[zio] trait CatsSpecBase
     with FunSuiteDiscipline
     with Configuration
     with TestInstances
-    with CatsSpecBaseLowPriority
-    with zio.interop.PlatformSpecific {
+    with CatsSpecBaseLowPriority {
 
   def checkAllAsync(name: String, f: Ticker => Laws#RuleSet): Unit =
     checkAll(name, f(Ticker()))
@@ -61,7 +60,7 @@ private[zio] trait CatsSpecBase
             val cancel = ticker.ctx.schedule(finite, () => cb(UIO.unit))
             Left(UIO.effectTotal(cancel()))
           }
-        case infinite: Infinite =>
+        case infinite: Infinite     =>
           ZIO.dieMessage(s"Unexpected infinite duration $infinite passed to Ticker")
       }
     }
@@ -150,7 +149,7 @@ private[interop] sealed trait CatsSpecBaseLowPriority { this: CatsSpecBase =>
   implicit def eqForTask[A: Eq](implicit ticker: Ticker): Eq[Task[A]] =
     eqForIO[Throwable, A]
 
-  def zManagedEq[R, E, A](implicit zio: Eq[ZIO[R, E, A]]): Eq[ZManaged[R, E, A]] =
+  def zManagedEq[R, E, A](implicit zio: Eq[ZIO[R, E, A]]): Eq[ZManaged[R, E, A]]               =
     Eq.by(managed => ZManaged.ReleaseMap.make.flatMap(rm => managed.zio.provideSome[R](_ -> rm).map(_._2)))
 
   implicit def eqForRManaged[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[RManaged[R, A]] =

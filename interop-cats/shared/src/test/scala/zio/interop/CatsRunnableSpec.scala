@@ -2,9 +2,9 @@ package zio.interop
 
 import cats.effect.std.Dispatcher
 import cats.effect.unsafe.{ IORuntime, IORuntimeConfig, Scheduler }
-import cats.effect.{ IO => CIO }
-import zio._
-import zio.duration._
+import cats.effect.IO as CIO
+import zio.*
+import zio.duration.*
 import zio.test.{ DefaultRunnableSpec, TestAspect }
 
 import scala.util.Success
@@ -31,10 +31,9 @@ abstract class CatsRunnableSpec extends DefaultRunnableSpec {
   override val aspects = List(
     TestAspect.timeout(1.minute),
     TestAspect.beforeAll(ZIO.fromFuture { implicit ec =>
-      Dispatcher[CIO].allocated.unsafeToFuture().andThen {
-        case Success((dispatcher, close)) =>
-          openDispatcher = dispatcher
-          closeDispatcher = close
+      Dispatcher[CIO].allocated.unsafeToFuture().andThen { case Success((dispatcher, close)) =>
+        openDispatcher = dispatcher
+        closeDispatcher = close
       }
     }.orDie),
     TestAspect.afterAll(ZIO.fromFuture(_ => closeDispatcher.unsafeToFuture()).orDie)

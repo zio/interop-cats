@@ -2,12 +2,12 @@ package zio
 package interop
 
 import cats.effect.kernel.{ Async, Sync }
-import cats.effect.{ IO => CIO }
+import cats.effect.IO as CIO
 import fs2.Stream
-import zio.interop.catz._
+import zio.interop.catz.*
 import zio.test.Assertion.equalTo
-import zio.test._
-import zio.test.interop.catz.test._
+import zio.test.*
+import zio.test.interop.catz.test.*
 
 object Fs2ZioSpec extends CatsRunnableSpec {
   def spec =
@@ -42,15 +42,15 @@ object Fs2ZioSpec extends CatsRunnableSpec {
       started  <- Promise.make[Nothing, Unit]
       released <- Promise.make[Nothing, Unit]
       fail     <- Promise.make[Nothing, Unit]
-      _ <- Stream
-            .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
-            .evalMap[Task, Unit](_ => fail.await *> IO.fail(new Exception()))
-            .compile[Task, Task, Unit]
-            .drain
-            .fork
-      _ <- started.await
-      _ <- fail.succeed(())
-      _ <- released.await
+      _        <- Stream
+                    .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
+                    .evalMap[Task, Unit](_ => fail.await *> IO.fail(new Exception()))
+                    .compile[Task, Task, Unit]
+                    .drain
+                    .fork
+      _        <- started.await
+      _        <- fail.succeed(())
+      _        <- released.await
     } yield assertCompletes
 
   def bracketTerminate: UIO[TestResult] =
@@ -58,30 +58,30 @@ object Fs2ZioSpec extends CatsRunnableSpec {
       started   <- Promise.make[Nothing, Unit]
       released  <- Promise.make[Nothing, Unit]
       terminate <- Promise.make[Nothing, Unit]
-      _ <- Stream
-            .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
-            .evalMap[Task, Unit](_ => terminate.await *> IO.die(new Exception()))
-            .compile[Task, Task, Unit]
-            .drain
-            .fork
-      _ <- started.await
-      _ <- terminate.succeed(())
-      _ <- released.await
+      _         <- Stream
+                     .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
+                     .evalMap[Task, Unit](_ => terminate.await *> IO.die(new Exception()))
+                     .compile[Task, Task, Unit]
+                     .drain
+                     .fork
+      _         <- started.await
+      _         <- terminate.succeed(())
+      _         <- released.await
     } yield assertCompletes
 
   def bracketInterrupt: UIO[TestResult] =
     for {
       started  <- Promise.make[Nothing, Unit]
       released <- Promise.make[Nothing, Unit]
-      f <- Stream
-            .bracket(IO.unit)(_ => released.succeed(()).unit)
-            .evalMap[Task, Unit](_ => started.succeed(()) *> IO.never)
-            .compile[Task, Task, Unit]
-            .drain
-            .fork
-      _ <- started.await
-      _ <- f.interrupt
-      _ <- released.await
+      f        <- Stream
+                    .bracket(IO.unit)(_ => released.succeed(()).unit)
+                    .evalMap[Task, Unit](_ => started.succeed(()) *> IO.never)
+                    .compile[Task, Task, Unit]
+                    .drain
+                    .fork
+      _        <- started.await
+      _        <- f.interrupt
+      _        <- released.await
     } yield assertCompletes
 
   def testCaseJoin[F[_]: Async]: F[List[Int]] = {

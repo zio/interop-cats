@@ -9,7 +9,7 @@ import BuildInfoKeys._
 object BuildHelper {
   val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.15.4" % Test)
 
-  val Scala212 = "2.12.13"
+  val Scala212 = "2.12.14"
   val Scala213 = "2.13.6"
   val Scala3   = "3.0.1"
 
@@ -27,7 +27,8 @@ object BuildHelper {
     "-language:existentials",
     "-explaintypes",
     "-Yrangepos",
-    "-Xsource:2.13",
+    "-Xsource:3",
+    "-P:kind-projector:underscore-placeholders",
     "-Xlint:_,-type-parameter-shadow",
     "-Ywarn-numeric-widen",
     "-Ywarn-value-discard"
@@ -35,25 +36,24 @@ object BuildHelper {
 
   private val std3xOptions = Seq(
     "-Xfatal-warnings",
-    "-Ykind-projector"
+    "-Ykind-projector:underscores"
   )
 
   val buildInfoSettings = Seq(
-    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
+    buildInfoKeys    := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
     buildInfoPackage := "zio",
-    buildInfoObject := "BuildInfoInteropCats"
+    buildInfoObject  := "BuildInfoInteropCats"
   )
 
-  val optimizerOptions = {
+  val optimizerOptions =
     Seq(
       "-opt:l:inline",
       "-opt-inline-from:zio.interop.**"
     )
-  }
 
   def extraOptions(scalaVersion: String) =
     CrossVersion.partialVersion(scalaVersion) match {
-      case Some((3, 0)) =>
+      case Some((3, 0))  =>
         std3xOptions
       case Some((2, 13)) =>
         Seq(
@@ -75,22 +75,22 @@ object BuildHelper {
           "-Ywarn-nullary-override",
           "-Ywarn-nullary-unit"
         ) ++ std2xOptions ++ optimizerOptions
-      case _ => Seq.empty
+      case _             => Seq.empty
     }
 
   def stdSettings(prjName: String) = Seq(
-    name := s"$prjName",
-    scalacOptions := stdOptions,
-    crossScalaVersions := Seq(Scala213, Scala212),
+    name                     := s"$prjName",
+    scalacOptions            := stdOptions,
+    crossScalaVersions       := Seq(Scala213, Scala212),
     ThisBuild / scalaVersion := crossScalaVersions.value.head,
-    scalacOptions := stdOptions ++ extraOptions(scalaVersion.value),
+    scalacOptions            := stdOptions ++ extraOptions(scalaVersion.value),
     libraryDependencies ++= testDeps ++ {
       if (isDotty(scalaVersion.value)) Seq.empty
       else Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.0") cross CrossVersion.full)
     },
     Test / parallelExecution := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
-    autoAPIMappings := true,
+    autoAPIMappings          := true,
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library"),
     Compile / unmanagedSourceDirectories ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
@@ -104,10 +104,10 @@ object BuildHelper {
             CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2.12+")) ++
             CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2")) ++
             CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2.12+"))
-        case Some((3, 0)) =>
+        case Some((3, 0))            =>
           CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-3")) ++
             CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-3"))
-        case _ => Nil
+        case _                       => Nil
       }
     },
     Test / unmanagedSourceDirectories ++= {
@@ -119,15 +119,14 @@ object BuildHelper {
             file(sourceDirectory.value.getPath + "/test/scala-2.12"),
             file(sourceDirectory.value.getPath + "/test/scala-2.12+")
           )
-        case _ => Nil
+        case _                       => Nil
       }
     }
   )
 
   def isDotty(scalaVersion: String): Boolean =
-    CrossVersion.partialVersion(scalaVersion).forall {
-      case (major, _) =>
-        major >= 3
+    CrossVersion.partialVersion(scalaVersion).forall { case (major, _) =>
+      major >= 3
     }
 
   val dottySettings = Seq(
@@ -140,7 +139,7 @@ object BuildHelper {
       if (isDotty(scalaVersion.value)) Seq("-Xfatal-warnings")
       else Seq()
     },
-    Compile / doc / sources := {
+    Compile / doc / sources  := {
       val old = (Compile / doc / sources).value
       if (isDotty(scalaVersion.value)) Nil
       else {

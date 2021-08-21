@@ -1,7 +1,7 @@
 package zio.stream.interop
 
-import org.scalacheck._
-import zio.stream._
+import org.scalacheck.*
+import zio.stream.*
 
 trait GenStreamInteropCats {
 

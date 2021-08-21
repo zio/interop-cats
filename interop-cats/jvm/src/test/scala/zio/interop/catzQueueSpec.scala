@@ -2,11 +2,11 @@ package zio.interop
 
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
-import cats.effect.{ IO => CIO }
-import cats.implicits._
-import zio.test.Assertion._
-import zio.test._
-import zio.test.interop.catz.test._
+import cats.effect.IO as CIO
+import cats.implicits.*
+import zio.test.Assertion.*
+import zio.test.*
+import zio.test.interop.catz.test.*
 
 object catzQueueSpec extends CatsRunnableSpec {
 
@@ -35,29 +35,29 @@ object catzQueueSpec extends CatsRunnableSpec {
 
   def unboundedQueueTest[F[+_]: Async: Dispatcher]: F[TestResult] =
     for {
-      q        <- Queue.unbounded[F, Int]
+      q       <- Queue.unbounded[F, Int]
       expected = Range.inclusive(0, 100)
-      _        <- q.offerAll(expected)
-      actual   <- q.takeAll
+      _       <- q.offerAll(expected)
+      actual  <- q.takeAll
     } yield assert(actual)(equalTo(expected.toList))
 
   def contramapQueueTest[F[+_]: Async: Dispatcher]: F[TestResult] =
     for {
-      q        <- Queue.unbounded[F, String]
+      q       <- Queue.unbounded[F, String]
       q1       = q.contramap((i: Int) => i.toString)
       data     = Range.inclusive(0, 100)
-      _        <- q1.offerAll(data)
-      actual   <- q1.takeAll
+      _       <- q1.offerAll(data)
+      actual  <- q1.takeAll
       expected = data.map(_.toString)
     } yield assert(actual)(equalTo(expected.toList))
 
   def mapMQueueTest[F[+_]: Async: Dispatcher]: F[TestResult] =
     for {
-      q        <- Queue.unbounded[F, Int]
+      q       <- Queue.unbounded[F, Int]
       q1       = q.mapM(_.toString.pure[F])
       data     = Range.inclusive(0, 100)
-      _        <- q1.offerAll(data)
-      actual   <- q1.takeAll
+      _       <- q1.offerAll(data)
+      actual  <- q1.takeAll
       expected = data.map(_.toString)
     } yield assert(actual)(equalTo(expected.toList))
 

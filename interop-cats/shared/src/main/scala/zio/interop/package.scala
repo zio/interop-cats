@@ -18,11 +18,14 @@ package zio
 
 import cats.effect.kernel.{ Async, Outcome, Resource }
 import cats.effect.std.Dispatcher
-import cats.syntax.all._
+import cats.syntax.all.*
 
 import scala.concurrent.Future
 
-package object interop extends interop.PlatformSpecific {
+package object interop {
+
+  type CBlocking        = interop.PlatformSpecific.CBlocking
+  type CBlockingService = interop.PlatformSpecific.CBlockingService
 
   type Queue[F[+_], A] = CQueue[F, A, A]
   val Queue: CQueue.type = CQueue
@@ -36,13 +39,13 @@ package object interop extends interop.PlatformSpecific {
   type Hub[F[+_], A] = CHub[F, A, A]
   val Hub: CHub.type = CHub
 
-  @inline private[interop] def toOutcome[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, *], E, A] =
+  @inline private[interop] def toOutcome[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, _], E, A] =
     exit match {
-      case Exit.Success(value) =>
+      case Exit.Success(value)                      =>
         Outcome.Succeeded(ZIO.succeed(value))
       case Exit.Failure(cause) if cause.interrupted =>
         Outcome.Canceled()
-      case Exit.Failure(cause) =>
+      case Exit.Failure(cause)                      =>
         cause.failureOrCause match {
           case Left(error)  => Outcome.Errored(error)
           case Right(cause) => Outcome.Succeeded(ZIO.halt(cause))
@@ -58,11 +61,11 @@ package object interop extends interop.PlatformSpecific {
 
   @inline private[interop] def toExitCase(exit: Exit[Any, Any]): Resource.ExitCase =
     exit match {
-      case Exit.Success(_) =>
+      case Exit.Success(_)                          =>
         Resource.ExitCase.Succeeded
       case Exit.Failure(cause) if cause.interrupted =>
         Resource.ExitCase.Canceled
-      case Exit.Failure(cause) =>
+      case Exit.Failure(cause)                      =>
         cause.failureOrCause match {
           case Left(error: Throwable) => Resource.ExitCase.Errored(error)
           case _                      => Resource.ExitCase.Errored(FiberFailure(cause))
@@ -72,9 +75,8 @@ package object interop extends interop.PlatformSpecific {
   @inline private[zio] def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F]): Task[A] =
     ZIO
       .effectTotal(F.unsafeToFutureCancelable(fa))
-      .flatMap {
-        case (future, cancel) =>
-          ZIO.fromFuture(_ => future).onInterrupt(ZIO.fromFuture(_ => cancel()).orDie).interruptible
+      .flatMap { case (future, cancel) =>
+        ZIO.fromFuture(_ => future).onInterrupt(ZIO.fromFuture(_ => cancel()).orDie).interruptible
       }
       .uninterruptible
 

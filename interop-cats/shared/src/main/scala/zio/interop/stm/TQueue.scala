@@ -16,7 +16,7 @@
 
 package zio.interop.stm
 
-import zio.stm.{ TQueue => ZTQueue }
+import zio.stm.TQueue as ZTQueue
 
 /**
  * See [[zio.stm.TQueue]]

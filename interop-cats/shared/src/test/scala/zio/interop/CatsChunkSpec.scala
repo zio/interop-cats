@@ -1,11 +1,12 @@
 package zio.interop
 
-import cats._
-import cats.kernel.laws.discipline._
-import cats.laws.discipline.arbitrary._
-import cats.laws.discipline.{ SerializableTests => _, _ }
+import cats.*
+import cats.kernel.laws.discipline.*
+import cats.laws.discipline.arbitrary.*
+import cats.laws.discipline.*
+import cats.kernel.laws.discipline.SerializableTests
 import zio.Chunk
-import zio.interop.catz.core._
+import zio.interop.catz.core.*
 
 class CatsChunkSpec extends CatsSpecBase {
 

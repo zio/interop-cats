@@ -16,49 +16,49 @@
 
 package zio.stream.interop
 
-import cats._
-import cats.arrow._
+import cats.*
+import cats.arrow.*
 import cats.effect.kernel.Par.ParallelF
-import zio._
-import zio.stream._
+import zio.*
+import zio.stream.*
 
 object catz extends CatsInstances {
   object core extends CatsInstances
 }
 
 sealed abstract class CatsInstances extends CatsInstances1 {
-  implicit def zstreamAlternativeInstance[R, E]: Alternative[ZStream[R, E, *]] =
+  implicit def zstreamAlternativeInstance[R, E]: Alternative[ZStream[R, E, _]] =
     new ZStreamAlternative[R, E]
 }
 
 sealed abstract class CatsInstances1 extends CatsInstances2 {
-  implicit def zstreamMonoidKInstance[R, E]: MonoidK[ZStream[R, E, *]] =
+  implicit def zstreamMonoidKInstance[R, E]: MonoidK[ZStream[R, E, _]] =
     new ZStreamMonoidK[R, E]
 
-  implicit def zstreamBifunctorInstance[R]: Bifunctor[ZStream[R, *, *]] =
+  implicit def zstreamBifunctorInstance[R]: Bifunctor[ZStream[R, _, _]] =
     new ZStreamBifunctor[R] {}
 
-  implicit def zstreamArrowInstance[E]: ArrowChoice[ZStream[*, E, *]] = new ZStreamArrowChoice[E]
+  implicit def zstreamArrowInstance[E]: ArrowChoice[ZStream[_, E, _]]   = new ZStreamArrowChoice[E]
 }
 
 sealed abstract class CatsInstances2 extends CatsInstances3 {
-  implicit def zstreamParallelInstance[R, E]: Parallel.Aux[ZStream[R, E, *], ParallelF[ZStream[R, E, *], *]] =
+  implicit def zstreamParallelInstance[R, E]: Parallel.Aux[ZStream[R, E, _], ParallelF[ZStream[R, E, _], _]] =
     new ZStreamParallel[R, E](zstreamMonadErrorInstance[R, E])
 }
 
 sealed abstract class CatsInstances3 {
-  implicit def zstreamMonadErrorInstance[R, E]: MonadError[ZStream[R, E, *], E] =
+  implicit def zstreamMonadErrorInstance[R, E]: MonadError[ZStream[R, E, _], E] =
     new ZStreamMonadError[R, E]
 }
 
 private class ZStreamAlternative[R, E]
     extends ZStreamMonoidK[R, E]
     with ZStreamApplicative[R, E]
-    with Alternative[ZStream[R, E, *]] {
+    with Alternative[ZStream[R, E, _]] {
   override type F[A] = ZStream[R, E, A]
 }
 
-private class ZStreamMonadError[R, E] extends MonadError[ZStream[R, E, *], E] with StackSafeMonad[ZStream[R, E, *]] {
+private class ZStreamMonadError[R, E] extends MonadError[ZStream[R, E, _], E] with StackSafeMonad[ZStream[R, E, _]] {
 
   override final def handleErrorWith[A](fa: ZStream[R, E, A])(f: E => ZStream[R, E, A]): ZStream[R, E, A] =
     fa.catchAll(f)
@@ -71,13 +71,13 @@ private class ZStreamMonadError[R, E] extends MonadError[ZStream[R, E, *], E] wi
   override final def pure[A](a: A): ZStream[R, E, A]                                                 = ZStream.succeed(a)
   override final def map[A, B](fa: ZStream[R, E, A])(f: A => B): ZStream[R, E, B]                    = fa.map(f)
 
-  override final def widen[A, B >: A](fa: ZStream[R, E, A]): ZStream[R, E, B] = fa
+  override final def widen[A, B >: A](fa: ZStream[R, E, A]): ZStream[R, E, B]                                    = fa
   override final def map2[A, B, Z](fa: ZStream[R, E, A], fb: ZStream[R, E, B])(f: (A, B) => Z): ZStream[R, E, Z] =
     fa.crossWith(fb)(f)
-  override final def as[A, B](fa: ZStream[R, E, A], b: B): ZStream[R, E, B] = fa.as(b)
+  override final def as[A, B](fa: ZStream[R, E, A], b: B): ZStream[R, E, B]                                      = fa.as(b)
 }
 
-private trait ZStreamApplicative[R, E] extends Applicative[ZStream[R, E, *]] {
+private trait ZStreamApplicative[R, E] extends Applicative[ZStream[R, E, _]] {
   type F[A] = ZStream[R, E, A]
 
   override final def pure[A](a: A): F[A] =
@@ -96,7 +96,7 @@ private trait ZStreamApplicative[R, E] extends Applicative[ZStream[R, E, *]] {
     if (cond) f.as(()) else ZStream.unit
 }
 
-private class ZStreamMonoidK[R, E] extends MonoidK[ZStream[R, E, *]] {
+private class ZStreamMonoidK[R, E] extends MonoidK[ZStream[R, E, _]] {
   type F[A] = ZStream[R, E, A]
 
   override final def empty[A]: F[A] =
@@ -106,14 +106,14 @@ private class ZStreamMonoidK[R, E] extends MonoidK[ZStream[R, E, *]] {
     a ++ b
 }
 
-private trait ZStreamBifunctor[R] extends Bifunctor[ZStream[R, *, *]] {
+private trait ZStreamBifunctor[R] extends Bifunctor[ZStream[R, _, _]] {
   type F[A, B] = ZStream[R, A, B]
 
   override final def bimap[A, B, C, D](fab: F[A, B])(f: A => C, g: B => D): F[C, D] =
     fab.mapBoth(f, g)
 }
 
-private class ZStreamArrowChoice[E] extends ArrowChoice[ZStream[*, E, *]] {
+private class ZStreamArrowChoice[E] extends ArrowChoice[ZStream[_, E, _]] {
   type F[A, B] = ZStream[A, E, B]
 
   final override def lift[A, B](f: A => B): F[A, B] =
@@ -131,16 +131,16 @@ private class ZStreamArrowChoice[E] extends ArrowChoice[ZStream[*, E, *]] {
   def choose[A, B, C, D](f: F[A, C])(g: F[B, D]): F[Either[A, B], Either[C, D]] =
     id[Either[A, B]].flatMap(_.fold(f.provide(_).map(Left.apply), g.provide(_).map(Right.apply)))
 
-  final override def first[A, B, C](fa: F[A, B]): F[(A, C), (B, C)] =
+  final override def first[A, B, C](fa: F[A, B]): F[(A, C), (B, C)]               =
     id[(A, C)].flatMap { case (a, c) => fa.provide(a).map(_ -> c) }
 
-  final override def second[A, B, C](fa: F[A, B]): F[(C, A), (C, B)] =
+  final override def second[A, B, C](fa: F[A, B]): F[(C, A), (C, B)]              =
     id[(C, A)].flatMap { case (c, a) => fa.provide(a).map(c -> _) }
 
   final override def split[A, B, C, D](f: F[A, B], g: F[C, D]): F[(A, C), (B, D)] =
     id[(A, C)].flatMap { case (a, c) => f.provide(a) cross g.provide(c) }
 
-  final override def merge[A, B, C](f: F[A, B], g: F[A, C]): F[A, (B, C)] =
+  final override def merge[A, B, C](f: F[A, B], g: F[A, C]): F[A, (B, C)]         =
     f cross g
 
   final override def lmap[A, B, C](fab: F[A, B])(f: C => A): F[C, B] =
@@ -153,8 +153,8 @@ private class ZStreamArrowChoice[E] extends ArrowChoice[ZStream[*, E, *]] {
     id[Either[A, B]].flatMap(_.fold(f.provide, g.provide))
 }
 
-private class ZStreamParallel[R, E](final override val monad: Monad[ZStream[R, E, *]])
-    extends Parallel[ZStream[R, E, *]] {
+private class ZStreamParallel[R, E](final override val monad: Monad[ZStream[R, E, _]])
+    extends Parallel[ZStream[R, E, _]] {
   type G[A] = ZStream[R, E, A]
   type F[A] = ParallelF[G, A]
 
@@ -170,7 +170,7 @@ private class ZStreamParallel[R, E](final override val monad: Monad[ZStream[R, E
   }
 }
 
-private class ZStreamParApplicative[R, E] extends CommutativeApplicative[ParallelF[ZStream[R, E, *], *]] {
+private class ZStreamParApplicative[R, E] extends CommutativeApplicative[ParallelF[ZStream[R, E, _], _]] {
   type G[A] = ZStream[R, E, A]
   type F[A] = ParallelF[G, A]
 

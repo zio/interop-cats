@@ -16,9 +16,9 @@
 
 package zio.interop
 
-import cats._
+import cats.*
 import cats.data.{ Ior, NonEmptyList }
-import cats.syntax.functor._
+import cats.syntax.functor.*
 import zio.{ Chunk, ChunkBuilder, NonEmptyChunk }
 
 import scala.annotation.tailrec
@@ -38,10 +38,8 @@ trait CatsNonEmptyChunkInstances extends CatsNonEmptyChunkInstances1 {
     PartialOrder.by((a: NonEmptyChunk[A]) => a.toChunk)(zio.interop.catz.core.chunkPartialOrder)
 
   /* @see [[cats.data.NonEmptyVectorInstances.catsDataInstancesForNonEmptyVector]] */
-  implicit val nonEmptyChunkStdInstances: SemigroupK[NonEmptyChunk]
-    with Bimonad[NonEmptyChunk]
-    with NonEmptyTraverse[NonEmptyChunk]
-    with Align[NonEmptyChunk] =
+  implicit val nonEmptyChunkStdInstances
+    : SemigroupK[NonEmptyChunk] & Bimonad[NonEmptyChunk] & NonEmptyTraverse[NonEmptyChunk] & Align[NonEmptyChunk] =
     new SemigroupK[NonEmptyChunk]
       with Bimonad[NonEmptyChunk]
       with NonEmptyTraverse[NonEmptyChunk]
@@ -71,7 +69,7 @@ trait CatsNonEmptyChunkInstances extends CatsNonEmptyChunkInstances1 {
           case a +: as => loop(as, b += f(NonEmptyChunk.fromIterable(a, as)))
           case _       => b.result()
         }
-        val tail = fa.tail
+        val tail                                                         = fa.tail
         NonEmptyChunk.fromIterable(f(fa), loop(tail, ChunkBuilder.make[B](tail.size)))
       }
 
@@ -85,7 +83,7 @@ trait CatsNonEmptyChunkInstances extends CatsNonEmptyChunkInstances1 {
       )(f: A => G[B])(implicit G: Apply[G]): G[NonEmptyChunk[B]] = {
         def loop(head: A, tail: Chunk[A]): Eval[G[NonEmptyChunk[B]]] =
           tail.headOption match {
-            case None =>
+            case None    =>
               Eval.now(f(head).map(NonEmptyChunk.single))
             case Some(h) =>
               G.map2Eval(f(head), Eval.defer(loop(h, tail.tail)))((b, acc) => acc.prepend(Chunk.single(b)))
@@ -113,14 +111,14 @@ trait CatsNonEmptyChunkInstances extends CatsNonEmptyChunkInstances1 {
         fa.reduceMapLeft(f)(g)
 
       override def reduceRightTo[A, B](fa: NonEmptyChunk[A])(f: A => B)(g: (A, Eval[B]) => Eval[B]): Eval[B] = {
-        val lastIndex = fa.length - 1
+        val lastIndex             = fa.length - 1
         def loop(i: Int): Eval[B] =
           if (i < lastIndex) g(fa(i), Eval.defer(loop(i + 1)))
           else Eval.later(f(fa(lastIndex)))
         Eval.defer(loop(0))
       }
 
-      override def toNonEmptyList[A](fa: NonEmptyChunk[A]): NonEmptyList[A] =
+      override def toNonEmptyList[A](fa: NonEmptyChunk[A]): NonEmptyList[A]      =
         fa.toCons match { case a :: as => NonEmptyList(a, as) }
 
       // Foldable

@@ -5,12 +5,12 @@ import zio.clock.Clock
 import zio.{ Chunk, RIO, Ref, Task }
 import zio.stream.ZStream
 import zio.test.Assertion.{ equalTo, fails }
-import zio.test._
-import zio.interop.catz._
+import zio.test.*
+import zio.interop.catz.*
 import zio.random.nextIntBetween
 
 object fs2StreamSpec extends DefaultRunnableSpec {
-  import zio.stream.interop.fs2z._
+  import zio.stream.interop.fs2z.*
 
   val exception: Throwable = new Exception("Failed")
 
@@ -63,11 +63,11 @@ object fs2StreamSpec extends DefaultRunnableSpec {
         for {
           queueSize <- nextIntBetween(2, 32)
           fins      <- Ref.make(Chunk[Int]())
-          stream = Stream(1).onFinalize(fins.update(1 +: _)) >>
-            Stream(2).onFinalize(fins.update(2 +: _)) >>
-            Stream(3).onFinalize(fins.update(3 +: _)) >>
-            Stream.raiseError[Task](exception)
-          result <- stream.toZStream(queueSize).drain.catchAllCause(_ => ZStream.fromEffect(fins.get)).runCollect
+          stream     = Stream(1).onFinalize(fins.update(1 +: _)) >>
+                         Stream(2).onFinalize(fins.update(2 +: _)) >>
+                         Stream(3).onFinalize(fins.update(3 +: _)) >>
+                         Stream.raiseError[Task](exception)
+          result    <- stream.toZStream(queueSize).drain.catchAllCause(_ => ZStream.fromEffect(fins.get)).runCollect
         } yield assert(result.flatten)(equalTo(Chunk(1, 2, 3)))
       },
       testM("bigger queueSize than a chunk size")(checkM(Gen.chunkOfN(10)(Gen.anyLong)) { chunk =>
@@ -88,10 +88,10 @@ object fs2StreamSpec extends DefaultRunnableSpec {
       testM("RIO")(checkM(Gen.chunkOfN(10)(Gen.anyLong)) { chunk =>
         for {
           queueSize <- nextIntBetween(2, 128)
-          result <- assertEqual(
-                     fs2StreamFromChunk(chunk).covary[RIO[Clock, *]].toZStream(queueSize),
-                     ZStream.fromChunk(chunk)
-                   )
+          result    <- assertEqual(
+                         fs2StreamFromChunk(chunk).covary[RIO[Clock, _]].toZStream(queueSize),
+                         ZStream.fromChunk(chunk)
+                       )
         } yield result
       })
     )

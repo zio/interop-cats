@@ -9,7 +9,7 @@ import scala.language.implicitConversions
 
 trait FS2StreamSyntax {
 
-  implicit final def fs2RIOStreamSyntax[R, A](stream: Stream[RIO[R, *], A]): FS2RIOStreamSyntax[R, A] =
+  implicit final def fs2RIOStreamSyntax[R, A](stream: Stream[RIO[R, _], A]): FS2RIOStreamSyntax[R, A] =
     new FS2RIOStreamSyntax(stream)
 
   implicit final def zStreamSyntax[R, E, A](stream: ZStream[R, E, A]): ZStreamSyntax[R, E, A] =
@@ -19,7 +19,7 @@ trait FS2StreamSyntax {
 class ZStreamSyntax[R, E, A](private val stream: ZStream[R, E, A]) extends AnyVal {
 
   /** Convert a [[zio.stream.ZStream]] into an [[fs2.Stream]]. */
-  def toFs2Stream: fs2.Stream[ZIO[R, E, *], A] =
+  def toFs2Stream: fs2.Stream[ZIO[R, E, _], A] =
     fs2.Stream.resource(stream.process.toResourceZIO).flatMap { pull =>
       fs2.Stream.repeatEval(pull.optional).unNoneTerminate.flatMap { chunk =>
         fs2.Stream.chunk(fs2.Chunk.indexedSeq(chunk))
@@ -27,7 +27,7 @@ class ZStreamSyntax[R, E, A](private val stream: ZStream[R, E, A]) extends AnyVa
     }
 }
 
-final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, *], A]) {
+final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
 
   /**
    * Convert an [[fs2.Stream]] into a [[zio.stream.ZStream]].
@@ -44,15 +44,15 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, *], A]) {
     ZStream.managed {
       for {
         queue <- Queue.bounded[Take[Throwable, A]](1).toManaged[R](_.shutdown)
-        _ <- {
+        _     <-
           (stream.evalTap(a => queue.offer(Take.single(a))) ++ fs2.Stream
             .eval(queue.offer(Take.end)))
             .handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
-            .compile[RIO[R, *], RIO[R, *], Any]
+            .compile[RIO[R, _], RIO[R, _], Any]
             .resource
             .drain
             .toManagedZIO
-        }.fork
+            .fork
       } yield ZStream.fromQueue(queue).flattenTake
     }.flatten
 
@@ -60,13 +60,13 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, *], A]) {
     ZStream.managed {
       for {
         queue <- Queue.bounded[Take[Throwable, A]](queueSize).toManaged(_.shutdown)
-        _ <- {
+        _     <- {
           stream
             .chunkLimit(queueSize)
             .evalTap(a => queue.offer(Take.chunk(zio.Chunk.fromIterable(a.toList))))
             .unchunk ++ fs2.Stream.eval(queue.offer(Take.end))
         }.handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
-          .compile[RIO[R, *], RIO[R, *], Any]
+          .compile[RIO[R, _], RIO[R, _], Any]
           .resource
           .drain
           .toManagedZIO
