@@ -1,12 +1,13 @@
 package zio.interop
 
-import cats._
-import cats.kernel.laws.discipline._
-import cats.laws.discipline.{ SerializableTests => _, _ }
-import cats.laws.discipline.arbitrary._
+import cats.*
+import cats.kernel.laws.discipline.*
+import cats.laws.discipline.*
+import cats.kernel.laws.discipline.SerializableTests
+import cats.laws.discipline.arbitrary.*
 import org.scalacheck.{ Arbitrary, Cogen }
 import zio.{ Chunk, NonEmptyChunk }
-import zio.interop.catz.core._
+import zio.interop.catz.core.*
 
 class CatsNonEmptyChunkSpec extends ZioSpecBase {
 

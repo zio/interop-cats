@@ -1,7 +1,7 @@
 package zio.interop
 
 import cats.effect.kernel.{ Concurrent, Resource }
-import zio.interop.catz._
+import zio.interop.catz.*
 import zio.{ Promise, Runtime, Task }
 
 class CatsInteropSpec extends ZioSpecBase {

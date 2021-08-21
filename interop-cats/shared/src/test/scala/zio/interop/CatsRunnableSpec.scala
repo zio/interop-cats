@@ -2,9 +2,9 @@ package zio.interop
 
 import cats.effect.std.Dispatcher
 import cats.effect.unsafe.{ IORuntime, IORuntimeConfig, Scheduler }
-import cats.effect.{ IO => CIO }
-import zio._
-import zio.duration._
+import cats.effect.IO as CIO
+import zio.*
+import zio.duration.*
 import zio.test.{ DefaultRunnableSpec, TestAspect }
 
 import scala.util.Success

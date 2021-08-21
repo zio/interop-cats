@@ -1,7 +1,7 @@
 package zio.interop
 
-import org.scalacheck._
-import zio._
+import org.scalacheck.*
+import zio.*
 
 /**
  * Temporary fork of zio.GenIO that overrides `genParallel` with ZManaged-based code

@@ -16,10 +16,10 @@
 
 package zio.interop
 
-import cats._
+import cats.*
 import cats.data.{ Chain, Ior }
 import cats.kernel.instances.StaticMethods
-import cats.syntax.functor._
+import cats.syntax.functor.*
 import zio.{ Chunk, ChunkBuilder }
 
 import scala.annotation.tailrec
@@ -39,12 +39,8 @@ trait CatsChunkInstances extends CatsChunkInstances1 {
     new ChunkMonoid[A]
 
   /** @see [[cats.instances.VectorInstances.catsStdInstancesForVector]] */
-  implicit val chunkStdInstances: Traverse[Chunk]
-    with TraverseFilter[Chunk]
-    with Monad[Chunk]
-    with Alternative[Chunk]
-    with CoflatMap[Chunk]
-    with Align[Chunk] =
+  implicit val chunkStdInstances
+    : Traverse[Chunk] & TraverseFilter[Chunk] & Monad[Chunk] & Alternative[Chunk] & CoflatMap[Chunk] & Align[Chunk] =
     new Traverse[Chunk]
       with TraverseFilter[Chunk]
       with Monad[Chunk]

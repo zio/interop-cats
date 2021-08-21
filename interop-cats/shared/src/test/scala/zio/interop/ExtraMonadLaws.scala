@@ -1,7 +1,7 @@
 package zio.interop
 
 import cats.Monad
-import cats.implicits._
+import cats.implicits.*
 import cats.kernel.laws.IsEq
 import cats.laws.IsEqArrow
 

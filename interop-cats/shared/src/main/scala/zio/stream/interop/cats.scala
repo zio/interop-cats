@@ -16,11 +16,11 @@
 
 package zio.stream.interop
 
-import cats._
-import cats.arrow._
+import cats.*
+import cats.arrow.*
 import cats.effect.kernel.Par.ParallelF
-import zio._
-import zio.stream._
+import zio.*
+import zio.stream.*
 
 object catz extends CatsInstances {
   object core extends CatsInstances

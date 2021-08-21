@@ -5,12 +5,12 @@ import zio.clock.Clock
 import zio.{ Chunk, RIO, Ref, Task }
 import zio.stream.ZStream
 import zio.test.Assertion.{ equalTo, fails }
-import zio.test._
-import zio.interop.catz._
+import zio.test.*
+import zio.interop.catz.*
 import zio.random.nextIntBetween
 
 object fs2StreamSpec extends DefaultRunnableSpec {
-  import zio.stream.interop.fs2z._
+  import zio.stream.interop.fs2z.*
 
   val exception: Throwable = new Exception("Failed")
 

@@ -18,7 +18,7 @@ package zio
 
 import cats.effect.kernel.{ Async, Outcome, Resource }
 import cats.effect.std.Dispatcher
-import cats.syntax.all._
+import cats.syntax.all.*
 
 import scala.concurrent.Future
 

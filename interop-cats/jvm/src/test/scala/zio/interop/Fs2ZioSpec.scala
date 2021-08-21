@@ -2,12 +2,12 @@ package zio
 package interop
 
 import cats.effect.kernel.{ Async, Sync }
-import cats.effect.{ IO => CIO }
+import cats.effect.IO as CIO
 import fs2.Stream
-import zio.interop.catz._
+import zio.interop.catz.*
 import zio.test.Assertion.equalTo
-import zio.test._
-import zio.test.interop.catz.test._
+import zio.test.*
+import zio.test.interop.catz.test.*
 
 object Fs2ZioSpec extends CatsRunnableSpec {
   def spec =

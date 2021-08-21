@@ -18,7 +18,7 @@ package zio.interop
 
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
-import zio.{ Runtime, ZEnv, Schedule => ZSchedule }
+import zio.{ Runtime, ZEnv, Schedule as ZSchedule }
 
 import java.time.{ Duration, OffsetDateTime }
 
@@ -26,7 +26,7 @@ import java.time.{ Duration, OffsetDateTime }
  * @see zio.ZSchedule
  */
 sealed abstract class Schedule[F[+_], -In, +Out](private val underlying: ZSchedule[ZEnv, In, Out]) {
-  import Schedule._
+  import Schedule.*
 
   /**
    * @see zio.ZSchedule.&&
@@ -502,7 +502,7 @@ object Schedule {
   def fromDurations[F[+_]: Async: Dispatcher](duration: Duration, durations: Duration*)(
     implicit runtime: Runtime[ZEnv]
   ): Schedule[F, Any, Duration] =
-    Schedule(ZSchedule.fromDurations(duration, durations: _*))
+    Schedule(ZSchedule.fromDurations(duration, durations*))
 
   /**
    * @see zio.ZSchedule.fromFunction

@@ -1,17 +1,17 @@
 package zio.interop
 
 import cats.effect.testkit.TestInstances
-import cats.effect.{ IO => CIO }
-import cats.syntax.all._
+import cats.effect.IO as CIO
+import cats.syntax.all.*
 import cats.{ Eq, Order }
 import org.scalacheck.{ Arbitrary, Cogen, Gen, Prop }
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
-import zio._
+import zio.*
 import zio.clock.Clock
-import zio.duration._
+import zio.duration.*
 import zio.internal.{ Executor, Platform, Tracing }
 
 import java.time.{ DateTimeException, Instant, OffsetDateTime, ZoneOffset }

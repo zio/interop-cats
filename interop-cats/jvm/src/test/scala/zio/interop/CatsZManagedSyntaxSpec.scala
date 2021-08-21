@@ -1,11 +1,11 @@
 package zio.interop
 
 import cats.effect.kernel.Resource
-import cats.effect.{ IO => CIO }
-import zio._
-import zio.interop.catz._
-import zio.test.Assertion._
-import zio.test._
+import cats.effect.IO as CIO
+import zio.*
+import zio.interop.catz.*
+import zio.test.Assertion.*
+import zio.test.*
 
 import java.util.concurrent.TimeUnit
 import scala.collection.mutable

@@ -1,11 +1,11 @@
 package zio.interop
 
-import cats.implicits._
-import cats.mtl.laws.discipline._
+import cats.implicits.*
+import cats.mtl.laws.discipline.*
 import cats.mtl.{ Ask, Handle, Local, Raise }
-import zio._
-import zio.interop.catz._
-import zio.interop.catz.mtl._
+import zio.*
+import zio.interop.catz.*
+import zio.interop.catz.mtl.*
 
 class CatsMtlSpec extends ZioSpecBase {
   type Ctx   = String

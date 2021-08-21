@@ -17,7 +17,7 @@
 package zio.interop
 
 import cats.Applicative
-import cats.mtl._
+import cats.mtl.*
 import zio.ZIO
 
 abstract class CatsMtlPlatform extends CatsMtlInstances

@@ -16,9 +16,9 @@
 
 package zio.interop
 
-import cats._
+import cats.*
 import cats.data.{ Ior, NonEmptyList }
-import cats.syntax.functor._
+import cats.syntax.functor.*
 import zio.{ Chunk, ChunkBuilder, NonEmptyChunk }
 
 import scala.annotation.tailrec
@@ -38,10 +38,8 @@ trait CatsNonEmptyChunkInstances extends CatsNonEmptyChunkInstances1 {
     PartialOrder.by((a: NonEmptyChunk[A]) => a.toChunk)(zio.interop.catz.core.chunkPartialOrder)
 
   /* @see [[cats.data.NonEmptyVectorInstances.catsDataInstancesForNonEmptyVector]] */
-  implicit val nonEmptyChunkStdInstances: SemigroupK[NonEmptyChunk]
-    with Bimonad[NonEmptyChunk]
-    with NonEmptyTraverse[NonEmptyChunk]
-    with Align[NonEmptyChunk] =
+  implicit val nonEmptyChunkStdInstances
+    : SemigroupK[NonEmptyChunk] & Bimonad[NonEmptyChunk] & NonEmptyTraverse[NonEmptyChunk] & Align[NonEmptyChunk] =
     new SemigroupK[NonEmptyChunk]
       with Bimonad[NonEmptyChunk]
       with NonEmptyTraverse[NonEmptyChunk]

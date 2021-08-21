@@ -16,7 +16,7 @@
 
 package zio.interop.stm
 
-import zio.stm.{ TPromise => ZTPromise }
+import zio.stm.TPromise as ZTPromise
 
 /**
  * See [[zio.stm.TPromise]]

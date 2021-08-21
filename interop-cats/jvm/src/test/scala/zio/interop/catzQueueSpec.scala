@@ -2,11 +2,11 @@ package zio.interop
 
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
-import cats.effect.{ IO => CIO }
-import cats.implicits._
-import zio.test.Assertion._
-import zio.test._
-import zio.test.interop.catz.test._
+import cats.effect.IO as CIO
+import cats.implicits.*
+import zio.test.Assertion.*
+import zio.test.*
+import zio.test.interop.catz.test.*
 
 object catzQueueSpec extends CatsRunnableSpec {
 

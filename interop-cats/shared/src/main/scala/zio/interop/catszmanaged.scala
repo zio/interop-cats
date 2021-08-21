@@ -17,9 +17,9 @@
 package zio
 package interop
 
-import cats._
+import cats.*
 import cats.arrow.ArrowChoice
-import cats.effect._
+import cats.effect.*
 import cats.effect.std.Dispatcher
 import cats.kernel.{ CommutativeMonoid, CommutativeSemigroup }
 import zio.ZManaged.ReleaseMap

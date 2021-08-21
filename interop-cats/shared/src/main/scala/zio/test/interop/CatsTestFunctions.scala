@@ -19,7 +19,7 @@ package zio.test.interop
 import cats.effect.std.Dispatcher
 import zio.RIO
 import zio.interop.fromEffect
-import zio.test.{ test => _, _ }
+import zio.test.*
 
 trait CatsTestFunctions {
 

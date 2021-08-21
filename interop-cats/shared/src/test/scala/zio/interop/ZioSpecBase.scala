@@ -1,7 +1,7 @@
 package zio.interop
 
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
-import zio._
+import zio.*
 import zio.clock.Clock
 
 private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPriority with GenIOInteropCats {

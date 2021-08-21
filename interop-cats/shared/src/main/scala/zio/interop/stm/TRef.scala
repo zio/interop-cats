@@ -18,7 +18,7 @@ package zio.interop.stm
 
 import cats.effect.kernel.Async
 import zio.Runtime
-import zio.stm.{ TRef => ZTRef }
+import zio.stm.TRef as ZTRef
 
 /**
  * See [[zio.stm.TRef]]

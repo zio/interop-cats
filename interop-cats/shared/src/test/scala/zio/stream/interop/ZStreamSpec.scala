@@ -1,10 +1,10 @@
 package zio.stream.interop
 
 import cats.effect.ParallelF
-import cats.implicits._
-import cats.laws.discipline._
-import zio.stream._
-import zio.stream.interop.catz._
+import cats.implicits.*
+import cats.laws.discipline.*
+import zio.stream.*
+import zio.stream.interop.catz.*
 
 class ZStreamSpec extends ZStreamSpecBase with GenStreamInteropCats {
 
@@ -33,7 +33,7 @@ class ZStreamSpec extends ZStreamSpecBase with GenStreamInteropCats {
   )
 
   object summoningInstancesTest {
-    import cats._
+    import cats.*
 
     Alternative[ZStream[String, Throwable, _]]
     MonadError[ZStream[String, Throwable, _], Throwable]

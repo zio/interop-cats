@@ -2,15 +2,15 @@ package zio.interop
 
 import cats.arrow.ArrowChoice
 import cats.effect.ParallelF
-import cats.effect.laws._
+import cats.effect.laws.*
 import cats.effect.unsafe.IORuntime
-import cats.laws.discipline._
-import cats.syntax.all._
-import zio._
+import cats.laws.discipline.*
+import cats.syntax.all.*
+import zio.*
 import zio.clock.Clock
-import zio.interop.catz._
+import zio.interop.catz.*
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class CatsSpec extends ZioSpecBase {
 
@@ -66,9 +66,9 @@ class CatsSpec extends ZioSpecBase {
   )
 
   object summoningInstancesTest {
-    import cats._
-    import cats.effect._
-    import zio.clock.{ Clock => ZClock }
+    import cats.*
+    import cats.effect.*
+    import zio.clock.Clock as ZClock
 
     Async[RIO[ZClock & CBlocking, _]]
     Sync[RIO[ZClock & CBlocking, _]]

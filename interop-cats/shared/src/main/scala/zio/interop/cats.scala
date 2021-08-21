@@ -18,18 +18,20 @@ package zio.interop
 
 import cats.arrow.ArrowChoice
 import cats.data.State
-import cats.effect.kernel.{ Unique, Fiber => _, _ }
+import cats.effect.kernel.*
 import cats.effect.unsafe.IORuntime
-import cats.effect.{ LiftIO, IO => CIO }
+import cats.effect.{ IO as CIO, LiftIO }
 import cats.kernel.{ CommutativeMonoid, CommutativeSemigroup }
-import cats.{ effect, _ }
-import zio._
+import cats.effect
+import cats.*
+import zio.Fiber
+import zio.*
 import zio.clock.{ currentTime, nanoTime, Clock }
 import zio.duration.Duration
 
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{ ExecutionContext, Future }
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object catz extends CatsEffectPlatform {
   object core extends CatsPlatform
@@ -93,7 +95,7 @@ abstract class CatsEffectInstances extends CatsZioInstances {
   implicit final def temporalRuntimeInstance[E](implicit runtime: Runtime[Clock]): GenTemporal[IO[E, _], E] =
     new ZioRuntimeTemporal[E]
 
-  private[this] val asyncInstance0: Async[RIO[Clock with CBlocking, _]] =
+  private[this] val asyncInstance0: Async[RIO[Clock & CBlocking, _]] =
     new ZioAsync
 
   private[this] val temporalInstance0: Temporal[RIO[Clock, _]] =

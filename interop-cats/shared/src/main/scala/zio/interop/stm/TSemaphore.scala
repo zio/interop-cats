@@ -16,7 +16,7 @@
 
 package zio.interop.stm
 
-import zio.stm.{ TSemaphore => ZTSemaphore }
+import zio.stm.TSemaphore as ZTSemaphore
 
 /**
  * See [[zio.stm.TSemaphore]]
