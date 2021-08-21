@@ -9,7 +9,7 @@ import BuildInfoKeys._
 object BuildHelper {
   val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.15.4" % Test)
 
-  val Scala212 = "2.12.13"
+  val Scala212 = "2.12.14"
   val Scala213 = "2.13.6"
   val Scala3   = "3.0.1"
 
@@ -27,7 +27,8 @@ object BuildHelper {
     "-language:existentials",
     "-explaintypes",
     "-Yrangepos",
-    "-Xsource:2.13",
+    "-Xsource:3",
+    "-P:kind-projector:underscore-placeholders",
     "-Xlint:_,-type-parameter-shadow",
     "-Ywarn-numeric-widen",
     "-Ywarn-value-discard"
@@ -35,7 +36,7 @@ object BuildHelper {
 
   private val std3xOptions = Seq(
     "-Xfatal-warnings",
-    "-Ykind-projector"
+    "-Ykind-projector:underscores"
   )
 
   val buildInfoSettings = Seq(
