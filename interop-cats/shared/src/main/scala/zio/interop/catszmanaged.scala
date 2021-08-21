@@ -281,7 +281,7 @@ private class ZManagedBifunctor[R] extends Bifunctor[ZManaged[R, *, *]] {
   type F[A, B] = ZManaged[R, A, B]
 
   override final def bimap[A, B, C, D](fab: F[A, B])(f: A => C, g: B => D): F[C, D] =
-    fab.bimap(f, g)
+    fab.mapBoth(f, g)
 }
 
 private class ZManagedContravariant[E, T] extends Contravariant[ZManaged[*, E, T]] {
