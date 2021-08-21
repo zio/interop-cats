@@ -20,7 +20,8 @@ class CatsSpec extends ZioSpecBase {
     implicit tc => AsyncTests[RIO[Clock & CBlocking, _]].async[Int, Int, Int](100.millis)
   )
   checkAllAsync(
-    "Async[Task]", { implicit tc =>
+    "Async[Task]",
+    { implicit tc =>
       implicit val runtime: Runtime[Clock & CBlocking] = Runtime(environment, platform)
       AsyncTests[Task].async[Int, Int, Int](100.millis)
     }
@@ -30,7 +31,8 @@ class CatsSpec extends ZioSpecBase {
     implicit tc => GenTemporalTests[RIO[Clock, _], Throwable].temporal[Int, Int, Int](100.millis)
   )
   checkAllAsync(
-    "Temporal[Task]", { implicit tc =>
+    "Temporal[Task]",
+    { implicit tc =>
       implicit val runtime: Runtime[Clock] = Runtime(environment, platform)
       GenTemporalTests[Task, Throwable].temporal[Int, Int, Int](100.millis)
     }

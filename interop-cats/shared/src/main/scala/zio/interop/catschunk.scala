@@ -120,10 +120,9 @@ trait CatsChunkInstances extends CatsChunkInstances1 {
 
       override def foldM[G[_], A, B](fa: Chunk[A], z: B)(f: (B, A) => G[B])(implicit G: Monad[G]): G[B] = {
         val length = fa.length
-        G.tailRecM((z, 0)) {
-          case (b, i) =>
-            if (i < length) f(b, fa(i)).map(b => Left((b, i + 1)))
-            else G.pure(Right(b))
+        G.tailRecM((z, 0)) { case (b, i) =>
+          if (i < length) f(b, fa(i)).map(b => Left((b, i + 1)))
+          else G.pure(Right(b))
         }
       }
 

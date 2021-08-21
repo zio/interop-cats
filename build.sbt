@@ -6,10 +6,10 @@ name := "interop-cats"
 
 inThisBuild(
   List(
-    organization := "dev.zio",
-    homepage := Some(url("https://zio.dev")),
-    licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
-    developers := List(
+    organization  := "dev.zio",
+    homepage      := Some(url("https://zio.dev")),
+    licenses      := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+    developers    := List(
       Developer(
         "jdegoes",
         "John De Goes",
@@ -20,7 +20,7 @@ inThisBuild(
     pgpPassphrase := sys.env.get("PGP_PASSWORD").map(_.toArray),
     pgpPublicRing := file("/tmp/public.asc"),
     pgpSecretRing := file("/tmp/secret.asc"),
-    scmInfo := Some(
+    scmInfo       := Some(
       ScmInfo(url("https://github.com/zio/interop-cats/"), "scm:git:git@github.com:zio/interop-cats.git")
     )
   )
@@ -62,7 +62,7 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
         "org.typelevel" %%% "cats-mtl"        % catsMtlVersion,
         "co.fs2"        %%% "fs2-core"        % fs2Version
       )
-      val optLibraries = if (scalaVersion.value.startsWith("3")) optLibraries0 else optLibraries0.map(_ % Optional)
+      val optLibraries  = if (scalaVersion.value.startsWith("3")) optLibraries0 else optLibraries0.map(_ % Optional)
       ("dev.zio" %%% "zio" % zioVersion) :: optLibraries
     },
     libraryDependencies ++= Seq(
@@ -81,7 +81,7 @@ lazy val interopCatsJVM = interopCats.jvm.settings(dottySettings)
 lazy val interopCatsJS = interopCats.js
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
-lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
+lazy val coreOnlyTest  = crossProject(JSPlatform, JVMPlatform)
   .in(file("core-only-test"))
   .dependsOn(interopCats)
   .settings(stdSettings("core-only-test"))

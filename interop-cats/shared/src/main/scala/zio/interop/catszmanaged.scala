@@ -61,8 +61,8 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
     def go[B](resource: Resource[F, B]): ZManaged[R, E, B] =
       resource match {
         case allocate: Resource.Allocate[F, b] =>
-          ZManaged.makeReserve[R, E, B](F.uncancelable(allocate.resource).map {
-            case (b, release) => Reservation(ZIO.succeedNow(b), error => release(toExitCase(error)).orDie)
+          ZManaged.makeReserve[R, E, B](F.uncancelable(allocate.resource).map { case (b, release) =>
+            Reservation(ZIO.succeedNow(b), error => release(toExitCase(error)).orDie)
           })
 
         case bind: Resource.Bind[F, a, B] =>
@@ -91,8 +91,8 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
       )
       .flatMap { releaseMap =>
         Resource.suspend(
-          managed.zio.provideSome[R]((_, releaseMap)).map {
-            case (_, a) => Resource.applyCase[F, A](ZIO.succeedNow((a, _ => ZIO.unit)))
+          managed.zio.provideSome[R]((_, releaseMap)).map { case (_, a) =>
+            Resource.applyCase[F, A](ZIO.succeedNow((a, _ => ZIO.unit)))
           }
         )
       }
@@ -218,7 +218,7 @@ private class ZManagedMonadError[R, E] extends MonadError[ZManaged[R, E, _], E] 
   override final def attempt[A](fa: F[A]): F[Either[E, A]] =
     fa.either
 
-  override final def adaptError[A](fa: F[A])(pf: PartialFunction[E, E]): F[A] =
+  override final def adaptError[A](fa: F[A])(pf: PartialFunction[E, E]): F[A]                      =
     fa.mapError(pf.orElse { case error => error })
 
   override final def tailRecM[A, B](a: A)(f: A => ZManaged[R, E, Either[A, B]]): ZManaged[R, E, B] =

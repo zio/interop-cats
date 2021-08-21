@@ -44,7 +44,7 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
     ZStream.managed {
       for {
         queue <- Queue.bounded[Take[Throwable, A]](1).toManaged[R](_.shutdown)
-        _ <- {
+        _     <-
           (stream.evalTap(a => queue.offer(Take.single(a))) ++ fs2.Stream
             .eval(queue.offer(Take.end)))
             .handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
@@ -52,7 +52,7 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
             .resource
             .drain
             .toManagedZIO
-        }.fork
+            .fork
       } yield ZStream.fromQueue(queue).flattenTake
     }.flatten
 
@@ -60,7 +60,7 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
     ZStream.managed {
       for {
         queue <- Queue.bounded[Take[Throwable, A]](queueSize).toManaged(_.shutdown)
-        _ <- {
+        _     <- {
           stream
             .chunkLimit(queueSize)
             .evalTap(a => queue.offer(Take.chunk(zio.Chunk.fromIterable(a.toList))))

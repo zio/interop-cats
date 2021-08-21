@@ -181,43 +181,43 @@ object CHub {
     hub: ZHub[Any, Any, Throwable, Throwable, A, B]
   )(implicit runtime: Runtime[Any]): CHub[F, A, B] =
     new CHub[F, A, B] { self =>
-      val awaitShutdown: F[Unit] =
+      val awaitShutdown: F[Unit]                                     =
         hub.awaitShutdown.toEffect[F]
-      def capacity: Int =
+      def capacity: Int                                              =
         hub.capacity
-      val isShutdown: F[Boolean] =
+      val isShutdown: F[Boolean]                                     =
         hub.isShutdown.toEffect[F]
-      def publish(a: A): F[Boolean] =
+      def publish(a: A): F[Boolean]                                  =
         hub.publish(a).toEffect[F]
-      def publishAll(as: Iterable[A]): F[Boolean] =
+      def publishAll(as: Iterable[A]): F[Boolean]                    =
         hub.publishAll(as).toEffect[F]
-      val shutdown: F[Unit] =
+      val shutdown: F[Unit]                                          =
         hub.shutdown.toEffect[F]
-      val size: F[Int] =
+      val size: F[Int]                                               =
         hub.size.toEffect[F]
-      val subscribe: Resource[F, Dequeue[F, B]] =
+      val subscribe: Resource[F, Dequeue[F, B]]                      =
         hub.subscribe.map(Dequeue[F, B](_)).toResource[F]
-      def contramap[C](f: C => A): CHub[F, C, B] =
+      def contramap[C](f: C => A): CHub[F, C, B]                     =
         CHub(hub.contramap(f))
-      def contramapM[C](f: C => F[A]): CHub[F, C, B] =
+      def contramapM[C](f: C => F[A]): CHub[F, C, B]                 =
         CHub(hub.contramapM(c => fromEffect(f(c))))
-      def dimap[C, D](f: C => A, g: B => D): CHub[F, C, D] =
+      def dimap[C, D](f: C => A, g: B => D): CHub[F, C, D]           =
         CHub(hub.dimap(f, g))
-      def dimapM[C, D](f: C => F[A], g: B => F[D]): CHub[F, C, D] =
+      def dimapM[C, D](f: C => F[A], g: B => F[D]): CHub[F, C, D]    =
         CHub(hub.dimapM(c => fromEffect(f(c)), b => fromEffect(g(b))))
-      def filterInput[A1 <: A](f: A1 => Boolean): CHub[F, A1, B] =
+      def filterInput[A1 <: A](f: A1 => Boolean): CHub[F, A1, B]     =
         CHub(hub.filterInput(f))
       def filterInputM[A1 <: A](f: A1 => F[Boolean]): CHub[F, A1, B] =
         CHub(hub.filterInputM(a => fromEffect(f(a))))
-      def filterOutput(f: B => Boolean): CHub[F, A, B] =
+      def filterOutput(f: B => Boolean): CHub[F, A, B]               =
         CHub(hub.filterOutput(f))
-      def filterOutputM(f: B => F[Boolean]): CHub[F, A, B] =
+      def filterOutputM(f: B => F[Boolean]): CHub[F, A, B]           =
         CHub(hub.filterOutputM(a => fromEffect(f(a))))
-      def map[C](f: B => C): CHub[F, A, C] =
+      def map[C](f: B => C): CHub[F, A, C]                           =
         CHub(hub.map(f))
-      def mapM[C](f: B => F[C]): CHub[F, A, C] =
+      def mapM[C](f: B => F[C]): CHub[F, A, C]                       =
         CHub(hub.mapM(a => fromEffect(f(a))))
-      def toQueue: Enqueue[F, A] =
+      def toQueue: Enqueue[F, A]                                     =
         Enqueue(hub.toQueue)
     }
 

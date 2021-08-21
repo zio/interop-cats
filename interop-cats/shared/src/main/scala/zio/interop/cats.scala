@@ -276,7 +276,7 @@ private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E
 
   override def access: F[(A, A => F[Boolean])] =
     get.map { current =>
-      val called = new AtomicBoolean(false)
+      val called                   = new AtomicBoolean(false)
       def setter(a: A): F[Boolean] =
         ZIO.effectSuspendTotal {
           if (called.getAndSet(true)) {

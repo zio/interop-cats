@@ -8,9 +8,9 @@ class CatsInteropSpec extends ZioSpecBase {
 
   test("cats fiber wrapped in Resource can be canceled") {
     val io = for {
-      p        <- Promise.make[Nothing, Int]
+      p       <- Promise.make[Nothing, Int]
       resource = Resource.make(Concurrent[Task].start(p.succeed(1) *> Task.never))(_.cancel)
-      _        <- resource.use(_ => p.await)
+      _       <- resource.use(_ => p.await)
     } yield 0
 
     val result = Runtime.default.unsafeRun(io)

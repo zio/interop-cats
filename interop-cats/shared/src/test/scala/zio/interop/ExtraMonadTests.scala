@@ -13,7 +13,7 @@ trait ExtraMonadTests[F[_]] extends Laws {
       def name: String                  = "monadExtras"
       def bases: Seq[(String, RuleSet)] = Nil
       def parents: Seq[RuleSet]         = Nil
-      def props: Seq[(String, Prop)] =
+      def props: Seq[(String, Prop)]    =
         Seq[(String, Prop)]("tailRecM construction stack safety" -> Prop.lzy(laws.tailRecMConstructionStackSafety))
     }
 }
