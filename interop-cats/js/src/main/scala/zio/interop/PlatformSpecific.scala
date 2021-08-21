@@ -1,6 +1,6 @@
 package zio.interop
 
-private[interop] trait PlatformSpecific {
+private[interop] object PlatformSpecific {
   type CBlocking        = Any
   type CBlockingService = AnyRef
 }

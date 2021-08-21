@@ -22,7 +22,10 @@ import cats.syntax.all._
 
 import scala.concurrent.Future
 
-package object interop extends interop.PlatformSpecific {
+package object interop {
+
+  type CBlocking        = interop.PlatformSpecific.CBlocking
+  type CBlockingService = interop.PlatformSpecific.CBlockingService
 
   type Queue[F[+_], A] = CQueue[F, A, A]
   val Queue: CQueue.type = CQueue
