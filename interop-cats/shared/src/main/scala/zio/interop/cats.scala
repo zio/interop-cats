@@ -460,7 +460,7 @@ private class ZioBifunctor[R] extends Bifunctor[ZIO[R, _, _]] {
   type F[A, B] = ZIO[R, A, B]
 
   override final def bimap[A, B, C, D](fab: F[A, B])(f: A => C, g: B => D): F[C, D] =
-    fab.bimap(f, g)
+    fab.mapBoth(f, g)
 }
 
 private class ZioParallel[R, E](final override implicit val monad: Monad[ZIO[R, E, _]]) extends Parallel[ZIO[R, E, _]] {
