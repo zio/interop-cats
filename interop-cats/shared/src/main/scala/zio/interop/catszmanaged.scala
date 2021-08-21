@@ -60,7 +60,7 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
 
     def go[B](resource: Resource[F, B]): ZManaged[R, E, B] =
       resource match {
-        case allocate: Resource.Allocate[F, B] =>
+        case allocate: Resource.Allocate[F, b] =>
           ZManaged.makeReserve[R, E, B](F.uncancelable(allocate.resource).map {
             case (b, release) => Reservation(ZIO.succeedNow(b), error => release(toExitCase(error)).orDie)
           })
@@ -68,7 +68,7 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
         case bind: Resource.Bind[F, a, B] =>
           go(bind.source).flatMap(a => go(bind.fs(a)))
 
-        case eval: Resource.Eval[F, B] =>
+        case eval: Resource.Eval[F, b] =>
           ZManaged.fromEffect(eval.fa)
 
         case pure: Resource.Pure[F, B] =>
