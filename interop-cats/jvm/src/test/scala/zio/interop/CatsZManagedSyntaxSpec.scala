@@ -224,7 +224,7 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
             ZManaged.make(ZIO.effectTotal(effects += x).unit)(_ => ZIO.effectTotal(effects += x + 1))
 
-          val testCase = man(1).toResource[RIO[ZEnv, *]].use(_ => ZIO.unit)
+          val testCase = man(1).toResource[RIO[ZEnv, _]].use(_ => ZIO.unit)
           unsafeRun(testCase)
           assert(effects.toList)(equalTo(List(1, 2)))
         },
@@ -238,7 +238,7 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
                 ZIO.unit
             }
 
-          val testCase = man(1).toResource[RIO[ZEnv, *]].use(_ => ZIO.fail(new RuntimeException()).unit)
+          val testCase = man(1).toResource[RIO[ZEnv, _]].use(_ => ZIO.fail(new RuntimeException()).unit)
           unsafeRun(testCase.orElse(ZIO.unit))
           assert(effects.toList)(equalTo(List(1, 2)))
         },
@@ -252,7 +252,7 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
                 ZIO.unit
             }
 
-          val testCase = man(1).toResource[RIO[ZEnv, *]].use(_ => ZIO.interrupt)
+          val testCase = man(1).toResource[RIO[ZEnv, _]].use(_ => ZIO.interrupt)
           unsafeRun(testCase.orElse(ZIO.unit))
           assert(effects.toList)(equalTo(List(1, 2)))
         },

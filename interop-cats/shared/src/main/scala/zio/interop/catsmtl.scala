@@ -24,22 +24,22 @@ abstract class CatsMtlPlatform extends CatsMtlInstances
 
 abstract class CatsMtlInstances {
 
-  implicit def zioLocal[R, E](implicit ev: Applicative[ZIO[R, E, *]]): Local[ZIO[R, E, *], R] =
-    new Local[ZIO[R, E, *], R] {
-      override def applicative: Applicative[ZIO[R, E, *]]              = ev
+  implicit def zioLocal[R, E](implicit ev: Applicative[ZIO[R, E, _]]): Local[ZIO[R, E, _], R] =
+    new Local[ZIO[R, E, _], R] {
+      override def applicative: Applicative[ZIO[R, E, _]]              = ev
       override def ask[E2 >: R]: ZIO[R, E, E2]                         = ZIO.environment
       override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] = ZIO.accessM(fa provide f(_))
     }
 
-  implicit def zioAsk[R1, R <: R1, E](implicit ev: Applicative[ZIO[R, E, *]]): Ask[ZIO[R, E, *], R1] =
-    new Ask[ZIO[R, E, *], R1] {
-      override def applicative: Applicative[ZIO[R, E, *]] = ev
+  implicit def zioAsk[R1, R <: R1, E](implicit ev: Applicative[ZIO[R, E, _]]): Ask[ZIO[R, E, _], R1] =
+    new Ask[ZIO[R, E, _], R1] {
+      override def applicative: Applicative[ZIO[R, E, _]] = ev
       override def ask[R2 >: R1]: ZIO[R, E, R2]           = ZIO.environment
     }
 
-  implicit def zioHandle[R, E](implicit ev: Applicative[ZIO[R, E, *]]): Handle[ZIO[R, E, *], E] =
-    new Handle[ZIO[R, E, *], E] {
-      override def applicative: Applicative[ZIO[R, E, *]]                              = ev
+  implicit def zioHandle[R, E](implicit ev: Applicative[ZIO[R, E, _]]): Handle[ZIO[R, E, _], E] =
+    new Handle[ZIO[R, E, _], E] {
+      override def applicative: Applicative[ZIO[R, E, _]]                              = ev
       override def raise[E2 <: E, A](e: E2): ZIO[R, E, A]                              = ZIO.fail(e)
       override def handleWith[A](fa: ZIO[R, E, A])(f: E => ZIO[R, E, A]): ZIO[R, E, A] = fa.catchAll(f)
     }

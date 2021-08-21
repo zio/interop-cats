@@ -39,7 +39,7 @@ package object interop {
   type Hub[F[+_], A] = CHub[F, A, A]
   val Hub: CHub.type = CHub
 
-  @inline private[interop] def toOutcome[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, *], E, A] =
+  @inline private[interop] def toOutcome[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, _], E, A] =
     exit match {
       case Exit.Success(value) =>
         Outcome.Succeeded(ZIO.succeed(value))

@@ -14,7 +14,7 @@ object CoreSummonSpec extends DefaultRunnableSpec {
       test("ZIO instances") {
         val monad      = implicitly[Monad[UIO]]
         val monadError = implicitly[MonadError[Task, Throwable]]
-        val semigroupK = implicitly[SemigroupK[IO[NonEmptyList[Unit], *]]]
+        val semigroupK = implicitly[SemigroupK[IO[NonEmptyList[Unit], _]]]
         val bifunctor  = implicitly[Bifunctor[IO]]
 
         monad.map(ZIO.unit)(identity)
@@ -25,9 +25,9 @@ object CoreSummonSpec extends DefaultRunnableSpec {
         assertCompletes
       },
       test("ZManaged instances") {
-        val monad      = implicitly[Monad[ZManaged[Any, Nothing, *]]]
-        val monadError = implicitly[MonadError[Managed[Throwable, *], Throwable]]
-        val semigroupK = implicitly[SemigroupK[Managed[Nothing, *]]]
+        val monad      = implicitly[Monad[ZManaged[Any, Nothing, _]]]
+        val monadError = implicitly[MonadError[Managed[Throwable, _], Throwable]]
+        val semigroupK = implicitly[SemigroupK[Managed[Nothing, _]]]
         val bifunctor  = implicitly[Bifunctor[Managed]]
 
         monad.map(ZManaged.unit)(identity)
@@ -38,9 +38,9 @@ object CoreSummonSpec extends DefaultRunnableSpec {
         assertCompletes
       },
       test("ZStream instances") {
-        val monad      = implicitly[Monad[ZStream[Any, Nothing, *]]]
-        val monadError = implicitly[MonadError[Stream[Throwable, *], Throwable]]
-        val semigroupK = implicitly[SemigroupK[Stream[Nothing, *]]]
+        val monad      = implicitly[Monad[ZStream[Any, Nothing, _]]]
+        val monadError = implicitly[MonadError[Stream[Throwable, _], Throwable]]
+        val semigroupK = implicitly[SemigroupK[Stream[Nothing, _]]]
         val bifunctor  = implicitly[Bifunctor[Stream]]
 
         monad.map(ZStream.unit)(identity)

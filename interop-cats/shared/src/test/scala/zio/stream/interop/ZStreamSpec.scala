@@ -9,38 +9,38 @@ import zio.stream.interop.catz._
 class ZStreamSpec extends ZStreamSpecBase with GenStreamInteropCats {
 
   checkAllAsync(
-    "MonadError[Stream[Int, *]]",
-    implicit tc => MonadErrorTests[Stream[Int, *], Int].monadError[Int, Int, Int]
+    "MonadError[Stream[Int, _]]",
+    implicit tc => MonadErrorTests[Stream[Int, _], Int].monadError[Int, Int, Int]
   )
   checkAllAsync(
-    "Parallel[Stream[Throwable, *]]",
-    implicit tc => ParallelTests[Stream[Throwable, *], ParallelF[Stream[Throwable, *], *]].parallel[Int, Int]
+    "Parallel[Stream[Throwable, _]]",
+    implicit tc => ParallelTests[Stream[Throwable, _], ParallelF[Stream[Throwable, _], _]].parallel[Int, Int]
   )
-  checkAllAsync("MonoidK[Stream[Int, *]]", implicit tc => MonoidKTests[Stream[Int, *]].monoidK[Int])
+  checkAllAsync("MonoidK[Stream[Int, _]]", implicit tc => MonoidKTests[Stream[Int, _]].monoidK[Int])
   checkAllAsync(
-    "SemigroupK[Stream[Option[Unit], *]]",
-    implicit tc => SemigroupKTests[Stream[Option[Unit], *]].semigroupK[Int]
+    "SemigroupK[Stream[Option[Unit], _]]",
+    implicit tc => SemigroupKTests[Stream[Option[Unit], _]].semigroupK[Int]
   )
   checkAllAsync(
-    "SemigroupK[Stream[Throwable, *]]",
-    implicit tc => SemigroupKTests[Stream[Throwable, *]].semigroupK[Int]
+    "SemigroupK[Stream[Throwable, _]]",
+    implicit tc => SemigroupKTests[Stream[Throwable, _]].semigroupK[Int]
   )
   checkAllAsync("Bifunctor[Stream]", implicit tc => BifunctorTests[Stream].bifunctor[Int, Int, Int, Int, Int, Int])
   checkAllAsync("Monad[UStream]", implicit tc => MonadTests[UStream].apply[Int, Int, Int])
   checkAllAsync(
     "ArrowChoice[ZStream]",
-    implicit tc => ArrowChoiceTests[ZStream[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
+    implicit tc => ArrowChoiceTests[ZStream[_, Int, _]].arrowChoice[Int, Int, Int, Int, Int, Int]
   )
 
   object summoningInstancesTest {
     import cats._
 
-    Alternative[ZStream[String, Throwable, *]]
-    MonadError[ZStream[String, Throwable, *], Throwable]
-    Monad[ZStream[String, Throwable, *]]
-    Applicative[ZStream[String, Throwable, *]]
-    Functor[ZStream[String, Throwable, *]]
-    SemigroupK[ZStream[String, Throwable, *]]
-    Apply[ZStream[Any, Nothing, *]]
+    Alternative[ZStream[String, Throwable, _]]
+    MonadError[ZStream[String, Throwable, _], Throwable]
+    Monad[ZStream[String, Throwable, _]]
+    Applicative[ZStream[String, Throwable, _]]
+    Functor[ZStream[String, Throwable, _]]
+    SemigroupK[ZStream[String, Throwable, _]]
+    Apply[ZStream[Any, Nothing, _]]
   }
 }

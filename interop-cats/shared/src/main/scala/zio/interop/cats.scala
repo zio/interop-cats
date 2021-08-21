@@ -75,28 +75,28 @@ abstract class CatsPlatform
 
 abstract class CatsEffectInstances extends CatsZioInstances {
 
-  implicit final def liftIOInstance[R](implicit runtime: IORuntime): LiftIO[RIO[R, *]] =
+  implicit final def liftIOInstance[R](implicit runtime: IORuntime): LiftIO[RIO[R, _]] =
     new ZioLiftIO
 
-  implicit final def asyncInstance[R <: Clock & CBlocking]: Async[RIO[R, *]] =
-    asyncInstance0.asInstanceOf[Async[RIO[R, *]]]
+  implicit final def asyncInstance[R <: Clock & CBlocking]: Async[RIO[R, _]] =
+    asyncInstance0.asInstanceOf[Async[RIO[R, _]]]
 
-  implicit final def temporalInstance[R <: Clock, E]: GenTemporal[ZIO[R, E, *], E] =
-    temporalInstance0.asInstanceOf[GenTemporal[ZIO[R, E, *], E]]
+  implicit final def temporalInstance[R <: Clock, E]: GenTemporal[ZIO[R, E, _], E] =
+    temporalInstance0.asInstanceOf[GenTemporal[ZIO[R, E, _], E]]
 
-  implicit final def concurrentInstance[R, E]: GenConcurrent[ZIO[R, E, *], E] =
-    concurrentInstance0.asInstanceOf[GenConcurrent[ZIO[R, E, *], E]]
+  implicit final def concurrentInstance[R, E]: GenConcurrent[ZIO[R, E, _], E] =
+    concurrentInstance0.asInstanceOf[GenConcurrent[ZIO[R, E, _], E]]
 
   implicit final def asyncRuntimeInstance[E](implicit runtime: Runtime[Clock & CBlocking]): Async[Task] =
     new ZioRuntimeAsync
 
-  implicit final def temporalRuntimeInstance[E](implicit runtime: Runtime[Clock]): GenTemporal[IO[E, *], E] =
+  implicit final def temporalRuntimeInstance[E](implicit runtime: Runtime[Clock]): GenTemporal[IO[E, _], E] =
     new ZioRuntimeTemporal[E]
 
-  private[this] val asyncInstance0: Async[RIO[Clock with CBlocking, *]] =
+  private[this] val asyncInstance0: Async[RIO[Clock with CBlocking, _]] =
     new ZioAsync
 
-  private[this] val temporalInstance0: Temporal[RIO[Clock, *]] =
+  private[this] val temporalInstance0: Temporal[RIO[Clock, _]] =
     new ZioTemporal
 
   private[this] val concurrentInstance0: Concurrent[Task] =
@@ -104,7 +104,7 @@ abstract class CatsEffectInstances extends CatsZioInstances {
 }
 
 abstract class CatsZioInstances extends CatsZioInstances1 {
-  type ParZIO[R, E, A] = ParallelF[ZIO[R, E, *], A]
+  type ParZIO[R, E, A] = ParallelF[ZIO[R, E, _], A]
 
   implicit final def monoidInstance[R, E, A: Monoid]: Monoid[ZIO[R, E, A]] =
     new ZioMonoid
@@ -112,20 +112,20 @@ abstract class CatsZioInstances extends CatsZioInstances1 {
   implicit final def parMonoidInstance[R, E, A: CommutativeMonoid]: CommutativeMonoid[ParZIO[R, E, A]] =
     new ZioParMonoid
 
-  implicit final def monoidKInstance[R, E: Monoid]: MonoidK[ZIO[R, E, *]] =
+  implicit final def monoidKInstance[R, E: Monoid]: MonoidK[ZIO[R, E, _]] =
     new ZioMonoidK
 
-  implicit final def deferInstance[R, E]: Defer[ZIO[R, E, *]] =
-    deferInstance0.asInstanceOf[Defer[ZIO[R, E, *]]]
+  implicit final def deferInstance[R, E]: Defer[ZIO[R, E, _]] =
+    deferInstance0.asInstanceOf[Defer[ZIO[R, E, _]]]
 
-  implicit final def bifunctorInstance[R]: Bifunctor[ZIO[R, *, *]] =
-    bifunctorInstance0.asInstanceOf[Bifunctor[ZIO[R, *, *]]]
+  implicit final def bifunctorInstance[R]: Bifunctor[ZIO[R, _, _]] =
+    bifunctorInstance0.asInstanceOf[Bifunctor[ZIO[R, _, _]]]
 
   implicit final def rioArrowChoiceInstance: ArrowChoice[RIO] =
     arrowChoiceInstance0
 
-  implicit final def contravariantInstance[E, A]: Contravariant[ZIO[*, E, A]] =
-    contravariantInstance0.asInstanceOf[Contravariant[ZIO[*, E, A]]]
+  implicit final def contravariantInstance[E, A]: Contravariant[ZIO[_, E, A]] =
+    contravariantInstance0.asInstanceOf[Contravariant[ZIO[_, E, A]]]
 
   private[this] val deferInstance0: Defer[UIO] =
     new ZioDefer[Any, Nothing]
@@ -133,7 +133,7 @@ abstract class CatsZioInstances extends CatsZioInstances1 {
   private[this] val bifunctorInstance0: Bifunctor[IO] =
     new ZioBifunctor[Any]
 
-  private[this] val contravariantInstance0: Contravariant[RIO[*, Any]] =
+  private[this] val contravariantInstance0: Contravariant[RIO[_, Any]] =
     new ZioContravariant
 }
 
@@ -142,26 +142,26 @@ sealed abstract class CatsZioInstances1 extends CatsZioInstances2 {
   implicit final def urioArrowChoiceInstance: ArrowChoice[URIO] =
     arrowChoiceInstance0.asInstanceOf[ArrowChoice[URIO]]
 
-  implicit final def parallelInstance[R, E]: Parallel.Aux[ZIO[R, E, *], ParallelF[ZIO[R, E, *], *]] =
-    parallelInstance0.asInstanceOf[Parallel.Aux[ZIO[R, E, *], ParallelF[ZIO[R, E, *], *]]]
+  implicit final def parallelInstance[R, E]: Parallel.Aux[ZIO[R, E, _], ParallelF[ZIO[R, E, _], _]] =
+    parallelInstance0.asInstanceOf[Parallel.Aux[ZIO[R, E, _], ParallelF[ZIO[R, E, _], _]]]
 
-  implicit final def commutativeApplicativeInstance[R, E]: CommutativeApplicative[ParallelF[ZIO[R, E, *], *]] =
-    commutativeApplicativeInstance0.asInstanceOf[CommutativeApplicative[ParallelF[ZIO[R, E, *], *]]]
+  implicit final def commutativeApplicativeInstance[R, E]: CommutativeApplicative[ParallelF[ZIO[R, E, _], _]] =
+    commutativeApplicativeInstance0.asInstanceOf[CommutativeApplicative[ParallelF[ZIO[R, E, _], _]]]
 
   implicit final def semigroupInstance[R, E, A: Semigroup]: Semigroup[ZIO[R, E, A]] =
     new ZioSemigroup
 
   implicit final def parSemigroupInstance[R, E, A: CommutativeSemigroup]
-    : CommutativeSemigroup[ParallelF[ZIO[R, E, *], A]] =
+    : CommutativeSemigroup[ParallelF[ZIO[R, E, _], A]] =
     new ZioParSemigroup
 
-  implicit final def semigroupKInstance[R, E]: SemigroupK[ZIO[R, E, *]] =
-    semigroupKInstance0.asInstanceOf[SemigroupK[ZIO[R, E, *]]]
+  implicit final def semigroupKInstance[R, E]: SemigroupK[ZIO[R, E, _]] =
+    semigroupKInstance0.asInstanceOf[SemigroupK[ZIO[R, E, _]]]
 
-  private[this] lazy val parallelInstance0: Parallel.Aux[Task, ParallelF[Task, *]] =
+  private[this] lazy val parallelInstance0: Parallel.Aux[Task, ParallelF[Task, _]] =
     new ZioParallel
 
-  private[this] lazy val commutativeApplicativeInstance0: CommutativeApplicative[ParallelF[Task, *]] =
+  private[this] lazy val commutativeApplicativeInstance0: CommutativeApplicative[ParallelF[Task, _]] =
     new ZioParApplicative
 
   private[this] val semigroupKInstance0: SemigroupK[Task] =
@@ -170,11 +170,11 @@ sealed abstract class CatsZioInstances1 extends CatsZioInstances2 {
 
 sealed abstract class CatsZioInstances2 {
 
-  implicit final def zioArrowChoiceInstance[E]: ArrowChoice[ZIO[*, E, *]] =
-    arrowChoiceInstance0.asInstanceOf[ArrowChoice[ZIO[*, E, *]]]
+  implicit final def zioArrowChoiceInstance[E]: ArrowChoice[ZIO[_, E, _]] =
+    arrowChoiceInstance0.asInstanceOf[ArrowChoice[ZIO[_, E, _]]]
 
-  implicit final def monadErrorInstance[R, E]: MonadError[ZIO[R, E, *], E] =
-    monadErrorInstance0.asInstanceOf[MonadError[ZIO[R, E, *], E]]
+  implicit final def monadErrorInstance[R, E]: MonadError[ZIO[R, E, _], E] =
+    monadErrorInstance0.asInstanceOf[MonadError[ZIO[R, E, _], E]]
 
   protected[this] final val arrowChoiceInstance0: ArrowChoice[RIO] =
     new ZioArrowChoice
@@ -183,16 +183,16 @@ sealed abstract class CatsZioInstances2 {
     new ZioMonadError[Any, Throwable]
 }
 
-private class ZioDefer[R, E] extends Defer[ZIO[R, E, *]] {
+private class ZioDefer[R, E] extends Defer[ZIO[R, E, _]] {
   type F[A] = ZIO[R, E, A]
 
   override final def defer[A](fa: => F[A]): F[A] =
     ZIO.effectSuspendTotal(fa)
 }
 
-private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent[ZIO[R, E, *], E] {
+private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent[ZIO[R, E, _], E] {
 
-  private def toPoll(restore: ZIO.InterruptStatusRestore) = new Poll[ZIO[R, E, *]] {
+  private def toPoll(restore: ZIO.InterruptStatusRestore) = new Poll[ZIO[R, E, _]] {
     override def apply[T](fa: ZIO[R, E, T]): ZIO[R, E, T] = restore(fa)
   }
 
@@ -253,7 +253,7 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     ZIO.effectTotal(new Unique.Token)
 }
 
-private final class ZioDeferred[R, E, A](promise: Promise[E, A]) extends Deferred[ZIO[R, E, *], A] {
+private final class ZioDeferred[R, E, A](promise: Promise[E, A]) extends Deferred[ZIO[R, E, _], A] {
   type F[T] = ZIO[R, E, T]
 
   override val get: F[A] =
@@ -269,7 +269,7 @@ private final class ZioDeferred[R, E, A](promise: Promise[E, A]) extends Deferre
     }
 }
 
-private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E, *], A] {
+private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E, _], A] {
   type F[T] = ZIO[R, E, T]
 
   override def access: F[(A, A => F[Boolean])] =
@@ -315,7 +315,7 @@ private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E
     ref.get
 }
 
-private class ZioTemporal[R <: Clock, E] extends ZioConcurrent[R, E] with GenTemporal[ZIO[R, E, *], E] {
+private class ZioTemporal[R <: Clock, E] extends ZioConcurrent[R, E] with GenTemporal[ZIO[R, E, _], E] {
 
   override final def sleep(time: FiniteDuration): F[Unit] =
     ZIO.sleep(Duration.fromScala(time))
@@ -329,9 +329,9 @@ private class ZioTemporal[R <: Clock, E] extends ZioConcurrent[R, E] with GenTem
 
 private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Clock])
     extends ZioConcurrent[Any, E]
-    with GenTemporal[IO[E, *], E] {
+    with GenTemporal[IO[E, _], E] {
 
-  private[this] val underlying: GenTemporal[ZIO[Clock, E, *], E] = new ZioTemporal[Clock, E]
+  private[this] val underlying: GenTemporal[ZIO[Clock, E, _], E] = new ZioTemporal[Clock, E]
   private[this] val clock: Clock                                 = runtime.environment
 
   override final def sleep(time: FiniteDuration): F[Unit] =
@@ -348,7 +348,7 @@ private class ZioRuntimeAsync(implicit runtime: Runtime[Clock & CBlocking])
     extends ZioRuntimeTemporal[Throwable]
     with Async[Task] {
 
-  private[this] val underlying: Async[RIO[Clock & CBlocking, *]] = new ZioAsync[Clock & CBlocking]
+  private[this] val underlying: Async[RIO[Clock & CBlocking, _]] = new ZioAsync[Clock & CBlocking]
   private[this] val environment: Clock & CBlocking               = runtime.environment
 
   override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] =
@@ -391,7 +391,7 @@ private class ZioRuntimeAsync(implicit runtime: Runtime[Clock & CBlocking])
     ZIO.never
 }
 
-private class ZioMonadError[R, E] extends MonadError[ZIO[R, E, *], E] with StackSafeMonad[ZIO[R, E, *]] {
+private class ZioMonadError[R, E] extends MonadError[ZIO[R, E, _], E] with StackSafeMonad[ZIO[R, E, _]] {
   type F[A] = ZIO[R, E, A]
 
   override final def pure[A](a: A): F[A] =
@@ -437,14 +437,14 @@ private class ZioMonadError[R, E] extends MonadError[ZIO[R, E, *], E] with Stack
     fa.mapError(pf.orElse { case error => error })
 }
 
-private class ZioSemigroupK[R, E] extends SemigroupK[ZIO[R, E, *]] {
+private class ZioSemigroupK[R, E] extends SemigroupK[ZIO[R, E, _]] {
   type F[A] = ZIO[R, E, A]
 
   override final def combineK[A](a: F[A], b: F[A]): F[A] =
     a orElse b
 }
 
-private class ZioMonoidK[R, E](implicit monoid: Monoid[E]) extends MonoidK[ZIO[R, E, *]] {
+private class ZioMonoidK[R, E](implicit monoid: Monoid[E]) extends MonoidK[ZIO[R, E, _]] {
   type F[A] = ZIO[R, E, A]
 
   override final def empty[A]: F[A] =
@@ -454,14 +454,14 @@ private class ZioMonoidK[R, E](implicit monoid: Monoid[E]) extends MonoidK[ZIO[R
     a.catchAll(e1 => b.catchAll(e2 => ZIO.fail(monoid.combine(e1, e2))))
 }
 
-private class ZioBifunctor[R] extends Bifunctor[ZIO[R, *, *]] {
+private class ZioBifunctor[R] extends Bifunctor[ZIO[R, _, _]] {
   type F[A, B] = ZIO[R, A, B]
 
   override final def bimap[A, B, C, D](fab: F[A, B])(f: A => C, g: B => D): F[C, D] =
     fab.bimap(f, g)
 }
 
-private class ZioParallel[R, E](final override implicit val monad: Monad[ZIO[R, E, *]]) extends Parallel[ZIO[R, E, *]] {
+private class ZioParallel[R, E](final override implicit val monad: Monad[ZIO[R, E, _]]) extends Parallel[ZIO[R, E, _]] {
   type G[A] = ZIO[R, E, A]
   type F[A] = ParallelF[G, A]
 
@@ -477,7 +477,7 @@ private class ZioParallel[R, E](final override implicit val monad: Monad[ZIO[R, 
   }
 }
 
-private class ZioParApplicative[R, E] extends CommutativeApplicative[ParallelF[ZIO[R, E, *], *]] {
+private class ZioParApplicative[R, E] extends CommutativeApplicative[ParallelF[ZIO[R, E, _], _]] {
   type G[A] = ZIO[R, E, A]
   type F[A] = ParallelF[G, A]
 
@@ -500,7 +500,7 @@ private class ZioParApplicative[R, E] extends CommutativeApplicative[ParallelF[Z
     ParallelF[G, Unit](ZIO.unit)
 }
 
-private class ZioArrowChoice[E] extends ArrowChoice[ZIO[*, E, *]] {
+private class ZioArrowChoice[E] extends ArrowChoice[ZIO[_, E, _]] {
   type F[A, B] = ZIO[A, E, B]
 
   final override def lift[A, B](f: A => B): F[A, B] =
@@ -540,7 +540,7 @@ private class ZioArrowChoice[E] extends ArrowChoice[ZIO[*, E, *]] {
     f ||| g
 }
 
-private class ZioContravariant[E, T] extends Contravariant[ZIO[*, E, T]] {
+private class ZioContravariant[E, T] extends Contravariant[ZIO[_, E, T]] {
   type F[A] = ZIO[A, E, T]
 
   final override def contramap[A, B](fa: F[A])(f: B => A): F[B] =
@@ -560,9 +560,9 @@ private class ZioMonoid[R, E, A](implicit monoid: Monoid[A]) extends ZioSemigrou
 }
 
 private class ZioParSemigroup[R, E, A](implicit semigroup: CommutativeSemigroup[A])
-    extends CommutativeSemigroup[ParallelF[ZIO[R, E, *], A]] {
+    extends CommutativeSemigroup[ParallelF[ZIO[R, E, _], A]] {
 
-  type T = ParallelF[ZIO[R, E, *], A]
+  type T = ParallelF[ZIO[R, E, _], A]
 
   override final def combine(x: T, y: T): T =
     ParallelF(ParallelF.value(x).zipWithPar(ParallelF.value(y))(semigroup.combine))
@@ -570,13 +570,13 @@ private class ZioParSemigroup[R, E, A](implicit semigroup: CommutativeSemigroup[
 
 private class ZioParMonoid[R, E, A](implicit monoid: CommutativeMonoid[A])
     extends ZioParSemigroup[R, E, A]
-    with CommutativeMonoid[ParallelF[ZIO[R, E, *], A]] {
+    with CommutativeMonoid[ParallelF[ZIO[R, E, _], A]] {
 
   override final val empty: T =
-    ParallelF[ZIO[R, E, *], A](ZIO.succeedNow(monoid.empty))
+    ParallelF[ZIO[R, E, _], A](ZIO.succeedNow(monoid.empty))
 }
 
-private class ZioLiftIO[R](implicit runtime: IORuntime) extends LiftIO[RIO[R, *]] {
+private class ZioLiftIO[R](implicit runtime: IORuntime) extends LiftIO[RIO[R, _]] {
   override final def liftIO[A](ioa: CIO[A]): RIO[R, A] =
     ZIO.effectAsync(k => ioa.unsafeRunAsync(k.compose(ZIO.fromEither(_))))
 }

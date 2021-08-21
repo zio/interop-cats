@@ -89,7 +89,7 @@ object fs2StreamSpec extends DefaultRunnableSpec {
         for {
           queueSize <- nextIntBetween(2, 128)
           result <- assertEqual(
-                     fs2StreamFromChunk(chunk).covary[RIO[Clock, *]].toZStream(queueSize),
+                     fs2StreamFromChunk(chunk).covary[RIO[Clock, _]].toZStream(queueSize),
                      ZStream.fromChunk(chunk)
                    )
         } yield result

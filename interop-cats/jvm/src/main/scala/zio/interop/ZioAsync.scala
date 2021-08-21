@@ -7,7 +7,7 @@ import zio.{ Promise, RIO, ZIO }
 
 import scala.concurrent.{ ExecutionContext, Future }
 
-private class ZioAsync[R <: Clock with Blocking] extends ZioTemporal[R, Throwable] with Async[RIO[R, *]] {
+private class ZioAsync[R <: Clock with Blocking] extends ZioTemporal[R, Throwable] with Async[RIO[R, _]] {
 
   override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] =
     fa.on(ec)
