@@ -42,7 +42,7 @@ trait CatsZManagedSyntax {
 }
 
 final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) extends AnyVal {
-  def toManaged(implicit F: MonadCancel[F, _], D: Dispatcher[F]): TaskManaged[A] =
+  def toManaged(implicit F: MonadCancel[F, ?], D: Dispatcher[F]): TaskManaged[A] =
     new ZIOResourceSyntax(resource.mapK(new (F ~> Task) {
       override def apply[B](fb: F[B]) = fromEffect(fb)
     })).toManagedZIO
