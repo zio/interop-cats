@@ -110,7 +110,7 @@ private trait ZStreamBifunctor[R] extends Bifunctor[ZStream[R, *, *]] {
   type F[A, B] = ZStream[R, A, B]
 
   override final def bimap[A, B, C, D](fab: F[A, B])(f: A => C, g: B => D): F[C, D] =
-    fab.bimap(f, g)
+    fab.mapBoth(f, g)
 }
 
 private class ZStreamArrowChoice[E] extends ArrowChoice[ZStream[*, E, *]] {
