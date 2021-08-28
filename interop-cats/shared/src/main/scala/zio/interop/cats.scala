@@ -580,5 +580,9 @@ private class ZioParMonoid[R, E, A](implicit monoid: CommutativeMonoid[A])
 
 private class ZioLiftIO[R](implicit runtime: IORuntime) extends LiftIO[RIO[R, _]] {
   override final def liftIO[A](ioa: CIO[A]): RIO[R, A] =
-    ZIO.effectAsync(k => ioa.unsafeRunAsync(k.compose(ZIO.fromEither(_))))
+    ZIO.effectAsyncInterrupt { k =>
+      val (result, cancel) = ioa.unsafeToFutureCancelable()
+      k(ZIO.fromFuture(_ => result))
+      Left(ZIO.fromFuture(_ => cancel()).orDie)
+    }
 }
