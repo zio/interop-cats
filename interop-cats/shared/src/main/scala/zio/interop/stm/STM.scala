@@ -17,7 +17,7 @@
 package zio.interop.stm
 
 import cats.effect.kernel.Async
-import zio.Runtime
+import zio.{ Runtime, Zippable }
 import zio.stm.STM as ZSTM
 
 import scala.util.Try
@@ -30,7 +30,7 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
   /**
    * See [[zio.stm.ZSTM#<*>]]
    */
-  def <*>[B](that: => STM[F, B]): STM[F, (A, B)] =
+  def <*>[B](that: => STM[F, B])(implicit zippable: Zippable[A, B]): STM[F, zippable.Out] =
     this zip that
 
   /**
@@ -153,13 +153,13 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
   /**
    * See [[zio.stm.ZSTM#zip]]
    */
-  def zip[B](that: => STM[F, B]): STM[F, (A, B)] =
-    zipWith(that)(_ -> _)
+  def zip[B](that: => STM[F, B])(implicit zippable: Zippable[A, B]): STM[F, zippable.Out] =
+    zipWith(that)(zippable.zip(_, _))
 
   /**
    * See [[zio.stm.ZSTM#zipLeft]]
    */
-  def zipLeft[B](that: => STM[F, B]): STM[F, A]  =
+  def zipLeft[B](that: => STM[F, B]): STM[F, A] =
     zipWith(that)((a, _) => a)
 
   /**
@@ -187,13 +187,13 @@ object STM {
   final def attempt[F[+_], A](a: => A): STM[F, A] =
     fromTry(Try(a))
 
-  final def check[F[+_]](p: Boolean): STM[F, Unit] =
-    if (p) STM.unit else retry
+  final def check[F[+_]](p: => Boolean): STM[F, Unit] =
+    succeed(p).flatMap(p => if (p) STM.unit else retry)
 
   final def collectAll[F[+_], A](i: Iterable[STM[F, A]]): STM[F, List[A]] =
     new STM(ZSTM.collectAll(i.map(_.underlying).toList))
 
-  final def die[F[+_]](t: Throwable): STM[F, Nothing] =
+  final def die[F[+_]](t: => Throwable): STM[F, Nothing] =
     succeed(throw t)
 
   final def dieMessage[F[+_]](m: String): STM[F, Nothing] =

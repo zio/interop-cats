@@ -18,7 +18,7 @@ package zio.interop
 
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
-import zio.{ Chunk, Runtime, Schedule as ZSchedule, ZEnv }
+import zio.{ Chunk, Runtime, Schedule as ZSchedule, ZEnv, Zippable }
 
 import java.time.{ Duration, OffsetDateTime }
 
@@ -37,7 +37,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def &&[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)]
+  )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]
 
   /**
    * @see zio.ZSchedule.***
@@ -82,7 +82,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def <*>[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)]
+  )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]
 
   /**
    * @see zio.ZSchedule.<<<
@@ -99,7 +99,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def ||[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)]
+  )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]
 
   /**
    * @see zio.ZSchedule.|||
@@ -226,7 +226,9 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def intersectWith[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  )(f: (Interval, Interval) => Interval): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)]
+  )(f: (Interval, Interval) => Interval)(implicit
+    zippable: Zippable[Out, Out2]
+  ): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]
 
   /**
    * @see zio.ZSchedule.jittered
@@ -308,7 +310,9 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def unionWith[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  )(f: (Interval, Interval) => Interval): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)]
+  )(f: (Interval, Interval) => Interval)(implicit
+    zippable: Zippable[Out, Out2]
+  ): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]
 
   /**
    * @see zio.ZSchedule.unit
@@ -360,7 +364,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def zip[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)]
+  )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]
 
   /**
    * @see zio.ZSchedule.zipLeft
@@ -668,7 +672,7 @@ object Schedule {
         underlying0
       def &&[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)]                                             =
+      )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]    =
         Schedule(underlying && that.underlying)
       def ***[In2, Out2](
         that: Schedule[F, In2, Out2]
@@ -694,7 +698,7 @@ object Schedule {
         Schedule(underlying <* that.underlying)
       def <*>[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)]                                             =
+      )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]    =
         Schedule(underlying <*> that.underlying)
       def <<<[In2](that: Schedule[F, In2, In]): Schedule.WithState[F, (that.State, self.State), In2, Out]              =
         Schedule(underlying <<< that.underlying)
@@ -702,7 +706,7 @@ object Schedule {
         Schedule(underlying >>> that.underlying)
       def ||[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)]                                             =
+      )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]    =
         Schedule(underlying || that.underlying)
       def |||[Out1 >: Out, In2](
         that: Schedule[F, In2, Out1]
@@ -763,7 +767,9 @@ object Schedule {
         Schedule(underlying.forever)
       def intersectWith[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      )(f: (Interval, Interval) => Interval): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)]        =
+      )(f: (Interval, Interval) => Interval)(implicit
+        zippable: Zippable[Out, Out2]
+      ): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]                                            =
         Schedule(underlying.intersectWith(that.underlying)(f))
       def jittered: Schedule.WithState[F, self.State, In, Out]                                                         =
         Schedule(underlying.jittered)
@@ -797,7 +803,9 @@ object Schedule {
         Schedule(underlying.tapOutput(out => fromEffect(f(out)).orDie))
       def unionWith[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      )(f: (Interval, Interval) => Interval): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)]        =
+      )(f: (Interval, Interval) => Interval)(implicit
+        zippable: Zippable[Out, Out2]
+      ): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]                                            =
         Schedule(underlying.unionWith(that.underlying)(f))
       def unit: Schedule.WithState[F, self.State, In, Unit]                                                            =
         Schedule(underlying.unit)
@@ -819,7 +827,7 @@ object Schedule {
         Schedule(underlying.whileOutputZIO(out => fromEffect(f(out)).orDie))
       def zip[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)]                                             =
+      )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]    =
         Schedule(underlying zip that.underlying)
       def zipLeft[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
