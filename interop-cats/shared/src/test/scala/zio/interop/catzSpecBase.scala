@@ -8,13 +8,9 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
-import zio.clock.Clock
-import zio.console.Console
 import zio.internal.{ Executor, Platform, Tracing }
 import zio.interop.catz.taskEffectInstance
-import zio.random.Random
-import zio.system.System
-import zio.{ =!=, Cause, IO, Runtime, Task, UIO, ZIO, ZManaged }
+import zio.{ =!=, Cause, Clock, Console, IO, Random, Runtime, System, Task, UIO, ZIO, ZManaged }
 
 private[zio] trait catzSpecBase
     extends AnyFunSuite

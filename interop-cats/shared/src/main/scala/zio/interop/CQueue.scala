@@ -69,42 +69,13 @@ final class CQueue[F[+_], -A, +B] private[interop] (
   /**
    * @see [[ZQueue.takeAll]]
    */
-  def takeAll(implicit R: Runtime[Any], F: LiftIO[F]): F[List[B]] = toEffect(underlying.takeAll)
+  def takeAll(implicit R: Runtime[Any], F: LiftIO[F]): F[List[B]] = toEffect(underlying.takeAll.map(_.toList))
 
   /**
    * @see [[ZQueue.takeUpTo]]
    */
-  def takeUpTo(max: Int)(implicit R: Runtime[Any], F: LiftIO[F]): F[List[B]] = toEffect(underlying.takeUpTo(max))
-
-  /**
-   * @see [[ZQueue.&&]]
-   */
-  @deprecated("use ZStream", "2.0.0")
-  def &&[A0 <: A, C](that: CQueue[F, A0, C]): CQueue[F, A0, (B, C)] = new CQueue(underlying && that.underlying)
-
-  /**
-   * @see [[ZQueue.both]]
-   */
-  @deprecated("use ZStream", "2.0.0")
-  def both[A0 <: A, C](that: CQueue[F, A0, C]): CQueue[F, A0, (B, C)] = new CQueue(underlying.both(that.underlying))
-
-  /**
-   * @see [[ZQueue.bothWith]]
-   */
-  @deprecated("use ZStream", "2.0.0")
-  def bothWith[A0 <: A, C, D](that: CQueue[F, A0, C])(f: (B, C) => D): CQueue[F, A0, D] =
-    new CQueue(underlying.bothWith(that.underlying)(f))
-
-  /**
-   * @see [[ZQueue.bothWithM]]
-   */
-  @deprecated("use ZStream", "2.0.0")
-  def bothWithM[A0 <: A, C, D](
-    that: CQueue[F, A0, C]
-  )(f: (B, C) => F[D])(implicit R: Runtime[Any], E: Effect[F]): CQueue[F, A0, D] =
-    new CQueue(underlying.bothWithM(that.underlying) { (b, c) =>
-      fromEffect(f(b, c))
-    })
+  def takeUpTo(max: Int)(implicit R: Runtime[Any], F: LiftIO[F]): F[List[B]] =
+    toEffect(underlying.takeUpTo(max).map(_.toList))
 
   /**
    * @see [[ZQueue.contramap]]
@@ -115,7 +86,7 @@ final class CQueue[F[+_], -A, +B] private[interop] (
    * @see [[ZQueue.contramapM]]
    */
   def contramapM[C](f: C => F[A])(implicit R: Runtime[Any], E: Effect[F]): CQueue[F, C, B] =
-    new CQueue(underlying.contramapM(c => fromEffect(f(c))))
+    new CQueue(underlying.contramapZIO(c => fromEffect(f(c))))
 
   /**
    * @see [[ZQueue.filterInput]]
@@ -126,7 +97,7 @@ final class CQueue[F[+_], -A, +B] private[interop] (
    * @see [[ZQueue.filterInputM]]
    */
   def filterInputM[A0 <: A](f: A0 => F[Boolean])(implicit R: Runtime[Any], E: Effect[F]): CQueue[F, A0, B] =
-    new CQueue(underlying.filterInputM((a0: A0) => fromEffect(f(a0))))
+    new CQueue(underlying.filterInputZIO((a0: A0) => fromEffect(f(a0))))
 
   /**
    * @see [[ZQueue.map]]
@@ -137,7 +108,7 @@ final class CQueue[F[+_], -A, +B] private[interop] (
    * @see [[ZQueue.mapM]]
    */
   def mapM[C](f: B => F[C])(implicit R: Runtime[Any], E: Effect[F]): CQueue[F, A, C] =
-    new CQueue(underlying.mapM(b => fromEffect(f(b))))
+    new CQueue(underlying.mapZIO(b => fromEffect(f(b))))
 
   /**
    * @see [[ZQueue.poll]]

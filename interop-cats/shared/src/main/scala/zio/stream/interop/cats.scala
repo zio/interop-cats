@@ -102,27 +102,27 @@ private class CatsMonoidK[R, E] extends CatsSemigroupK[R, E] with MonoidK[ZStrea
 
 private trait CatsBifunctor[R] extends Bifunctor[ZStream[R, *, *]] {
   override final def bimap[A, B, C, D](fab: ZStream[R, A, B])(f: A => C, g: B => D): ZStream[R, C, D] =
-    fab.bimap(f, g)
+    fab.mapBoth(f, g)
 }
 
 private class CatsArrow[E] extends ArrowChoice[ZStream[*, E, *]] {
-  final override def lift[A, B](f: A => B): ZStream[A, E, B]                                      = ZStream.fromEffect(ZIO.fromFunction(f))
+  final override def lift[A, B](f: A => B): ZStream[A, E, B]                                      = ZStream.fromZIO(ZIO.access(f))
   final override def compose[A, B, C](f: ZStream[B, E, C], g: ZStream[A, E, B]): ZStream[A, E, C] = g.flatMap(f.provide)
-  final override def id[A]: ZStream[A, E, A]                                                      = ZStream.fromEffect(ZIO.environment)
+  final override def id[A]: ZStream[A, E, A]                                                      = ZStream.fromZIO(ZIO.environment)
   final override def dimap[A, B, C, D](fab: ZStream[A, E, B])(f: C => A)(g: B => D): ZStream[C, E, D] =
     fab.provideSome(f).map(g)
 
   def choose[A, B, C, D](f: ZStream[A, E, C])(g: ZStream[B, E, D]): ZStream[Either[A, B], E, Either[C, D]] =
     ZStream
-      .fromEffect(ZIO.environment[Either[A, B]])
+      .fromZIO(ZIO.environment[Either[A, B]])
       .flatMap(_.fold(f.provide(_).map(Left(_)), g.provide(_).map(Right(_))))
 
   final override def first[A, B, C](fa: ZStream[A, E, B]): ZStream[(A, C), E, (B, C)] =
-    ZStream.fromEffect(ZIO.environment[(A, C)]).flatMap { case (a, c) => fa.provide(a).map((_, c)) }
+    ZStream.fromZIO(ZIO.environment[(A, C)]).flatMap { case (a, c) => fa.provide(a).map((_, c)) }
   final override def second[A, B, C](fa: ZStream[A, E, B]): ZStream[(C, A), E, (C, B)] =
-    ZStream.fromEffect(ZIO.environment[(C, A)]).flatMap { case (c, a) => fa.provide(a).map((c, _)) }
+    ZStream.fromZIO(ZIO.environment[(C, A)]).flatMap { case (c, a) => fa.provide(a).map((c, _)) }
   final override def split[A, B, C, D](f: ZStream[A, E, B], g: ZStream[C, E, D]): ZStream[(A, C), E, (B, D)] =
-    ZStream.fromEffect(ZIO.environment[(A, C)]).flatMap { case (a, c) => f.provide(a).crossWith(g.provide(c))(_ -> _) }
+    ZStream.fromZIO(ZIO.environment[(A, C)]).flatMap { case (a, c) => f.provide(a).crossWith(g.provide(c))(_ -> _) }
   final override def merge[A, B, C](f: ZStream[A, E, B], g: ZStream[A, E, C]): ZStream[A, E, (B, C)] =
     f.crossWith(g)(_ -> _)
 
@@ -130,7 +130,7 @@ private class CatsArrow[E] extends ArrowChoice[ZStream[*, E, *]] {
   final override def rmap[A, B, C](fab: ZStream[A, E, B])(f: B => C): ZStream[A, E, C] = fab.map(f)
 
   final override def choice[A, B, C](f: ZStream[A, E, C], g: ZStream[B, E, C]): ZStream[Either[A, B], E, C] =
-    ZStream.fromEffect(ZIO.environment[Either[A, B]]).flatMap(_.fold(f.provide, g.provide))
+    ZStream.fromZIO(ZIO.environment[Either[A, B]]).flatMap(_.fold(f.provide, g.provide))
 }
 
 private class CatsParallel[R, E](final override val monad: Monad[ZStream[R, E, *]]) extends Parallel[ZStream[R, E, *]] {

@@ -94,7 +94,7 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
    * See [[zio.stm.ZSTM#foldM]]
    */
   final def foldM[B](f: Throwable => STM[F, B], g: A => STM[F, B]): STM[F, B] =
-    new STM(underlying.foldM(f.andThen(_.underlying), g.andThen(_.underlying)))
+    new STM(underlying.foldSTM(f.andThen(_.underlying), g.andThen(_.underlying)))
 
   /**
    * See [[zio.stm.ZSTM#map]]
@@ -173,7 +173,7 @@ object STM {
 
   final def atomically[F[+_], A](stm: STM[F, A])(implicit R: Runtime[Any], A: Async[F]): F[A] =
     A.async { cb =>
-      R.unsafeRunAsync(ZSTM.atomically(stm.underlying)) { exit =>
+      R.unsafeRunAsyncWith(ZSTM.atomically(stm.underlying)) { exit =>
         cb(exit.toEither)
       }
     }

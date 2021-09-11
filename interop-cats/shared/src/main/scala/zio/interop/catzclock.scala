@@ -19,18 +19,17 @@ package interop
 
 import cats.effect.{ Timer, Clock => CatsClock }
 import zio._
-import zio.clock._
 
 import scala.concurrent.duration.{ FiniteDuration, NANOSECONDS, TimeUnit }
 
 trait CatsClockSyntax {
   import scala.language.implicitConversions
 
-  implicit final def clockSyntax(clock: Clock.Service): ClockSyntax =
+  implicit final def clockSyntax(clock: Clock): ClockSyntax =
     new ClockSyntax(clock)
 }
 
-final class ClockSyntax(private val zioClock: Clock.Service) extends AnyVal {
+final class ClockSyntax(private val zioClock: Clock) extends AnyVal {
 
   def toTimer[R, E]: Timer[ZIO[R, E, *]] =
     new Timer[ZIO[R, E, *]] {
@@ -43,6 +42,6 @@ final class ClockSyntax(private val zioClock: Clock.Service) extends AnyVal {
       }
 
       override final def sleep(duration: FiniteDuration): ZIO[R, E, Unit] =
-        zioClock.sleep(zio.duration.Duration.fromNanos(duration.toNanos))
+        zioClock.sleep(zio.Duration.fromNanos(duration.toNanos))
     }
 }

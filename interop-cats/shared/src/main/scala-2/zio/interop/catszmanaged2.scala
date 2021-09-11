@@ -30,7 +30,7 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
     def go[A1](res: Resource[ZIO[R, E, *], A1]): ZManaged[R, E, A1] =
       res match {
         case alloc: Allocate[ZIO[R, E, *], A1] =>
-          ZManaged.makeReserve(alloc.resource.map {
+          ZManaged.fromReservationZIO(alloc.resource.map {
             case (a, r) => Reservation(ZIO.succeedNow(a), e => r(exitToExitCase(e)).orDie)
           })
 

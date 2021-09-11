@@ -20,6 +20,6 @@ private[interop] trait catzSpecZIOBase extends catzSpecBase with GenIOInteropCat
     Arbitrary(Arbitrary.arbitrary[IO[E, A]].map(Par.apply))
 
   implicit def zManagedArbitrary[R, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZManaged[R, E, A]] =
-    Arbitrary(Arbitrary.arbitrary[IO[E, A]].map(ZManaged.fromEffect(_)))
+    Arbitrary(Arbitrary.arbitrary[IO[E, A]].map(ZManaged.fromZIO(_)))
 
 }

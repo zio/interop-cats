@@ -17,8 +17,7 @@
 package zio.interop.console
 
 import _root_.cats.Show
-import zio.ZIO
-import zio.console.Console
+import zio.{ Console, Has, ZIO }
 
 import java.io.IOException
 
@@ -27,12 +26,12 @@ object cats {
   /**
    * Prints the string representation of an object to the console.
    */
-  def putStr[A](a: A)(implicit ev: Show[A]): ZIO[Console, IOException, Unit] =
-    zio.console.putStr(ev.show(a))
+  def print[A](a: A)(implicit ev: Show[A]): ZIO[Has[Console], IOException, Unit] =
+    zio.Console.print(ev.show(a))
 
   /**
    * Prints the string representation of an object to the console, including a newline character.
    */
-  def putStrLn[A](a: A)(implicit ev: Show[A]): ZIO[Console, IOException, Unit] =
-    zio.console.putStrLn(ev.show(a))
+  def printLine[A](a: A)(implicit ev: Show[A]): ZIO[Has[Console], IOException, Unit] =
+    zio.Console.printLine(ev.show(a))
 }

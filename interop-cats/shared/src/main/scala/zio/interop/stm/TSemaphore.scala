@@ -16,6 +16,10 @@
 
 package zio.interop.stm
 
+import cats.effect.{ Effect, Resource }
+import zio.interop._
+import zio.interop.catz._
+import zio.Runtime
 import zio.stm.{ TSemaphore => ZTSemaphore }
 
 /**
@@ -53,11 +57,26 @@ class TSemaphore[F[+_]] private (underlying: ZTSemaphore) {
    */
   final def releaseN(n: Long): STM[F, Unit] = new STM(underlying.releaseN(n))
 
+  def withPermit[B](effect: F[B])(implicit R: Runtime[Any], F: Effect[F]): F[B] =
+    withPermits(1L)(effect)
+
   /**
-   * See [[zio.stm.TSemaphore#withPermit]]
+   * See [[zio.stm.TSemaphore#withPermitManaged]]
    */
-  final def withPermit[B](stm: STM[F, B]): STM[F, B] =
-    new STM(underlying.withPermit(stm.underlying))
+  def withPermitResource(implicit R: Runtime[Any], F: Effect[F]): Resource[F, Unit] =
+    withPermitsResource(1L)
+
+  /**
+   * See [[zio.stm.TSemaphore#withPermits]]
+   */
+  def withPermits[B](n: Long)(effect: F[B])(implicit R: Runtime[Any], F: Effect[F]): F[B] =
+    toEffect(underlying.withPermits(n)(fromEffect(effect)))
+
+  /**
+   * See [[zio.stm.TSemaphore#withPermitsManaged]]
+   */
+  def withPermitsResource(n: Long)(implicit R: Runtime[Any], F: Effect[F]): Resource[F, Unit] =
+    underlying.withPermitsManaged(n).toResource[F]
 }
 
 object TSemaphore {

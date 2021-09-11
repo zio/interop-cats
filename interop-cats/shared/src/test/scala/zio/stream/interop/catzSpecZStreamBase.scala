@@ -25,7 +25,7 @@ private[interop] trait catzSpecZStreamBase
     Eq.by(Par.unwrap(_))
 
   implicit def zstreamArbitrary[R: Cogen, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZStream[R, E, A]] =
-    Arbitrary(Arbitrary.arbitrary[R => Stream[E, A]].map(ZStream.fromEffect(ZIO.environment[R]).flatMap(_)))
+    Arbitrary(Arbitrary.arbitrary[R => Stream[E, A]].map(ZStream.fromZIO(ZIO.environment[R]).flatMap(_)))
 
   implicit def streamArbitrary[E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[Stream[E, A]] =
     Arbitrary(Gen.oneOf(genStream[E, A], genLikeTrans(genStream[E, A]), genIdentityTrans(genStream[E, A])))

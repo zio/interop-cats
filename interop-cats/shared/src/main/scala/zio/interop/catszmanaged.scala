@@ -94,7 +94,7 @@ trait CatsEffectZManagedInstances {
   ): LiftIO[ZManaged[R, Throwable, *]] =
     new LiftIO[ZManaged[R, Throwable, *]] {
       override def liftIO[A](ioa: CIO[A]): ZManaged[R, Throwable, A] =
-        ZManaged.fromEffect(ev.liftIO(ioa))
+        ZManaged.fromZIO(ev.liftIO(ioa))
     }
 
   implicit def syncZManagedInstances[R]: Sync[ZManaged[R, Throwable, *]] =
@@ -129,7 +129,7 @@ sealed trait CatsZManagedInstances1 extends CatsZManagedInstances2 {
 
   implicit def bifunctorZManagedInstances[R]: Bifunctor[ZManaged[R, *, *]] = new Bifunctor[ZManaged[R, *, *]] {
     override def bimap[A, B, C, D](fab: ZManaged[R, A, B])(f: A => C, g: B => D): ZManaged[R, C, D] =
-      fab.bimap(f, g)
+      fab.mapBoth(f, g)
   }
 
   implicit def arrowChoiceURManagedInstances[E]: ArrowChoice[URManaged] =
@@ -154,7 +154,7 @@ private class CatsZManagedMonad[R, E] extends Monad[ZManaged[R, E, *]] {
 }
 
 private class CatsZManagedMonadError[R, E] extends CatsZManagedMonad[R, E] with MonadError[ZManaged[R, E, *], E] {
-  override def raiseError[A](e: E): ZManaged[R, E, A] = ZManaged.fromEffect(ZIO.fail(e))
+  override def raiseError[A](e: E): ZManaged[R, E, A] = ZManaged.fromZIO(ZIO.fail(e))
 
   override def handleErrorWith[A](fa: ZManaged[R, E, A])(f: E => ZManaged[R, E, A]): ZManaged[R, E, A] =
     fa.catchAll(f)
@@ -170,10 +170,10 @@ private class CatsZManagedSemigroupK[R, E] extends SemigroupK[ZManaged[R, E, *]]
 
 private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] with Sync[ZManaged[R, Throwable, *]] {
 
-  override final def delay[A](thunk: => A): ZManaged[R, Throwable, A] = ZManaged.fromEffect(ZIO.effect(thunk))
+  override final def delay[A](thunk: => A): ZManaged[R, Throwable, A] = ZManaged.fromZIO(ZIO.attempt(thunk))
 
   override final def suspend[A](thunk: => ZManaged[R, Throwable, A]): ZManaged[R, Throwable, A] =
-    ZManaged.unwrap(ZIO.effect(thunk))
+    ZManaged.unwrap(ZIO.attempt(thunk))
 
   override def bracketCase[A, B](
     acquire: ZManaged[R, Throwable, A]
@@ -184,7 +184,7 @@ private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] w
       ZIO.uninterruptibleMask { restore =>
         (for {
           a     <- acquire
-          exitB <- ZManaged(restore(use(a).zio)).run
+          exitB <- ZManaged(restore(use(a).zio)).exit
           _     <- release(a, exitToExitCase(exitB))
           b     <- ZManaged.done(exitB)
         } yield b).zio
@@ -193,26 +193,29 @@ private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] w
 }
 
 private object CatsZManagedArrowChoice extends ArrowChoice[ZManaged[*, Any, *]] {
-  final override def lift[A, B](f: A => B): ZManaged[A, Any, B] = ZManaged.fromFunction(f)
+  final override def lift[A, B](f: A => B): ZManaged[A, Any, B] = ZManaged.access(f)
   final override def compose[A, B, C](f: ZManaged[B, Any, C], g: ZManaged[A, Any, B]): ZManaged[A, Any, C] =
-    f compose g
+    g.flatMap(f.provide)
 
-  final override def id[A]: ZManaged[A, Any, A] = ZManaged.identity
+  final override def id[A]: ZManaged[A, Any, A] = ZManaged.environment
   final override def dimap[A, B, C, D](fab: ZManaged[A, Any, B])(f: C => A)(g: B => D): ZManaged[C, Any, D] =
     fab.provideSome(f).map(g)
 
   final override def choose[A, B, C, D](f: ZManaged[A, Any, C])(
     g: ZManaged[B, Any, D]
-  ): ZManaged[Either[A, B], Any, Either[C, D]] = f +++ g
+  ): ZManaged[Either[A, B], Any, Either[C, D]] =
+    ZManaged.accessManaged[Either[A, B]](_.fold(f.provide(_).map(Left(_)), g.provide(_).map(Right(_))))
 
-  final override def first[A, B, C](fa: ZManaged[A, Any, B]): ZManaged[(A, C), Any, (B, C)]  = fa *** ZManaged.identity
-  final override def second[A, B, C](fa: ZManaged[A, Any, B]): ZManaged[(C, A), Any, (C, B)] = ZManaged.identity *** fa
+  final override def first[A, B, C](fa: ZManaged[A, Any, B]): ZManaged[(A, C), Any, (B, C)] =
+    fa.provideSome[(A, C)](_._1) <*> ZManaged.access[(A, C)](_._2)
+  final override def second[A, B, C](fa: ZManaged[A, Any, B]): ZManaged[(C, A), Any, (C, B)] =
+    ZManaged.access[(C, A)](_._1) <*> fa.provideSome[(C, A)](_._2)
   final override def split[A, B, C, D](f: ZManaged[A, Any, B], g: ZManaged[C, Any, D]): ZManaged[(A, C), Any, (B, D)] =
-    f *** g
+    f.provideSome[(A, C)](_._1) <*> g.provideSome[(A, C)](_._2)
 
   final override def merge[A, B, C](f: ZManaged[A, Any, B], g: ZManaged[A, Any, C]): ZManaged[A, Any, (B, C)] = f.zip(g)
   final override def lmap[A, B, C](fab: ZManaged[A, Any, B])(f: C => A): ZManaged[C, Any, B]                  = fab.provideSome(f)
   final override def rmap[A, B, C](fab: ZManaged[A, Any, B])(f: B => C): ZManaged[A, Any, C]                  = fab.map(f)
   final override def choice[A, B, C](f: ZManaged[A, Any, C], g: ZManaged[B, Any, C]): ZManaged[Either[A, B], Any, C] =
-    f ||| g
+    ZManaged.accessManaged(_.fold(f.provide, g.provide))
 }
