@@ -61,7 +61,7 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
     def go[B](resource: Resource[F, B]): ZManaged[R, E, B] =
       resource match {
         case allocate: Resource.Allocate[F, b] =>
-          ZManaged.makeReserve[R, E, B](F.uncancelable(allocate.resource).map { case (b, release) =>
+          ZManaged.fromReservationZIO[R, E, B](F.uncancelable(allocate.resource).map { case (b, release) =>
             Reservation(ZIO.succeedNow(b), error => release(toExitCase(error)).orDie)
           })
 
@@ -69,7 +69,7 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
           go(bind.source).flatMap(a => go(bind.fs(a)))
 
         case eval: Resource.Eval[F, b] =>
-          ZManaged.fromEffect(eval.fa)
+          ZManaged.fromZIO(eval.fa)
 
         case pure: Resource.Pure[F, B] =>
           ZManaged.succeedNow(pure.a)
@@ -336,28 +336,28 @@ private class ZManagedArrowChoice[E] extends ArrowChoice[ZManaged[_, E, _]] {
   type F[A, B] = ZManaged[A, E, B]
 
   final override def lift[A, B](f: A => B): F[A, B] =
-    ZManaged.fromFunction(f)
+    ZManaged.access(f)
 
   final override def compose[A, B, C](f: F[B, C], g: F[A, B]): F[A, C] =
-    f compose g
+    g.flatMap(f.provide)
 
   final override def id[A]: F[A, A] =
-    ZManaged.identity[A]
+    ZManaged.environment[A]
 
   final override def dimap[A, B, C, D](fab: F[A, B])(f: C => A)(g: B => D): F[C, D] =
     fab.provideSome(f).map(g)
 
   final override def choose[A, B, C, D](f: F[A, C])(g: F[B, D]): F[Either[A, B], Either[C, D]] =
-    f +++ g
+    ZManaged.accessManaged[Either[A, B]](_.fold(f.provide(_).map(Left(_)), g.provide(_).map(Right(_))))
 
   final override def first[A, B, C](fa: F[A, B]): F[(A, C), (B, C)] =
-    fa *** ZManaged.identity[C]
+    fa.provideSome[(A, C)](_._1) <*> ZManaged.access[(A, C)](_._2)
 
   final override def second[A, B, C](fa: F[A, B]): F[(C, A), (C, B)] =
-    ZManaged.identity[C] *** fa
+    ZManaged.access[(C, A)](_._1) <*> fa.provideSome[(C, A)](_._2)
 
   final override def split[A, B, C, D](f: F[A, B], g: F[C, D]): F[(A, C), (B, D)] =
-    f *** g
+    f.provideSome[(A, C)](_._1) <*> g.provideSome[(A, C)](_._2)
 
   final override def merge[A, B, C](f: F[A, B], g: F[A, C]): F[A, (B, C)] =
     f zip g
@@ -369,10 +369,10 @@ private class ZManagedArrowChoice[E] extends ArrowChoice[ZManaged[_, E, _]] {
     fab.map(f)
 
   final override def choice[A, B, C](f: F[A, C], g: F[B, C]): F[Either[A, B], C] =
-    f ||| g
+    ZManaged.accessManaged(_.fold(f.provide, g.provide))
 }
 
 private class ZManagedLiftIO[R](implicit ev: LiftIO[RIO[R, _]]) extends LiftIO[RManaged[R, _]] {
   override final def liftIO[A](ioa: effect.IO[A]): RManaged[R, A] =
-    ZManaged.fromEffect(ev.liftIO(ioa))
+    ZManaged.fromZIO(ev.liftIO(ioa))
 }

@@ -7,7 +7,6 @@ import zio.interop.catz.*
 import zio.test.Assertion.*
 import zio.test.*
 
-import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 
 object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
@@ -31,8 +30,10 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
             managed.use(_ => ZIO.interrupt.unit)
           }
 
-          unsafeRun(testCase.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers correctly when use has failed") {
           val effects                          = new mutable.ListBuffer[Int]
@@ -49,8 +50,7 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
             managed.use(_ => ZIO.fail(new RuntimeException()).unit)
           }
 
-          unsafeRun(testCase.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          assertM(testCase.orElse(ZIO.unit) *> ZIO.succeed(effects.toList))(equalTo(List(1, 2)))
         },
         test("calls finalizers correctly when use has died") {
           val effects                          = new mutable.ListBuffer[Int]
@@ -67,8 +67,10 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
             managed.use(_ => ZIO.die(new RuntimeException()).unit)
           }
 
-          unsafeRun(testCase.sandbox.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.sandbox.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers should not run if exception is thrown in acquisition") {
           val effects                          = new mutable.ListBuffer[Int]
@@ -79,11 +81,13 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
 
           val testCase = {
             val managed: ZManaged[Any, Throwable, Unit] = res(1).toManaged
-            managed.use_(ZIO.unit)
+            managed.useDiscard(ZIO.unit)
           }
 
-          unsafeRun(testCase.sandbox.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1)))
+          for {
+            _       <- testCase.sandbox.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1)))
         },
         test("calls finalizers correctly when using the resource") {
           val effects                          = new mutable.ListBuffer[Int]
@@ -92,11 +96,13 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
 
           val testCase = {
             val managed: ZManaged[Any, Throwable, Unit] = res(1).toManaged
-            managed.use_(ZIO.unit)
+            managed.useDiscard(ZIO.unit)
           }
 
-          unsafeRun(testCase)
-          assert(effects.toList)(equalTo(List(1, 1)))
+          for {
+            _       <- testCase
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 1)))
         },
         test("composing with other managed should calls finalizers in correct order") {
 
@@ -105,16 +111,18 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
             Resource.make(CIO.delay(effects += x).void)(_ => CIO.delay(effects += x).void)
 
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
-            ZManaged.make(ZIO.effectTotal(effects += x).unit)(_ => ZIO.effectTotal(effects += x))
+            ZManaged.acquireReleaseWith(ZIO.succeed(effects += x).unit)(_ => ZIO.succeed(effects += x))
 
           val testCase = {
             val managed1: ZManaged[Any, Throwable, Unit] = res(1).toManaged
             val managed2: ZManaged[Any, Throwable, Unit] = man(2)
-            (managed1 *> managed2).use_(ZIO.unit)
+            (managed1 *> managed2).useDiscard(ZIO.unit)
           }
 
-          unsafeRun(testCase)
-          assert(effects.toList)(equalTo(List(1, 2, 2, 1)))
+          for {
+            _       <- testCase
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2, 2, 1)))
         }
       ),
       suite("toManagedZIO")(
@@ -132,8 +140,10 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
             managed.use(_ => ZIO.interrupt.unit)
           }
 
-          unsafeRun(testCase.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers correctly when use has failed") {
           val effects                           = new mutable.ListBuffer[Int]
@@ -150,8 +160,10 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
             managed.use(_ => ZIO.fail(new RuntimeException()).unit)
           }
 
-          unsafeRun(testCase.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers correctly when use has died") {
           val effects                           = new mutable.ListBuffer[Int]
@@ -168,8 +180,10 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
             managed.use(_ => ZIO.die(new RuntimeException()).unit)
           }
 
-          unsafeRun(testCase.sandbox.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.sandbox.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers should not run if exception is thrown in acquisition") {
           val effects                           = new mutable.ListBuffer[Int]
@@ -180,11 +194,13 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
 
           val testCase = {
             val managed: ZManaged[Any, Throwable, Unit] = res(1).toManagedZIO
-            managed.use_(ZIO.unit)
+            managed.useDiscard(ZIO.unit)
           }
 
-          unsafeRun(testCase.sandbox.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1)))
+          for {
+            _       <- testCase.sandbox.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1)))
         },
         test("calls finalizers correctly when using the resource") {
           val effects                           = new mutable.ListBuffer[Int]
@@ -193,11 +209,13 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
 
           val testCase = {
             val managed: ZManaged[Any, Throwable, Unit] = res(1).toManagedZIO
-            managed.use_(ZIO.unit)
+            managed.useDiscard(ZIO.unit)
           }
 
-          unsafeRun(testCase)
-          assert(effects.toList)(equalTo(List(1, 1)))
+          for {
+            _       <- testCase
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 1)))
         },
         test("composing with other managed should calls finalizers in correct order") {
 
@@ -206,81 +224,86 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
             Resource.make(Task(effects += x).unit)(_ => Task(effects += x).unit)
 
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
-            ZManaged.make(ZIO.effectTotal(effects += x).unit)(_ => ZIO.effectTotal(effects += x))
+            ZManaged.acquireReleaseWith(ZIO.succeed(effects += x).unit)(_ => ZIO.succeed(effects += x))
 
           val testCase = {
             val managed1: ZManaged[Any, Throwable, Unit] = res(1).toManagedZIO
             val managed2: ZManaged[Any, Throwable, Unit] = man(2)
-            (managed1 *> managed2).use_(ZIO.unit)
+            (managed1 *> managed2).useDiscard(ZIO.unit)
           }
 
-          unsafeRun(testCase)
-          assert(effects.toList)(equalTo(List(1, 2, 2, 1)))
+          for {
+            _       <- testCase
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2, 2, 1)))
         }
       ),
       suite("toResource")(
         test("calls finalizers when using resource") {
           val effects                                     = new mutable.ListBuffer[Int]
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
-            ZManaged.make(ZIO.effectTotal(effects += x).unit)(_ => ZIO.effectTotal(effects += x + 1))
+            ZManaged.acquireReleaseWith(ZIO.succeed(effects += x).unit)(_ => ZIO.succeed(effects += x + 1))
 
           val testCase = man(1).toResource[RIO[ZEnv, _]].use(_ => ZIO.unit)
-          unsafeRun(testCase)
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers when using resource fails") {
           val effects                                     = new mutable.ListBuffer[Int]
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
-            ZManaged.makeExit(ZIO.effectTotal(effects += x).unit) {
+            ZManaged.acquireReleaseExitWith(ZIO.succeed(effects += x).unit) {
               case (_, Exit.Failure(_)) =>
-                ZIO.effectTotal(effects += x + 1)
+                ZIO.succeed(effects += x + 1)
               case _                    =>
                 ZIO.unit
             }
 
           val testCase = man(1).toResource[RIO[ZEnv, _]].use(_ => ZIO.fail(new RuntimeException()).unit)
-          unsafeRun(testCase.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers when using resource is canceled") {
           val effects                                     = new mutable.ListBuffer[Int]
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
-            ZManaged.makeExit(ZIO.effectTotal(effects += x).unit) {
+            ZManaged.acquireReleaseExitWith(ZIO.succeed(effects += x).unit) {
               case (_, e) if e.interrupted =>
-                ZIO.effectTotal(effects += x + 1)
+                ZIO.succeed(effects += x + 1)
               case _                       =>
                 ZIO.unit
             }
 
           val testCase = man(1).toResource[RIO[ZEnv, _]].use(_ => ZIO.interrupt)
-          unsafeRun(testCase.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("acquisition of Reservation preserves cancellability in new F") {
-          unsafeRun(for {
+          for {
             startLatch <- Promise.make[Nothing, Unit]
             endLatch   <- Promise.make[Nothing, Unit]
             release    <- Ref.make(false)
-            managed     = ZManaged.reserve(
+            managed     = ZManaged.fromReservation(
                             Reservation(
                               acquire = startLatch.succeed(()) *> ZIO.never,
                               release = _ => release.set(true) *> endLatch.succeed(())
                             )
                           )
             resource    = managed.toResource[CIO]
-            _          <- blocking.effectBlockingInterrupt {
+            _          <- ZIO.attemptBlockingInterrupt {
                             resource
                               .use(_ => CIO.unit)
                               .start
-                              .flatMap(f =>
-                                CIO(zioRuntime.unsafeRun(startLatch.await))
-                                  .flatMap(_ => f.cancel)
-                              )
+                              .flatMap(fiber => startLatch.await.toEffect[CIO] *> fiber.cancel)
                               .unsafeRunSync()
-                          }.timeoutFail("startLatch timed out")(zio.duration.Duration(10, TimeUnit.SECONDS))
-            _          <- endLatch.await.timeoutFail("endLatch timed out")(zio.duration.Duration(10, TimeUnit.SECONDS))
+                          }
+            _          <- endLatch.await
             res        <- release.get
-          } yield assert(res)(equalTo(true)))
+          } yield assert(res)(equalTo(true))
         }
       )
     )

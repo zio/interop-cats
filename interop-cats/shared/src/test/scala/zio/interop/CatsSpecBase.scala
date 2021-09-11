@@ -10,11 +10,9 @@ import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio.*
-import zio.clock.Clock
-import zio.duration.*
 import zio.internal.{ Executor, Platform, Tracing }
 
-import java.time.{ DateTimeException, Instant, OffsetDateTime, ZoneOffset }
+import java.time.{ Instant, LocalDateTime, OffsetDateTime, ZoneOffset }
 import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration.Infinite
@@ -36,42 +34,43 @@ private[zio] trait CatsSpecBase
       .fromExecutor(Executor.fromExecutionContext(1024)(ticker.ctx))
       .withTracing(Tracing.disabled)
       .withReportFailure(_ => ())
+      .withBlockingExecutor(Executor.fromExecutionContext(1024)(ticker.ctx))
 
   def environment(implicit ticker: Ticker): ZEnv = {
 
-    val testBlocking = new CBlockingService {
-      def blockingExecutor: Executor =
-        Executor.fromExecutionContext(1024)(ticker.ctx)
-    }
+    val testClock = new Clock {
 
-    val testClock = new Clock.Service {
+      def instant: UIO[Instant]                  =
+        ???
+      def localDateTime: UIO[LocalDateTime]      =
+        ???
       def currentTime(unit: TimeUnit): UIO[Long] =
-        ZIO.effectTotal(ticker.ctx.now().toUnit(unit).toLong)
+        ZIO.succeed(ticker.ctx.now().toUnit(unit).toLong)
 
-      val currentDateTime: IO[DateTimeException, OffsetDateTime] =
-        ZIO.effectTotal(OffsetDateTime.ofInstant(Instant.ofEpochMilli(ticker.ctx.now().toMillis), ZoneOffset.UTC))
+      val currentDateTime: UIO[OffsetDateTime] =
+        ZIO.succeed(OffsetDateTime.ofInstant(Instant.ofEpochMilli(ticker.ctx.now().toMillis), ZoneOffset.UTC))
 
       val nanoTime: UIO[Long] =
-        ZIO.effectTotal(ticker.ctx.now().toNanos)
+        ZIO.succeed(ticker.ctx.now().toNanos)
 
       def sleep(duration: Duration): UIO[Unit] = duration.asScala match {
         case finite: FiniteDuration =>
-          ZIO.effectAsyncInterrupt { cb =>
+          ZIO.asyncInterrupt { cb =>
             val cancel = ticker.ctx.schedule(finite, () => cb(UIO.unit))
-            Left(UIO.effectTotal(cancel()))
+            Left(UIO.succeed(cancel()))
           }
         case infinite: Infinite     =>
           ZIO.dieMessage(s"Unexpected infinite duration $infinite passed to Ticker")
       }
     }
 
-    ZEnv.Services.live ++ Has(testClock) ++ Has(testBlocking)
+    ZEnv.Services.live ++ Has(testClock)
   }
 
   def unsafeRun[A](uio: UIO[A])(implicit ticker: Ticker): Exit[Nothing, Option[A]] =
     try {
       var exit = Exit.succeed(Option.empty[A])
-      runtime.unsafeRunAsync[Nothing, Option[A]](uio.asSome)(exit = _)
+      runtime.unsafeRunAsyncWith[Nothing, Option[A]](uio.asSome)(exit = _)
       ticker.ctx.tickAll(FiniteDuration(1, TimeUnit.SECONDS))
       exit
     } catch {

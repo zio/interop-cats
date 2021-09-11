@@ -24,9 +24,6 @@ import scala.concurrent.Future
 
 package object interop {
 
-  type CBlocking        = interop.PlatformSpecific.CBlocking
-  type CBlockingService = interop.PlatformSpecific.CBlockingService
-
   type Queue[F[+_], A] = CQueue[F, A, A]
   val Queue: CQueue.type = CQueue
 
@@ -48,7 +45,7 @@ package object interop {
       case Exit.Failure(cause)                      =>
         cause.failureOrCause match {
           case Left(error)  => Outcome.Errored(error)
-          case Right(cause) => Outcome.Succeeded(ZIO.halt(cause))
+          case Right(cause) => Outcome.Succeeded(ZIO.failCause(cause))
         }
     }
 
@@ -74,7 +71,7 @@ package object interop {
 
   @inline private[zio] def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F]): Task[A] =
     ZIO
-      .effectTotal(F.unsafeToFutureCancelable(fa))
+      .succeed(F.unsafeToFutureCancelable(fa))
       .flatMap { case (future, cancel) =>
         ZIO.fromFuture(_ => future).onInterrupt(ZIO.fromFuture(_ => cancel()).orDie).interruptible
       }

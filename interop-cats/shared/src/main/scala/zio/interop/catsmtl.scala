@@ -28,7 +28,7 @@ abstract class CatsMtlInstances {
     new Local[ZIO[R, E, _], R] {
       override def applicative: Applicative[ZIO[R, E, _]]              = ev
       override def ask[E2 >: R]: ZIO[R, E, E2]                         = ZIO.environment
-      override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] = ZIO.accessM(fa provide f(_))
+      override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] = ZIO.accessZIO(fa provide f(_))
     }
 
   implicit def zioAsk[R1, R <: R1, E](implicit ev: Applicative[ZIO[R, E, _]]): Ask[ZIO[R, E, _], R1] =

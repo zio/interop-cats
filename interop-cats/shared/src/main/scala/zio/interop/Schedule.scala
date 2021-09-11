@@ -25,8 +25,12 @@ import java.time.{ Duration, OffsetDateTime }
 /**
  * @see zio.ZSchedule
  */
-sealed abstract class Schedule[F[+_], -In, +Out](private val underlying: ZSchedule[ZEnv, In, Out]) {
+sealed abstract class Schedule[F[+_], -In, +Out] {
   import Schedule.*
+
+  type State
+
+  protected val underlying: ZSchedule.WithState[State, ZEnv, In, Out]
 
   /**
    * @see zio.ZSchedule.&&
@@ -178,7 +182,7 @@ sealed abstract class Schedule[F[+_], -In, +Out](private val underlying: ZSchedu
   /**
    * @see zio.ZSchedule.driver
    */
-  def driver: F[Schedule.Driver[F, In, Out]]
+  def driver: F[Schedule.Driver[F, State, In, Out]]
 
   /**
    * @see zio.ZSchedule.either
@@ -378,7 +382,7 @@ object Schedule {
   def collectWhileM[F[+_]: Async: Dispatcher, A](
     f: A => F[Boolean]
   )(implicit runtime: Runtime[ZEnv]): Schedule[F, A, List[A]] =
-    Schedule(ZSchedule.collectWhileM((a: A) => fromEffect(f(a)).orDie).map(_.toList))
+    Schedule(ZSchedule.collectWhileZIO((a: A) => fromEffect(f(a)).orDie).map(_.toList))
 
   /**
    * @see zio.ZSchedule.collectUntil
@@ -394,7 +398,7 @@ object Schedule {
   def collectUntilM[F[+_]: Async: Dispatcher, A](
     f: A => F[Boolean]
   )(implicit runtime: Runtime[ZEnv]): Schedule[F, A, List[A]] =
-    Schedule(ZSchedule.collectUntilM((a: A) => fromEffect(f(a)).orDie).map(_.toList))
+    Schedule(ZSchedule.collectUntilZIO((a: A) => fromEffect(f(a)).orDie).map(_.toList))
 
   /**
    * @see zio.ZSchedule.delayed
@@ -414,7 +418,7 @@ object Schedule {
    * @see zio.ZSchedule.recurWhileM
    */
   def recurWhileM[F[+_]: Async: Dispatcher, A](f: A => F[Boolean])(implicit runtime: Runtime[ZEnv]): Schedule[F, A, A] =
-    Schedule(ZSchedule.recurWhileM(a => fromEffect(f(a)).orDie))
+    Schedule(ZSchedule.recurWhileZIO(a => fromEffect(f(a)).orDie))
 
   /**
    * @see zio.ZSchedule.recurWhileEquals
@@ -432,7 +436,7 @@ object Schedule {
    * @see zio.ZSchedule.recurUntilM
    */
   def recurUntilM[F[+_]: Async: Dispatcher, A](f: A => F[Boolean])(implicit runtime: Runtime[ZEnv]): Schedule[F, A, A] =
-    Schedule(ZSchedule.recurUntilM(a => fromEffect(f(a)).orDie))
+    Schedule(ZSchedule.recurUntilZIO(a => fromEffect(f(a)).orDie))
 
   /**
    * @see zio.ZSchedule.recurUntilEquals
@@ -502,7 +506,11 @@ object Schedule {
   def fromDurations[F[+_]: Async: Dispatcher](duration: Duration, durations: Duration*)(implicit
     runtime: Runtime[ZEnv]
   ): Schedule[F, Any, Duration] =
-    Schedule(ZSchedule.fromDurations(duration, durations*))
+    Schedule(
+      ZSchedule
+        .fromDurations(duration, durations*)
+        .asInstanceOf[ZSchedule.WithState[(::[Duration], Boolean), Any, Any, Duration]]
+    )
 
   /**
    * @see zio.ZSchedule.fromFunction
@@ -576,8 +584,8 @@ object Schedule {
   def windowed[F[+_]: Async: Dispatcher](interval: Duration)(implicit runtime: Runtime[ZEnv]): Schedule[F, Any, Long] =
     Schedule(ZSchedule.windowed(interval))
 
-  final class Driver[F[+_]: Async, -In, +Out] private[Schedule] (
-    underlying: ZSchedule.Driver[ZEnv, In, Out]
+  final class Driver[F[+_]: Async, +State, -In, +Out] private[Schedule] (
+    underlying: ZSchedule.Driver[State, ZEnv, In, Out]
   )(implicit runtime: Runtime[ZEnv]) {
     def next(in: In): F[Either[None.type, Out]]      =
       underlying.next(in).either.toEffect[F]
@@ -589,75 +597,83 @@ object Schedule {
 
   type Interval = ZSchedule.Interval
 
-  private def apply[F[+_]: Async: Dispatcher, In, Out](
-    underlying: ZSchedule[ZEnv, In, Out]
-  )(implicit runtime: Runtime[ZEnv]): Schedule[F, In, Out] =
-    new Schedule[F, In, Out](underlying) {
-      def &&[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, (Out, Out2)]                             =
+  type WithState[F[+_], State0, In, Out] = Schedule[F, In, Out] { type State = State0 }
+
+  private def apply[F[+_]: Async: Dispatcher, State0, In, Out](
+    underlying0: ZSchedule.WithState[State0, ZEnv, In, Out]
+  )(implicit runtime: Runtime[ZEnv]): Schedule.WithState[F, State0, In, Out] =
+    new Schedule[F, In, Out] {
+      type State = State0
+      val underlying: ZSchedule.WithState[State0, ZEnv, In, Out]                                            =
+        underlying0
+      def &&[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, (Out, Out2)]                  =
         Schedule(underlying && that.underlying)
-      def ***[In2, Out2](that: Schedule[F, In2, Out2]): Schedule[F, (In, In2), (Out, Out2)]                            =
+      def ***[In2, Out2](that: Schedule[F, In2, Out2]): Schedule[F, (In, In2), (Out, Out2)]                 =
         Schedule(underlying *** that.underlying)
-      def *>[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out2]                                    =
+      def *>[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out2]                         =
         Schedule(underlying *> that.underlying)
-      def ++[In1 <: In, Out2 >: Out](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out2]                             =
+      def ++[In1 <: In, Out2 >: Out](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out2]                  =
         Schedule(underlying ++ that.underlying)
-      def +++[In2, Out2](that: Schedule[F, In2, Out2]): Schedule[F, Either[In, In2], Either[Out, Out2]]                =
+      def +++[In2, Out2](that: Schedule[F, In2, Out2]): Schedule[F, Either[In, In2], Either[Out, Out2]]     =
         Schedule(underlying +++ that.underlying)
-      def <||>[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Either[Out, Out2]]                     =
+      def <||>[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Either[Out, Out2]]          =
         Schedule(underlying <||> that.underlying)
-      def <*[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out]                                     =
+      def <*[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out]                          =
         Schedule(underlying <* that.underlying)
-      def <*>[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, (Out, Out2)]                            =
+      def <*>[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, (Out, Out2)]                 =
         Schedule(underlying <*> that.underlying)
-      def <<<[In2](that: Schedule[F, In2, In]): Schedule[F, In2, Out]                                                  =
+      def <<<[In2](that: Schedule[F, In2, In]): Schedule[F, In2, Out]                                       =
         Schedule(underlying <<< that.underlying)
-      def >>>[Out2](that: Schedule[F, Out, Out2]): Schedule[F, In, Out2]                                               =
+      def >>>[Out2](that: Schedule[F, Out, Out2]): Schedule[F, In, Out2]                                    =
         Schedule(underlying >>> that.underlying)
-      def ||[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, (Out, Out2)]                             =
+      def ||[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, (Out, Out2)]                  =
         Schedule(underlying || that.underlying)
-      def |||[Out1 >: Out, In2](that: Schedule[F, In2, Out1]): Schedule[F, Either[In, In2], Out1]                      =
-        Schedule(underlying ||| that.underlying)
-      def addDelay(f: Out => Duration): Schedule[F, In, Out]                                                           =
+      def |||[Out1 >: Out, In2](that: Schedule[F, In2, Out1]): Schedule[F, Either[In, In2], Out1]           =
+        Schedule(
+          (underlying ||| that.underlying)
+            .asInstanceOf[ZSchedule.WithState[(underlying.State, that.underlying.State), ZEnv, Either[In, In2], Out1]]
+        )
+      def addDelay(f: Out => Duration): Schedule[F, In, Out]                                                =
         Schedule(underlying.addDelay(f))
-      def addDelayM(f: Out => F[Duration]): Schedule[F, In, Out]                                                       =
-        Schedule(underlying.addDelayM(out => fromEffect(f(out)).orDie))
-      def andThen[In1 <: In, Out2 >: Out](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out2]                        =
+      def addDelayM(f: Out => F[Duration]): Schedule[F, In, Out]                                            =
+        Schedule(underlying.addDelayZIO(out => fromEffect(f(out)).orDie))
+      def andThen[In1 <: In, Out2 >: Out](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out2]             =
         Schedule(underlying andThen that.underlying)
-      def andThenEither[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Either[Out, Out2]]            =
+      def andThenEither[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Either[Out, Out2]] =
         Schedule(underlying andThenEither that.underlying)
-      def as[Out2](out2: => Out2): Schedule[F, In, Out2]                                                               =
+      def as[Out2](out2: => Out2): Schedule[F, In, Out2]                                                    =
         Schedule(underlying.as(out2))
-      def check[In11 <: In](test: (In11, Out) => Boolean): Schedule[F, In11, Out]                                      =
+      def check[In11 <: In](test: (In11, Out) => Boolean): Schedule[F, In11, Out]                           =
         Schedule(underlying.check(test))
-      def checkM[In1 <: In](test: (In1, Out) => F[Boolean]): Schedule[F, In1, Out]                                     =
-        Schedule(underlying.checkM((in1, out) => fromEffect(test(in1, out)).orDie))
-      def collectAll: Schedule[F, In, List[Out]]                                                                       =
-        Schedule(underlying.collectAll.map(_.toList))
-      def compose[In2](that: Schedule[F, In2, In]): Schedule[F, In2, Out]                                              =
+      def checkM[In1 <: In](test: (In1, Out) => F[Boolean]): Schedule[F, In1, Out]                          =
+        Schedule(underlying.checkZIO((in1, out) => fromEffect(test(in1, out)).orDie))
+      def collectAll: Schedule[F, In, List[Out]]                                                            =
+        Schedule(underlying.collectAll.map((out: zio.Chunk[Out]) => out.toList))
+      def compose[In2](that: Schedule[F, In2, In]): Schedule[F, In2, Out]                                   =
         Schedule(underlying compose that.underlying)
       def intersectWith[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)]                                            =
+      )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)]                                 =
         Schedule(underlying.intersectWith(that.underlying)(f))
       @deprecated("use intersectWith", "2.1.5")
       def combineWith[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)]                                            =
+      )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)]                                 =
         intersectWith(that)(f)
       def unionWith[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)]                                            =
+      )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)]                                 =
         Schedule(underlying.unionWith(that.underlying)(f))
-      def contramap[In2](f: In2 => In): Schedule[F, In2, Out]                                                          =
+      def contramap[In2](f: In2 => In): Schedule[F, In2, Out]                                               =
         Schedule(underlying.contramap(f))
-      def delayed(f: Duration => Duration): Schedule[F, In, Out]                                                       =
+      def delayed(f: Duration => Duration): Schedule[F, In, Out]                                            =
         Schedule(underlying.delayed(f))
-      def delayedM(f: Duration => F[Duration]): Schedule[F, In, Out]                                                   =
-        Schedule(underlying.delayedM(d => fromEffect(f(d)).orDie))
-      def dimap[In2, Out2](f: In2 => In, g: Out => Out2): Schedule[F, In2, Out2]                                       =
+      def delayedM(f: Duration => F[Duration]): Schedule[F, In, Out]                                        =
+        Schedule(underlying.delayedZIO(d => fromEffect(f(d)).orDie))
+      def dimap[In2, Out2](f: In2 => In, g: Out => Out2): Schedule[F, In2, Out2]                            =
         Schedule(underlying.dimap(f, g))
-      val driver: F[Schedule.Driver[F, In, Out]]                                                                       =
-        underlying.driver.map(driver => new Schedule.Driver(driver)).toEffect[F]
+      val driver: F[Schedule.Driver[F, State, In, Out]]                                                     =
+        ??? //underlying.driver.map(driver => new Schedule.Driver(driver)).toEffect[F]
       def either[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, (Out, Out2)]                         =
         Schedule(underlying either that.underlying)
       def eitherWith[In1 <: In, Out2, Out3](
@@ -671,7 +687,7 @@ object Schedule {
       def fold[Z](z: Z)(f: (Z, Out) => Z): Schedule[F, In, Z]                                                          =
         Schedule(underlying.fold(z)(f))
       def foldM[Z](z: Z)(f: (Z, Out) => F[Z]): Schedule[F, In, Z]                                                      =
-        Schedule(underlying.foldM(z)((z2, out) => fromEffect(f(z2, out)).orDie))
+        Schedule(underlying.foldZIO(z)((z2, out) => fromEffect(f(z2, out)).orDie))
       def forever: Schedule[F, In, Out]                                                                                =
         Schedule(underlying.forever)
       def jittered: Schedule[F, In, Out]                                                                               =
@@ -683,11 +699,11 @@ object Schedule {
       def map[Out2](f: Out => Out2): Schedule[F, In, Out2]                                                             =
         Schedule(underlying.map(f))
       def mapM[Out2](f: Out => F[Out2]): Schedule[F, In, Out2]                                                         =
-        Schedule(underlying.mapM(out => fromEffect(f(out)).orDie))
+        Schedule(underlying.mapZIO(out => fromEffect(f(out)).orDie))
       def modifyDelay(f: (Out, Duration) => Duration): Schedule[F, In, Out]                                            =
         Schedule(underlying.modifyDelay(f))
       def modifyDelayM(f: (Out, Duration) => F[Duration]): Schedule[F, In, Out]                                        =
-        Schedule(underlying.modifyDelayM((out, duration) => fromEffect(f(out, duration)).orDie))
+        Schedule(underlying.modifyDelayZIO((out, duration) => fromEffect(f(out, duration)).orDie))
       def repetitions: Schedule[F, In, Int]                                                                            =
         Schedule(underlying.repetitions)
       def resetAfter(duration: Duration): Schedule[F, In, Out]                                                         =
@@ -709,19 +725,19 @@ object Schedule {
       def untilInput[In1 <: In](f: In1 => Boolean): Schedule[F, In1, Out]                                              =
         Schedule(underlying.untilInput(f))
       def untilInputM[In1 <: In](f: In1 => F[Boolean]): Schedule[F, In1, Out]                                          =
-        Schedule(underlying.untilInputM(in => fromEffect(f(in)).orDie))
+        Schedule(underlying.untilInputZIO(in => fromEffect(f(in)).orDie))
       def untilOutput(f: Out => Boolean): Schedule[F, In, Out]                                                         =
         Schedule(underlying.untilOutput(f))
       def untilOutputM(f: Out => F[Boolean]): Schedule[F, In, Out]                                                     =
-        Schedule(underlying.untilOutputM(out => fromEffect(f(out)).orDie))
+        Schedule(underlying.untilOutputZIO(out => fromEffect(f(out)).orDie))
       def whileInput[In1 <: In](f: In1 => Boolean): Schedule[F, In1, Out]                                              =
         Schedule(underlying.whileInput(f))
       def whileInputM[In1 <: In](f: In1 => F[Boolean]): Schedule[F, In1, Out]                                          =
-        Schedule(underlying.whileInputM(in => fromEffect(f(in)).orDie))
+        Schedule(underlying.whileInputZIO(in => fromEffect(f(in)).orDie))
       def whileOutput(f: Out => Boolean): Schedule[F, In, Out]                                                         =
         Schedule(underlying.whileOutput(f))
       def whileOutputM(f: Out => F[Boolean]): Schedule[F, In, Out]                                                     =
-        Schedule(underlying.whileOutputM(out => fromEffect(f(out)).orDie))
+        Schedule(underlying.whileOutputZIO(out => fromEffect(f(out)).orDie))
       def zip[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, (Out, Out2)]                            =
         Schedule(underlying zip that.underlying)
       def zipLeft[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule[F, In1, Out]                                =

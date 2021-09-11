@@ -19,7 +19,7 @@ trait GenIOInteropCats {
    * Given a generator for `A`, produces a generator for `IO[E, A]` using the `IO.async` constructor.
    */
   def genAsyncSuccess[E, A: Arbitrary]: Gen[IO[E, A]] =
-    Arbitrary.arbitrary[A].map(a => IO.effectAsync[E, A](k => k(IO.succeed(a))))
+    Arbitrary.arbitrary[A].map(a => IO.async[E, A](k => k(IO.succeed(a))))
 
   /**
    * Randomly uses either `genSyncSuccess` or `genAsyncSuccess` with equal probability.
@@ -35,7 +35,7 @@ trait GenIOInteropCats {
    * Given a generator for `E`, produces a generator for `IO[E, A]` using the `IO.async` constructor.
    */
   def genAsyncFailure[E: Arbitrary, A]: Gen[IO[E, A]] =
-    Arbitrary.arbitrary[E].map(err => IO.effectAsync[E, A](k => k(IO.fail(err))))
+    Arbitrary.arbitrary[E].map(err => IO.async[E, A](k => k(IO.fail(err))))
 
   /**
    * Randomly uses either `genSyncFailure` or `genAsyncFailure` with equal probability.
@@ -125,9 +125,9 @@ trait GenIOInteropCats {
 //      io.interruptible.zipPar(parIo.interruptible).map(_._1)
       Promise.make[Nothing, Unit].flatMap { p =>
         ZManaged
-          .fromEffect(parIo *> p.succeed(()))
+          .fromZIO(parIo *> p.succeed(()))
           .fork
-          .use_(p.await *> io)
+          .useDiscard(p.await *> io)
       }
     }
 }

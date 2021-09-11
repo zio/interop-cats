@@ -2,7 +2,6 @@ package zio.interop
 
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.*
-import zio.clock.Clock
 
 private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPriority with GenIOInteropCats {
 
@@ -18,19 +17,16 @@ private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPrior
   implicit def arbitraryURManaged[R: Cogen, A: Arbitrary]: Arbitrary[URManaged[R, A]] =
     zManagedArbitrary[R, Nothing, A]
 
-  implicit def arbitraryClockAndBlocking(implicit ticker: Ticker): Arbitrary[Clock & CBlocking] =
+  implicit def arbitraryClockAndBlocking(implicit ticker: Ticker): Arbitrary[Has[Clock]] =
     Arbitrary(Arbitrary.arbitrary[ZEnv])
-
-  implicit val cogenForClockAndBlocking: Cogen[Clock & CBlocking] =
-    Cogen(_.hashCode.toLong)
 }
 
 private[interop] trait ZioSpecBaseLowPriority { self: ZioSpecBase =>
 
-  implicit def arbitraryClock(implicit ticker: Ticker): Arbitrary[Clock] =
+  implicit def arbitraryClock(implicit ticker: Ticker): Arbitrary[Has[Clock]] =
     Arbitrary(Arbitrary.arbitrary[ZEnv])
 
-  implicit val cogenForClock: Cogen[Clock] =
+  implicit val cogenForClock: Cogen[Has[Clock]] =
     Cogen(_.hashCode.toLong)
 
   implicit def arbitraryIO[E: CanFail: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[IO[E, A]] = {
@@ -48,7 +44,7 @@ private[interop] trait ZioSpecBaseLowPriority { self: ZioSpecBase =>
     arbitraryIO[Throwable, A]
 
   def zManagedArbitrary[R, E, A](implicit zio: Arbitrary[ZIO[R, E, A]]): Arbitrary[ZManaged[R, E, A]] =
-    Arbitrary(zio.arbitrary.map(ZManaged.fromEffect))
+    Arbitrary(zio.arbitrary.map(ZManaged.fromZIO))
 
   implicit def arbitraryRManaged[R: Cogen, A: Arbitrary: Cogen]: Arbitrary[RManaged[R, A]] =
     zManagedArbitrary[R, Throwable, A]

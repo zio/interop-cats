@@ -1,7 +1,7 @@
 package zio.test.interop
 
 import cats.effect.IO as CIO
-import zio.duration.*
+import zio.*
 import zio.interop.CatsRunnableSpec
 import zio.test.Assertion.*
 import zio.test.TestAspect.*

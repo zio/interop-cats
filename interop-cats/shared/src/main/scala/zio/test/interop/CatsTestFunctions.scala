@@ -17,7 +17,7 @@
 package zio.test.interop
 
 import cats.effect.std.Dispatcher
-import zio.RIO
+import zio.{ Has, RIO }
 import zio.interop.fromEffect
 import zio.test.*
 
@@ -33,7 +33,7 @@ trait CatsTestFunctions {
    * Checks the effectual test passes for "sufficient" numbers of samples from
    * the given random variable.
    */
-  final def checkF[F[_]: Dispatcher, R <: TestConfig, A](
+  final def checkF[F[_]: Dispatcher, R <: Has[TestConfig], A](
     rv: Gen[R, A]
   )(test: A => F[TestResult]): RIO[R, TestResult] =
     checkM(rv)(a => fromEffect(test(a)))
@@ -41,7 +41,7 @@ trait CatsTestFunctions {
   /**
    * A version of `checkM` that accepts two random variables.
    */
-  final def checkF[F[_]: Dispatcher, R <: TestConfig, A, B](
+  final def checkF[F[_]: Dispatcher, R <: Has[TestConfig], A, B](
     rv1: Gen[R, A],
     rv2: Gen[R, B]
   )(test: (A, B) => F[TestResult]): RIO[R, TestResult] =
@@ -50,7 +50,7 @@ trait CatsTestFunctions {
   /**
    * A version of `checkM` that accepts three random variables.
    */
-  final def checkF[F[_]: Dispatcher, R <: TestConfig, A, B, C](
+  final def checkF[F[_]: Dispatcher, R <: Has[TestConfig], A, B, C](
     rv1: Gen[R, A],
     rv2: Gen[R, B],
     rv3: Gen[R, C]
@@ -60,7 +60,7 @@ trait CatsTestFunctions {
   /**
    * A version of `checkM` that accepts four random variables.
    */
-  final def checkF[F[_]: Dispatcher, R <: TestConfig, A, B, C, D](
+  final def checkF[F[_]: Dispatcher, R <: Has[TestConfig], A, B, C, D](
     rv1: Gen[R, A],
     rv2: Gen[R, B],
     rv3: Gen[R, C],
@@ -73,7 +73,7 @@ trait CatsTestFunctions {
    * variable. This is useful for deterministic `Gen` that comprehensively
    * explore all possibilities in a given domain.
    */
-  final def checkAllF[F[_]: Dispatcher, R <: TestConfig, A](
+  final def checkAllF[F[_]: Dispatcher, R <: Has[TestConfig], A](
     rv: Gen[R, A]
   )(test: A => F[TestResult]): RIO[R, TestResult] =
     checkAllM(rv)(a => fromEffect(test(a)))
@@ -81,7 +81,7 @@ trait CatsTestFunctions {
   /**
    * A version of `checkAllM` that accepts two random variables.
    */
-  final def checkAllF[F[_]: Dispatcher, R <: TestConfig, A, B](
+  final def checkAllF[F[_]: Dispatcher, R <: Has[TestConfig], A, B](
     rv1: Gen[R, A],
     rv2: Gen[R, B]
   )(test: (A, B) => F[TestResult]): RIO[R, TestResult] =
@@ -90,7 +90,7 @@ trait CatsTestFunctions {
   /**
    * A version of `checkAllM` that accepts three random variables.
    */
-  final def checkAllF[F[_]: Dispatcher, R <: TestConfig, A, B, C](
+  final def checkAllF[F[_]: Dispatcher, R <: Has[TestConfig], A, B, C](
     rv1: Gen[R, A],
     rv2: Gen[R, B],
     rv3: Gen[R, C]
@@ -100,7 +100,7 @@ trait CatsTestFunctions {
   /**
    * A version of `checkAllM` that accepts four random variables.
    */
-  final def checkAllF[F[_]: Dispatcher, R <: TestConfig, A, B, C, D](
+  final def checkAllF[F[_]: Dispatcher, R <: Has[TestConfig], A, B, C, D](
     rv1: Gen[R, A],
     rv2: Gen[R, B],
     rv3: Gen[R, C],
@@ -112,7 +112,7 @@ trait CatsTestFunctions {
    * Checks the effectual test passes for the specified number of samples from
    * the given random variable.
    */
-  final def checkSomeF[F[_]: Dispatcher, R <: TestConfig, A](
+  final def checkSomeF[F[_]: Dispatcher, R <: Has[TestConfig], A](
     rv: Gen[R, A]
   )(n: Int)(test: A => F[TestResult]): RIO[R, TestResult] =
     checkNM(n)(rv)(a => fromEffect(test(a)))
@@ -120,7 +120,7 @@ trait CatsTestFunctions {
   /**
    * A version of `checkSomeM` that accepts two random variables.
    */
-  final def checkSomeF[F[_]: Dispatcher, R <: TestConfig, A, B](
+  final def checkSomeF[F[_]: Dispatcher, R <: Has[TestConfig], A, B](
     rv1: Gen[R, A],
     rv2: Gen[R, B]
   )(n: Int)(test: (A, B) => F[TestResult]): RIO[R, TestResult] =
@@ -129,7 +129,7 @@ trait CatsTestFunctions {
   /**
    * A version of `checkSomeM` that accepts three random variables.
    */
-  final def checkSomeF[F[_]: Dispatcher, R <: TestConfig, A, B, C](
+  final def checkSomeF[F[_]: Dispatcher, R <: Has[TestConfig], A, B, C](
     rv1: Gen[R, A],
     rv2: Gen[R, B],
     rv3: Gen[R, C]
@@ -139,7 +139,7 @@ trait CatsTestFunctions {
   /**
    * A version of `checkSomeM` that accepts four random variables.
    */
-  final def checkSomeF[F[_]: Dispatcher, R <: TestConfig, A, B, C, D](
+  final def checkSomeF[F[_]: Dispatcher, R <: Has[TestConfig], A, B, C, D](
     rv1: Gen[R, A],
     rv2: Gen[R, B],
     rv3: Gen[R, C],
@@ -151,5 +151,5 @@ trait CatsTestFunctions {
    * Builds a spec with a single effectful test.
    */
   final def testF[F[_]: Dispatcher](label: String)(assertion: F[TestResult]): ZSpec[Any, Throwable] =
-    testM(label)(fromEffect(assertion))
+    test(label)(fromEffect(assertion))
 }
