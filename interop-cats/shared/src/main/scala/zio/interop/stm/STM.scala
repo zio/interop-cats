@@ -46,12 +46,6 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
     this zipRight that
 
   /**
-   * See [[zio.stm.ZSTM#>>=]]
-   */
-  def >>=[B](f: A => STM[F, B]): STM[F, B] =
-    flatMap(f)
-
-  /**
    * See [[zio.stm.ZSTM#collect]]
    */
   def collect[B](pf: PartialFunction[A, B]): STM[F, B] =
@@ -97,7 +91,7 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
     new STM(underlying.fold(f, g))
 
   /**
-   * See [[zio.stm.ZSTM#foldM]]
+   * See [[zio.stm.ZSTM#foldSTM]]
    */
   def foldM[B](f: Throwable => STM[F, B], g: A => STM[F, B]): STM[F, B] =
     new STM(underlying.foldSTM(f(_).underlying, g(_).underlying))
@@ -190,6 +184,9 @@ object STM {
       }
     }
 
+  final def attempt[F[+_], A](a: => A): STM[F, A] =
+    fromTry(Try(a))
+
   final def check[F[+_]](p: Boolean): STM[F, Unit] =
     if (p) STM.unit else retry
 
@@ -213,9 +210,6 @@ object STM {
 
   final def fromTry[F[+_], A](a: => Try[A]): STM[F, A] =
     new STM(ZSTM.fromTry(a))
-
-  final def partial[F[+_], A](a: => A): STM[F, A] =
-    fromTry(Try(a))
 
   final def retry[F[+_]]: STM[F, Nothing] =
     new STM(ZSTM.retry)

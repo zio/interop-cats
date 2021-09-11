@@ -10,8 +10,6 @@ import zio.test.*
 import scala.collection.mutable
 
 object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
-  def unsafeRun[E, A](p: ZIO[ZEnv, E, A]) =
-    zioRuntime.unsafeRun(p)
 
   def spec =
     suite("CatsZManagedSyntaxSpec")(
@@ -50,7 +48,10 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
             managed.use(_ => ZIO.fail(new RuntimeException()).unit)
           }
 
-          assertM(testCase.orElse(ZIO.unit) *> ZIO.succeed(effects.toList))(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers correctly when use has died") {
           val effects                          = new mutable.ListBuffer[Int]

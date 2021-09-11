@@ -81,7 +81,7 @@ sealed abstract class CQueue[F[+_], -A, +B](private val underlying: ZQueue[Any, 
   def contramap[C](f: C => A): CQueue[F, C, B]
 
   /**
-   * @see [[ZQueue.contramapM]]
+   * @see [[ZQueue.contramapZIO]]
    */
   def contramapM[C](f: C => F[A]): CQueue[F, C, B]
 
@@ -91,7 +91,7 @@ sealed abstract class CQueue[F[+_], -A, +B](private val underlying: ZQueue[Any, 
   def filterInput[A0 <: A](f: A0 => Boolean): CQueue[F, A0, B]
 
   /**
-   * @see [[ZQueue.filterInputM]]
+   * @see [[ZQueue.filterInputZIO]]
    */
   def filterInputM[A0 <: A](f: A0 => F[Boolean]): CQueue[F, A0, B]
 
@@ -101,7 +101,7 @@ sealed abstract class CQueue[F[+_], -A, +B](private val underlying: ZQueue[Any, 
   def map[C](f: B => C): CQueue[F, A, C]
 
   /**
-   * @see [[ZQueue.mapM]]
+   * @see [[ZQueue.mapZIO]]
    */
   def mapM[C](f: B => F[C]): CQueue[F, A, C]
 
