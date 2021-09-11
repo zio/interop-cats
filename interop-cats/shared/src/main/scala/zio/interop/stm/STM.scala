@@ -177,7 +177,7 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
 
 object STM {
 
-  final def atomically[F[+_], A](stm: STM[F, A])(implicit R: Runtime[Any], F: Async[F]): F[A] =
+  final def atomically[F[+_], A](stm: => STM[F, A])(implicit R: Runtime[Any], F: Async[F]): F[A] =
     F.async_ { cb =>
       R.unsafeRunAsyncWith(ZSTM.atomically(stm.underlying)) { exit =>
         cb(exit.toEither)
