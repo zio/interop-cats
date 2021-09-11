@@ -31,8 +31,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
             managed.use(_ => ZIO.interrupt.unit)
           }
 
-          unsafeRun(testCase.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers correctly when use has failed") {
           val effects = new mutable.ListBuffer[Int]
@@ -49,8 +51,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
             managed.use(_ => ZIO.fail(new RuntimeException()).unit)
           }
 
-          unsafeRun(testCase.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers correctly when use has died") {
           val effects = new mutable.ListBuffer[Int]
@@ -67,8 +71,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
             managed.use(_ => ZIO.die(new RuntimeException()).unit)
           }
 
-          unsafeRun(testCase.sandbox.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.sandbox.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers should not run if exception is thrown in acquisition") {
           val effects = new mutable.ListBuffer[Int]
@@ -82,8 +88,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
             managed.useDiscard(ZIO.unit)
           }
 
-          unsafeRun(testCase.sandbox.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1)))
+          for {
+            _       <- testCase.sandbox.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1)))
         },
         test("calls finalizers correctly when using the resource") {
           val effects = new mutable.ListBuffer[Int]
@@ -95,8 +103,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
             managed.useDiscard(ZIO.unit)
           }
 
-          unsafeRun(testCase)
-          assert(effects.toList)(equalTo(List(1, 1)))
+          for {
+            _       <- testCase
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 1)))
         },
         test("composing with other managed should calls finalizers in correct order") {
 
@@ -113,8 +123,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
             (managed1 *> managed2).useDiscard(ZIO.unit)
           }
 
-          unsafeRun(testCase)
-          assert(effects.toList)(equalTo(List(1, 2, 2, 1)))
+          for {
+            _       <- testCase
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2, 2, 1)))
         }
       ),
       suite("toManagedZIO")(
@@ -132,8 +144,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
             managed.use(_ => ZIO.interrupt.unit)
           }
 
-          unsafeRun(testCase.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers correctly when use has failed") {
           val effects = new mutable.ListBuffer[Int]
@@ -150,8 +164,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
             managed.use(_ => ZIO.fail(new RuntimeException()).unit)
           }
 
-          unsafeRun(testCase.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers correctly when use has died") {
           val effects = new mutable.ListBuffer[Int]
@@ -168,8 +184,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
             managed.use(_ => ZIO.die(new RuntimeException()).unit)
           }
 
-          unsafeRun(testCase.sandbox.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.sandbox.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers should not run if exception is thrown in acquisition") {
           val effects = new mutable.ListBuffer[Int]
@@ -183,8 +201,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
             managed.useDiscard(ZIO.unit)
           }
 
-          unsafeRun(testCase.sandbox.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1)))
+          for {
+            _       <- testCase.sandbox.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1)))
         },
         test("calls finalizers correctly when using the resource") {
           val effects = new mutable.ListBuffer[Int]
@@ -196,8 +216,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
             managed.useDiscard(ZIO.unit)
           }
 
-          unsafeRun(testCase)
-          assert(effects.toList)(equalTo(List(1, 1)))
+          for {
+            _       <- testCase
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 1)))
         },
         test("composing with other managed should calls finalizers in correct order") {
 
@@ -214,8 +236,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
             (managed1 *> managed2).useDiscard(ZIO.unit)
           }
 
-          unsafeRun(testCase)
-          assert(effects.toList)(equalTo(List(1, 2, 2, 1)))
+          for {
+            _       <- testCase
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2, 2, 1)))
         }
       ),
       suite("toResource")(
@@ -227,8 +251,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
           val testCase = ZIO.runtime[Any].flatMap { implicit r =>
             man(1).toResource.use(_ => ZIO.unit)
           }
-          unsafeRun(testCase)
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers when using resource fails") {
           val effects = new mutable.ListBuffer[Int]
@@ -243,8 +269,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
           val testCase = ZIO.runtime[Any].flatMap { implicit r =>
             man(1).toResource.use(_ => ZIO.fail(new RuntimeException()).unit)
           }
-          unsafeRun(testCase.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("calls finalizers when using resource is canceled") {
           val effects = new mutable.ListBuffer[Int]
@@ -259,8 +287,10 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
           val testCase = ZIO.runtime[Any].flatMap { implicit r =>
             man(1).toResource.use(_ => ZIO.interrupt)
           }
-          unsafeRun(testCase.orElse(ZIO.unit))
-          assert(effects.toList)(equalTo(List(1, 2)))
+          for {
+            _       <- testCase.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("acquisition of Reservation preserves cancellability in new F") {
           ZIO.runtime[Any].flatMap {
