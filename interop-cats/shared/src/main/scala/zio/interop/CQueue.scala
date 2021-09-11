@@ -83,7 +83,7 @@ final class CQueue[F[+_], -A, +B] private[interop] (
   def contramap[C](f: C => A): CQueue[F, C, B] = new CQueue(underlying.contramap(f))
 
   /**
-   * @see [[ZQueue.contramapM]]
+   * @see [[ZQueue.contramapZIO]]
    */
   def contramapM[C](f: C => F[A])(implicit R: Runtime[Any], E: Effect[F]): CQueue[F, C, B] =
     new CQueue(underlying.contramapZIO(c => fromEffect(f(c))))
@@ -94,7 +94,7 @@ final class CQueue[F[+_], -A, +B] private[interop] (
   def filterInput[A0 <: A](f: A0 => Boolean): CQueue[F, A0, B] = new CQueue(underlying.filterInput(f))
 
   /**
-   * @see [[ZQueue.filterInputM]]
+   * @see [[ZQueue.filterInputZIO]]
    */
   def filterInputM[A0 <: A](f: A0 => F[Boolean])(implicit R: Runtime[Any], E: Effect[F]): CQueue[F, A0, B] =
     new CQueue(underlying.filterInputZIO((a0: A0) => fromEffect(f(a0))))
@@ -105,7 +105,7 @@ final class CQueue[F[+_], -A, +B] private[interop] (
   def map[C](f: B => C): CQueue[F, A, C] = new CQueue(underlying.map(f))
 
   /**
-   * @see [[ZQueue.mapM]]
+   * @see [[ZQueue.mapZIO]]
    */
   def mapM[C](f: B => F[C])(implicit R: Runtime[Any], E: Effect[F]): CQueue[F, A, C] =
     new CQueue(underlying.mapZIO(b => fromEffect(f(b))))
