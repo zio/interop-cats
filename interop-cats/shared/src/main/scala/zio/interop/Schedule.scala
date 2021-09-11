@@ -387,7 +387,9 @@ object Schedule {
   /**
    * @see zio.ZSchedule.collectAll
    */
-  def collectAll[F[+_]: Async: Dispatcher, A](implicit runtime: Runtime[ZEnv]): Schedule.WithState[F, (Unit, Chunk[A]), A, List[A]] =
+  def collectAll[F[+_]: Async: Dispatcher, A](implicit
+    runtime: Runtime[ZEnv]
+  ): Schedule.WithState[F, (Unit, Chunk[A]), A, List[A]] =
     Schedule(ZSchedule.collectAll.map(_.toList))
 
   /**
@@ -497,7 +499,9 @@ object Schedule {
   /**
    * @see zio.ZSchedule.v
    */
-  def elapsed[F[+_]: Async: Dispatcher](implicit runtime: Runtime[ZEnv]): Schedule.WithState[F, Option[OffsetDateTime], Any, Duration] =
+  def elapsed[F[+_]: Async: Dispatcher](implicit
+    runtime: Runtime[ZEnv]
+  ): Schedule.WithState[F, Option[OffsetDateTime], Any, Duration] =
     Schedule(ZSchedule.elapsed)
 
   /**
@@ -543,7 +547,7 @@ object Schedule {
    */
   def fromDurations[F[+_]: Async: Dispatcher](duration: Duration, durations: Duration*)(implicit
     runtime: Runtime[ZEnv]
-      ): Schedule.WithState[F, (::[Duration], Boolean), Any, Duration] =
+  ): Schedule.WithState[F, (::[Duration], Boolean), Any, Duration] =
     Schedule(
       ZSchedule
         .fromDurations(duration, durations*)
@@ -587,13 +591,17 @@ object Schedule {
   /**
    * @see zio.ZSchedule.recurs
    */
-  def recurs[F[+_]: Async: Dispatcher](n: Long)(implicit runtime: Runtime[ZEnv]): Schedule.WithState[F, Long, Any, Long] =
+  def recurs[F[+_]: Async: Dispatcher](n: Long)(implicit
+    runtime: Runtime[ZEnv]
+  ): Schedule.WithState[F, Long, Any, Long] =
     Schedule(ZSchedule.recurs(n))
 
   /**
    * @see zio.ZSchedule.recurs
    */
-  def recurs[F[+_]: Async: Dispatcher](n: Int)(implicit runtime: Runtime[ZEnv]): Schedule.WithState[F, Long, Any, Long] =
+  def recurs[F[+_]: Async: Dispatcher](n: Int)(implicit
+    runtime: Runtime[ZEnv]
+  ): Schedule.WithState[F, Long, Any, Long] =
     Schedule(ZSchedule.recurs(n))
 
   /**
@@ -613,7 +621,9 @@ object Schedule {
   /**
    * @see zio.ZSchedule.succeed
    */
-  def succeed[F[+_]: Async: Dispatcher, A](a: => A)(implicit runtime: Runtime[ZEnv]): Schedule.WithState[F, Long, Any, A] =
+  def succeed[F[+_]: Async: Dispatcher, A](a: => A)(implicit
+    runtime: Runtime[ZEnv]
+  ): Schedule.WithState[F, Long, Any, A] =
     Schedule(ZSchedule.succeed(a))
 
   /**
@@ -719,7 +729,7 @@ object Schedule {
         Schedule(underlying.check(test))
       def checkM[In1 <: In](test: (In1, Out) => F[Boolean]): Schedule.WithState[F, self.State, In1, Out]               =
         Schedule(underlying.checkZIO((in1, out) => fromEffect(test(in1, out)).orDie))
-      def collectAll[Out1 >: Out]: Schedule.WithState[F, (self.State, Chunk[Out1]), In, List[Out1]]                =
+      def collectAll[Out1 >: Out]: Schedule.WithState[F, (self.State, Chunk[Out1]), In, List[Out1]]                    =
         Schedule(underlying.collectAll.map(_.toList))
       def compose[In2](that: Schedule[F, In2, In]): Schedule.WithState[F, (that.State, self.State), In2, Out]          =
         Schedule(underlying compose that.underlying)
