@@ -17,7 +17,7 @@
 package zio.interop.stm
 
 import cats.effect.Async
-import zio.Runtime
+import zio.{ Runtime, Zippable }
 import zio.stm.{ STM => ZSTM }
 
 import scala.util.Try
@@ -31,7 +31,7 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
   /**
    * See `<*>` [[zio.stm.STM]] `<*>`
    */
-  final def <*>[B](that: => STM[F, B]): STM[F, (A, B)] =
+  final def <*>[B](that: => STM[F, B])(implicit zippable: Zippable[A, B]): STM[F, zippable.Out] =
     self zip that
 
   /**
@@ -140,8 +140,8 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
   /**
    * See [[zio.stm.ZSTM#zip]]
    */
-  final def zip[B](that: => STM[F, B]): STM[F, (A, B)] =
-    (self zipWith that)((a, b) => a -> b)
+  final def zip[B](that: => STM[F, B])(implicit zippable: Zippable[A, B]): STM[F, zippable.Out] =
+    (self zipWith that)(zippable.zip(_, _))
 
   /**
    * See [[zio.stm.ZSTM#zipLeft]]
@@ -165,7 +165,7 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
 
 object STM {
 
-  final def atomically[F[+_], A](stm: STM[F, A])(implicit R: Runtime[Any], A: Async[F]): F[A] =
+  final def atomically[F[+_], A](stm: => STM[F, A])(implicit R: Runtime[Any], A: Async[F]): F[A] =
     A.async { cb =>
       R.unsafeRunAsyncWith(ZSTM.atomically(stm.underlying)) { exit =>
         cb(exit.toEither)
@@ -175,21 +175,21 @@ object STM {
   final def attempt[F[+_], A](a: => A): STM[F, A] =
     fromTry(Try(a))
 
-  final def check[F[+_]](p: Boolean): STM[F, Unit] =
-    if (p) STM.unit else retry
+  final def check[F[+_]](p: => Boolean): STM[F, Unit] =
+    succeed(p).flatMap(p => if (p) STM.unit else retry)
 
   final def collectAll[F[+_], A](
     i: Iterable[STM[F, A]]
   ): STM[F, List[A]] =
     new STM(ZSTM.collectAll(i.map(_.underlying).toList))
 
-  final def die[F[+_]](t: Throwable): STM[F, Nothing] =
+  final def die[F[+_]](t: => Throwable): STM[F, Nothing] =
     succeed(throw t)
 
-  final def dieMessage[F[+_]](m: String): STM[F, Nothing] =
+  final def dieMessage[F[+_]](m: => String): STM[F, Nothing] =
     die(new RuntimeException(m))
 
-  final def fail[F[+_]](e: Throwable): STM[F, Nothing] =
+  final def fail[F[+_]](e: => Throwable): STM[F, Nothing] =
     new STM(ZSTM.fail(e))
 
   final def foreach[F[+_], A, B](
@@ -197,7 +197,7 @@ object STM {
   )(f: A => STM[F, B]): STM[F, List[B]] =
     collectAll(as.map(f))
 
-  final def fromEither[F[+_], A](e: Either[Throwable, A]): STM[F, A] =
+  final def fromEither[F[+_], A](e: => Either[Throwable, A]): STM[F, A] =
     new STM(ZSTM.fromEither(e))
 
   final def fromTry[F[+_], A](a: => Try[A]): STM[F, A] =

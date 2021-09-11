@@ -19,7 +19,7 @@ package zio.interop
 import java.time.{ Duration, OffsetDateTime }
 
 import cats.effect.{ Effect, LiftIO }
-import zio.{ Chunk, Runtime, ZEnv, Schedule => ZSchedule }
+import zio.{ Chunk, Runtime, ZEnv, Schedule => ZSchedule, Zippable }
 
 /**
  * @see zio.ZSchedule
@@ -36,7 +36,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def &&[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)] =
+  )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out] =
     Schedule(self.underlying && that.underlying)
 
   /**
@@ -88,7 +88,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def <*>[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)] =
+  )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out] =
     Schedule(self.underlying <*> that.underlying)
 
   /**
@@ -108,7 +108,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def ||[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)] =
+  )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out] =
     Schedule(self.underlying || that.underlying)
 
   /**
@@ -189,7 +189,9 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def intersectWith[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  )(f: (Interval, Interval) => Interval): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)] =
+  )(
+    f: (Interval, Interval) => Interval
+  )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out] =
     Schedule(self.underlying.intersectWith(that.underlying)(f))
 
   /**
@@ -373,7 +375,9 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def unionWith[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  )(f: (Interval, Interval) => Interval): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)] =
+  )(
+    f: (Interval, Interval) => Interval
+  )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out] =
     Schedule(self.underlying.unionWith(that.underlying)(f))
 
   /**
@@ -443,7 +447,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def zip[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)] =
+  )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out] =
     Schedule(self.underlying zip that.underlying)
 
   /**
