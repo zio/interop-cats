@@ -28,52 +28,92 @@ inThisBuild(
 
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
 addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
-addCommandAlias("testJVM", ";interopCatsJVM/test;coreOnlyTestJVM/test")
-addCommandAlias("testJS", ";interopCatsJS/test;coreOnlyTestJS/test")
+addCommandAlias("testJVM", ";zioInteropCatsTestsJVM/test;zioTestInteropCatsJVM/test;coreOnlyTestJVM/test")
+addCommandAlias("testJS", ";zioInteropCatsTestsJS/test;zioTestInteropCatsJS/test;coreOnlyTestJS/test")
 
 lazy val root = project
   .in(file("."))
   .enablePlugins(ScalaJSPlugin)
-  .aggregate(interopCatsJVM, interopCatsJS)
+  .aggregate(
+    zioInteropCatsJVM,
+    zioInteropCatsJS,
+    zioInteropCatsTestsJVM,
+    zioInteropCatsTestsJS,
+    zioTestInteropCatsJVM,
+    zioTestInteropCatsJS
+  )
   .settings(
     publish / skip := true,
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
-val zioVersion = "1.0.8"
-lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
-  .in(file("interop-cats"))
+val zioVersion = "1.0.12"
+
+lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-interop-cats"))
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-interop-cats"))
   .settings(buildInfoSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"       %%% "zio"                  % zioVersion,
-      "dev.zio"       %%% "zio-test-sbt"         % zioVersion % Test,
-      "org.typelevel" %%% "cats-testkit"         % "2.6.1" % Test,
-      "org.typelevel" %%% "cats-effect-laws"     % "2.5.1" % Test,
-      "org.typelevel" %%% "cats-mtl-laws"        % "1.2.1" % Test,
-      "org.typelevel" %%% "discipline-scalatest" % "2.1.5" % Test,
-      "dev.zio"       %%% "zio-streams"          % zioVersion,
-      "dev.zio"       %%% "zio-test"             % zioVersion,
-      "org.typelevel" %%% "cats-effect"          % "2.5.1",
-      "org.typelevel" %%% "cats-mtl"             % "1.2.1",
-      "co.fs2"        %%% "fs2-core"             % "2.5.6"
+      "dev.zio"       %%% "zio"         % zioVersion,
+      "dev.zio"       %%% "zio-streams" % zioVersion,
+      "org.typelevel" %%% "cats-effect" % "2.5.1",
+      "org.typelevel" %%% "cats-mtl"    % "1.2.1",
+      "co.fs2"        %%% "fs2-core"    % "2.5.6"
     )
   )
-  .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
 
-lazy val interopCatsJVM = interopCats.jvm.settings(dottySettings)
+lazy val zioInteropCatsJVM = zioInteropCats.jvm.settings(dottySettings)
 
-lazy val interopCatsJS = interopCats.js
+lazy val zioInteropCatsJS = zioInteropCats.js
   .settings(
     libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.3.0" % Test
   )
   .settings(dottySettings)
 
+lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-interop-cats-tests"))
+  .dependsOn(zioTestInteropCats)
+  .enablePlugins(BuildInfoPlugin)
+  .settings(stdSettings("zio-interop-cats-tests"))
+  .settings(buildInfoSettings)
+  .settings(publish / skip := true)
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio"       %%% "zio-test-sbt"         % zioVersion % Test,
+      "org.typelevel" %%% "cats-testkit"         % "2.6.1"    % Test,
+      "org.typelevel" %%% "cats-effect-laws"     % "2.5.1"    % Test,
+      "org.typelevel" %%% "cats-mtl-laws"        % "1.2.1"    % Test,
+      "org.typelevel" %%% "discipline-scalatest" % "2.1.5"    % Test
+    )
+  )
+  .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
+
+lazy val zioInteropCatsTestsJVM = zioInteropCatsTests.jvm.settings(dottySettings)
+
+lazy val zioInteropCatsTestsJS = zioInteropCatsTests.js
+  .settings(
+    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.3.0" % Test
+  )
+  .settings(dottySettings)
+
+lazy val zioTestInteropCats = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-test-interop-cats"))
+  .dependsOn(zioInteropCats)
+  .enablePlugins(BuildInfoPlugin)
+  .settings(stdSettings("zio-test-interop-cats"))
+  .settings(buildInfoSettings)
+  .settings(libraryDependencies += "dev.zio" %%% "zio-test" % zioVersion)
+  .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
+
+lazy val zioTestInteropCatsJVM = zioTestInteropCats.jvm.settings(dottySettings)
+
+lazy val zioTestInteropCatsJS = zioTestInteropCats.js
+
 lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   .in(file("core-only-test"))
-  .dependsOn(interopCats)
+  .dependsOn(zioInteropCats)
   .settings(stdSettings("core-only-test"))
   .settings(publish / skip := true)
   .settings(

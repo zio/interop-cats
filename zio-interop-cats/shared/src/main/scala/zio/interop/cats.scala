@@ -317,7 +317,7 @@ private class CatsMonoidK[R, E: Monoid] extends CatsSemigroupK[R, E] with Monoid
 
 private class CatsBifunctor[R] extends Bifunctor[ZIO[R, *, *]] {
   override final def bimap[A, B, C, D](fab: ZIO[R, A, B])(f: A => C, g: B => D): ZIO[R, C, D] =
-    fab.bimap(f, g)
+    fab.mapBoth(f, g)
 }
 
 private class CatsParallel[R, E](final override val monad: Monad[ZIO[R, E, *]]) extends Parallel[ZIO[R, E, *]] {

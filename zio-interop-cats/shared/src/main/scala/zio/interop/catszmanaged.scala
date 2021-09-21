@@ -129,7 +129,7 @@ sealed trait CatsZManagedInstances1 extends CatsZManagedInstances2 {
 
   implicit def bifunctorZManagedInstances[R]: Bifunctor[ZManaged[R, *, *]] = new Bifunctor[ZManaged[R, *, *]] {
     override def bimap[A, B, C, D](fab: ZManaged[R, A, B])(f: A => C, g: B => D): ZManaged[R, C, D] =
-      fab.bimap(f, g)
+      fab.mapBoth(f, g)
   }
 
   implicit def arrowChoiceURManagedInstances[E]: ArrowChoice[URManaged] =
