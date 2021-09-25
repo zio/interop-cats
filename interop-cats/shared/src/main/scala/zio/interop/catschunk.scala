@@ -29,13 +29,13 @@ import scala.annotation.tailrec
  */
 trait CatsChunkInstances extends CatsChunkInstances1 {
 
-  implicit def chunkOrder[A: Order]: Order[Chunk[A]] =
+  implicit def chunkOrder[A: Order]: Order[Chunk[A]]                      =
     new ChunkOrder[A]
 
   implicit def chunkPartialOrder[A: PartialOrder]: PartialOrder[Chunk[A]] =
     new ChunkPartialOrder[A]
 
-  implicit def chunkMonoid[A]: Monoid[Chunk[A]] =
+  implicit def chunkMonoid[A]: Monoid[Chunk[A]]                           =
     new ChunkMonoid[A]
 
   /** @see [[cats.instances.VectorInstances.catsStdInstancesForVector]] */
@@ -53,7 +53,7 @@ trait CatsChunkInstances extends CatsChunkInstances1 {
         fa.map(f)
 
       // Applicative
-      override def pure[A](x: A): Chunk[A] =
+      override def pure[A](x: A): Chunk[A]                                             =
         Chunk.single(x)
 
       override def map2[A, B, Z](fa: Chunk[A], fb: Chunk[B])(f: (A, B) => Z): Chunk[Z] =
@@ -65,7 +65,7 @@ trait CatsChunkInstances extends CatsChunkInstances1 {
         else fb.map(map2(fa, _)(f))
 
       // FlatMap
-      override def flatMap[A, B](fa: Chunk[A])(f: A => Chunk[B]): Chunk[B] =
+      override def flatMap[A, B](fa: Chunk[A])(f: A => Chunk[B]): Chunk[B]      =
         fa.flatMap(f)
 
       override def tailRecM[A, B](a: A)(fn: A => Chunk[Either[A, B]]): Chunk[B] =
@@ -84,38 +84,38 @@ trait CatsChunkInstances extends CatsChunkInstances1 {
       override def traverse[G[_], A, B](fa: Chunk[A])(f: A => G[B])(implicit G: Applicative[G]): G[Chunk[B]] =
         Chain.traverseViaChain(fa)(f).map(c => Chunk.fromIterable(c.toVector))
 
-      override def mapWithIndex[A, B](fa: Chunk[A])(f: (A, Int) => B): Chunk[B] =
+      override def mapWithIndex[A, B](fa: Chunk[A])(f: (A, Int) => B): Chunk[B]                              =
         fa.zipWithIndex.map(f.tupled)
 
-      override def zipWithIndex[A](fa: Chunk[A]): Chunk[(A, Int)] =
+      override def zipWithIndex[A](fa: Chunk[A]): Chunk[(A, Int)]                                            =
         fa.zipWithIndex
 
       // Foldable
-      override def foldLeft[A, B](fa: Chunk[A], b: B)(f: (B, A) => B): B =
+      override def foldLeft[A, B](fa: Chunk[A], b: B)(f: (B, A) => B): B                                =
         fa.foldLeft(b)(f)
 
-      override def foldRight[A, B](fa: Chunk[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = {
+      override def foldRight[A, B](fa: Chunk[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B]      = {
         def loop(i: Int): Eval[B] =
           if (i < fa.length) f(fa(i), Eval.defer(loop(i + 1))) else lb
         Eval.defer(loop(0))
       }
 
-      override def reduceLeftOption[A](fa: Chunk[A])(f: (A, A) => A): Option[A] =
+      override def reduceLeftOption[A](fa: Chunk[A])(f: (A, A) => A): Option[A]                         =
         fa.reduceLeftOption(f)
 
-      override def get[A](fa: Chunk[A])(idx: Long): Option[A] =
+      override def get[A](fa: Chunk[A])(idx: Long): Option[A]                                           =
         if (idx < Int.MaxValue && fa.size > idx && idx >= 0) Some(fa(idx.toInt)) else None
 
-      override def collectFirst[A, B](fa: Chunk[A])(pf: PartialFunction[A, B]): Option[B] =
+      override def collectFirst[A, B](fa: Chunk[A])(pf: PartialFunction[A, B]): Option[B]               =
         fa.collectFirst(pf)
 
-      override def collectFirstSome[A, B](fa: Chunk[A])(f: A => Option[B]): Option[B] =
+      override def collectFirstSome[A, B](fa: Chunk[A])(f: A => Option[B]): Option[B]                   =
         fa.collectFirst(Function.unlift(f))
 
-      override def fold[A](fa: Chunk[A])(implicit A: Monoid[A]): A =
+      override def fold[A](fa: Chunk[A])(implicit A: Monoid[A]): A                                      =
         A.combineAll(fa)
 
-      override def foldMap[A, B](fa: Chunk[A])(f: A => B)(implicit B: Monoid[B]): B =
+      override def foldMap[A, B](fa: Chunk[A])(f: A => B)(implicit B: Monoid[B]): B                     =
         B.combineAll(fa.iterator.map(f))
 
       override def foldM[G[_], A, B](fa: Chunk[A], z: B)(f: (B, A) => G[B])(implicit G: Monad[G]): G[B] = {
@@ -126,19 +126,19 @@ trait CatsChunkInstances extends CatsChunkInstances1 {
         }
       }
 
-      override def find[A](fa: Chunk[A])(f: A => Boolean): Option[A] =
+      override def find[A](fa: Chunk[A])(f: A => Boolean): Option[A]                                    =
         fa.find(f)
 
-      override def exists[A](fa: Chunk[A])(p: A => Boolean): Boolean =
+      override def exists[A](fa: Chunk[A])(p: A => Boolean): Boolean                                    =
         fa.exists(p)
 
-      override def forall[A](fa: Chunk[A])(p: A => Boolean): Boolean =
+      override def forall[A](fa: Chunk[A])(p: A => Boolean): Boolean                                    =
         fa.forall(p)
 
-      override def toList[A](fa: Chunk[A]): List[A] =
+      override def toList[A](fa: Chunk[A]): List[A]                                                     =
         fa.toList
 
-      override def isEmpty[A](fa: Chunk[A]): Boolean =
+      override def isEmpty[A](fa: Chunk[A]): Boolean                                                    =
         fa.isEmpty
 
       // UnorderedFoldable
@@ -149,7 +149,7 @@ trait CatsChunkInstances extends CatsChunkInstances1 {
       override def algebra[A]: Monoid[Chunk[A]] =
         new ChunkMonoid[A]
 
-      override def empty[A]: Chunk[A] =
+      override def empty[A]: Chunk[A]           =
         Chunk.empty
 
       // SemigroupK
@@ -157,7 +157,7 @@ trait CatsChunkInstances extends CatsChunkInstances1 {
         x ++ y
 
       // Align
-      def align[A, B](fa: Chunk[A], fb: Chunk[B]): Chunk[A Ior B] =
+      def align[A, B](fa: Chunk[A], fb: Chunk[B]): Chunk[A Ior B]                              =
         alignWith(fa, fb)(identity)
 
       override def alignWith[A, B, C](fa: Chunk[A], fb: Chunk[B])(f: Ior[A, B] => C): Chunk[C] =
@@ -167,23 +167,23 @@ trait CatsChunkInstances extends CatsChunkInstances1 {
         }
 
       // TraverseFilter
-      override def traverse: Traverse[Chunk] =
+      override def traverse: Traverse[Chunk]                                                                =
         this
 
       override def traverseFilter[G[_]: Applicative, A, B](fa: Chunk[A])(f: A => G[Option[B]]): G[Chunk[B]] =
         Chain.traverseFilterViaChain(fa)(f).map(c => Chunk.fromIterable(c.toVector))
 
       // FunctorFilter
-      override def mapFilter[A, B](fa: Chunk[A])(f: A => Option[B]): Chunk[B] =
+      override def mapFilter[A, B](fa: Chunk[A])(f: A => Option[B]): Chunk[B]      =
         fa.collect(Function.unlift(f))
 
       override def collect[A, B](fa: Chunk[A])(f: PartialFunction[A, B]): Chunk[B] =
         fa.collect(f)
 
-      override def filter[A](fa: Chunk[A])(f: A => Boolean): Chunk[A] =
+      override def filter[A](fa: Chunk[A])(f: A => Boolean): Chunk[A]              =
         fa.filter(f)
 
-      override def filterNot[A](fa: Chunk[A])(f: A => Boolean): Chunk[A] =
+      override def filterNot[A](fa: Chunk[A])(f: A => Boolean): Chunk[A]           =
         fa.filterNot(f)
     }
 }
@@ -193,7 +193,7 @@ trait CatsChunkInstances1 {
   implicit def chunkHash[A: Hash]: Hash[Chunk[A]] =
     new ChunkHash[A]
 
-  implicit def chunkEq[A: Eq]: Eq[Chunk[A]] =
+  implicit def chunkEq[A: Eq]: Eq[Chunk[A]]       =
     new ChunkEq[A]
 }
 
@@ -207,13 +207,13 @@ private class ChunkOrder[A: Order] extends Order[Chunk[A]] {
 /** @see [[cats.kernel.instances.VectorMonoid]] */
 private class ChunkMonoid[A] extends Monoid[Chunk[A]] {
 
-  override def empty: Chunk[A] =
+  override def empty: Chunk[A]                             =
     Chunk.empty
 
   override def combine(x: Chunk[A], y: Chunk[A]): Chunk[A] =
     x ++ y
 
-  override def combineN(x: Chunk[A], n: Int): Chunk[A] =
+  override def combineN(x: Chunk[A], n: Int): Chunk[A]     =
     StaticMethods.combineNIterable(ChunkBuilder.make[A](), x, n)
 }
 

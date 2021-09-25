@@ -36,12 +36,12 @@ trait CatsZManagedSyntax {
   implicit final def catsIOResourceSyntax[F[_], A](resource: Resource[F, A]): CatsIOResourceSyntax[F, A] =
     new CatsIOResourceSyntax(resource)
 
-  implicit final def zManagedSyntax[R, E, A](managed: ZManaged[R, E, A]): ZManagedSyntax[R, E, A] =
+  implicit final def zManagedSyntax[R, E, A](managed: ZManaged[R, E, A]): ZManagedSyntax[R, E, A]        =
     new ZManagedSyntax(managed)
 
 }
 
-final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) extends AnyVal {
+final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A])                      extends AnyVal {
   def toManaged(implicit F: MonadCancel[F, ?], D: Dispatcher[F]): TaskManaged[A] =
     new ZIOResourceSyntax(resource.mapK(new (F ~> Task) {
       override def apply[B](fb: F[B]) = fromEffect(fb)
@@ -109,37 +109,37 @@ trait CatsEffectZManagedInstances {
     new ZManagedLiftIO
 }
 
-trait CatsZManagedInstances extends CatsZManagedInstances1 {
+trait CatsZManagedInstances         extends CatsZManagedInstances1 {
   type ParZManaged[R, E, A] = ParallelF[ZManaged[R, E, _], A]
 
-  implicit final def monadErrorZManagedInstances[R, E]: MonadError[ZManaged[R, E, _], E] =
+  implicit final def monadErrorZManagedInstances[R, E]: MonadError[ZManaged[R, E, _], E]                               =
     monadErrorInstance0.asInstanceOf[MonadError[ZManaged[R, E, _], E]]
 
-  implicit final def contravariantZManagedInstances[E, A]: Contravariant[ZManaged[_, E, A]] =
+  implicit final def contravariantZManagedInstances[E, A]: Contravariant[ZManaged[_, E, A]]                            =
     contravariantInstance0.asInstanceOf[Contravariant[ZManaged[_, E, A]]]
 
-  implicit def monoidZManagedInstances[R, E, A: Monoid]: Monoid[ZManaged[R, E, A]] =
+  implicit def monoidZManagedInstances[R, E, A: Monoid]: Monoid[ZManaged[R, E, A]]                                     =
     new ZManagedMonoid
 
-  implicit def parMonoidZManagedInstances[R, E, A: CommutativeMonoid]: CommutativeMonoid[ParZManaged[R, E, A]] =
+  implicit def parMonoidZManagedInstances[R, E, A: CommutativeMonoid]: CommutativeMonoid[ParZManaged[R, E, A]]         =
     new ZManagedParMonoid
 
-  implicit final def monoidKZManagedInstances[R, E: Monoid]: MonoidK[ZManaged[R, E, _]] =
+  implicit final def monoidKZManagedInstances[R, E: Monoid]: MonoidK[ZManaged[R, E, _]]                                =
     new ZManagedMonoidK
 
-  implicit final def arrowChoiceRManagedInstances: ArrowChoice[RManaged] =
+  implicit final def arrowChoiceRManagedInstances: ArrowChoice[RManaged]                                               =
     arrowChoiceZManagedInstance0
 
   implicit final def parallelZManagedInstances[R, E]: Parallel.Aux[ZManaged[R, E, _], ParallelF[ZManaged[R, E, _], _]] =
     parallelInstance0.asInstanceOf[Parallel.Aux[ZManaged[R, E, _], ParallelF[ZManaged[R, E, _], _]]]
 
-  private[this] val monadErrorInstance0: MonadError[TaskManaged, Throwable] =
+  private[this] val monadErrorInstance0: MonadError[TaskManaged, Throwable]                                            =
     new ZManagedMonadError[Any, Throwable]
 
-  private[this] val contravariantInstance0: Contravariant[RManaged[_, Any]] =
+  private[this] val contravariantInstance0: Contravariant[RManaged[_, Any]]                                            =
     new ZManagedContravariant
 
-  private[this] lazy val parallelInstance0: Parallel.Aux[TaskManaged, ParallelF[TaskManaged, _]] =
+  private[this] lazy val parallelInstance0: Parallel.Aux[TaskManaged, ParallelF[TaskManaged, _]]                       =
     new ZManagedParallel
 }
 
@@ -152,19 +152,19 @@ sealed trait CatsZManagedInstances1 extends CatsZManagedInstances2 {
     : CommutativeSemigroup[ParallelF[ZManaged[R, E, _], A]] =
     new ZManagedParSemigroup
 
-  implicit final def semigroupKZManagedInstances[R, E]: SemigroupK[ZManaged[R, E, _]] =
+  implicit final def semigroupKZManagedInstances[R, E]: SemigroupK[ZManaged[R, E, _]]       =
     semigroupKInstance0.asInstanceOf[SemigroupK[ZManaged[R, E, _]]]
 
-  implicit final def bifunctorZManagedInstances[R]: Bifunctor[ZManaged[R, _, _]] =
+  implicit final def bifunctorZManagedInstances[R]: Bifunctor[ZManaged[R, _, _]]            =
     bifunctorInstance0.asInstanceOf[Bifunctor[ZManaged[R, _, _]]]
 
-  implicit final def arrowChoiceURManagedInstances: ArrowChoice[URManaged] =
+  implicit final def arrowChoiceURManagedInstances: ArrowChoice[URManaged]                  =
     arrowChoiceZManagedInstance0.asInstanceOf[ArrowChoice[URManaged]]
 
-  private[this] val semigroupKInstance0: SemigroupK[TaskManaged] =
+  private[this] val semigroupKInstance0: SemigroupK[TaskManaged]                            =
     new ZManagedSemigroupK[Any, Throwable]
 
-  private[this] val bifunctorInstance0: Bifunctor[Managed] =
+  private[this] val bifunctorInstance0: Bifunctor[Managed]                                  =
     new ZManagedBifunctor[Any]
 }
 
@@ -172,50 +172,50 @@ sealed trait CatsZManagedInstances2 {
   implicit final def arrowChoiceZManagedInstances[E]: ArrowChoice[ZManaged[_, E, _]] =
     arrowChoiceZManagedInstance0.asInstanceOf[ArrowChoice[ZManaged[_, E, _]]]
 
-  protected[this] final val arrowChoiceZManagedInstance0: ArrowChoice[RManaged] =
+  protected[this] final val arrowChoiceZManagedInstance0: ArrowChoice[RManaged]      =
     new ZManagedArrowChoice
 }
 
 private class ZManagedMonadError[R, E] extends MonadError[ZManaged[R, E, _], E] {
   type F[A] = ZManaged[R, E, A]
 
-  override final def pure[A](a: A): F[A] =
+  override final def pure[A](a: A): F[A]                                                           =
     ZManaged.succeedNow(a)
 
-  override final def map[A, B](fa: F[A])(f: A => B): F[B] =
+  override final def map[A, B](fa: F[A])(f: A => B): F[B]                                          =
     fa.map(f)
 
-  override final def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B] =
+  override final def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B]                                   =
     fa.flatMap(f)
 
-  override final def flatTap[A, B](fa: F[A])(f: A => F[B]): F[A] =
+  override final def flatTap[A, B](fa: F[A])(f: A => F[B]): F[A]                                   =
     fa.tap(f)
 
-  override final def widen[A, B >: A](fa: F[A]): F[B] =
+  override final def widen[A, B >: A](fa: F[A]): F[B]                                              =
     fa
 
-  override final def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z] =
+  override final def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z]                       =
     fa.zipWith(fb)(f)
 
-  override final def as[A, B](fa: F[A], b: B): F[B] =
+  override final def as[A, B](fa: F[A], b: B): F[B]                                                =
     fa.as(b)
 
-  override final def whenA[A](cond: Boolean)(f: => F[A]): F[Unit] =
+  override final def whenA[A](cond: Boolean)(f: => F[A]): F[Unit]                                  =
     ZManaged.when(cond)(f)
 
-  override final def unit: F[Unit] =
+  override final def unit: F[Unit]                                                                 =
     ZManaged.unit
 
-  override final def handleErrorWith[A](fa: F[A])(f: E => F[A]): F[A] =
+  override final def handleErrorWith[A](fa: F[A])(f: E => F[A]): F[A]                              =
     fa.catchAll(f)
 
-  override final def recoverWith[A](fa: F[A])(pf: PartialFunction[E, F[A]]): F[A] =
+  override final def recoverWith[A](fa: F[A])(pf: PartialFunction[E, F[A]]): F[A]                  =
     fa.catchSome(pf)
 
-  override final def raiseError[A](e: E): F[A] =
+  override final def raiseError[A](e: E): F[A]                                                     =
     ZManaged.fail(e)
 
-  override final def attempt[A](fa: F[A]): F[Either[E, A]] =
+  override final def attempt[A](fa: F[A]): F[Either[E, A]]                                         =
     fa.either
 
   override final def adaptError[A](fa: F[A])(pf: PartialFunction[E, E]): F[A]                      =
@@ -237,23 +237,23 @@ private class ZManagedSemigroup[R, E, A](implicit semigroup: Semigroup[A]) exten
 
 private class ZManagedMonoid[R, E, A](implicit monoid: Monoid[A])
     extends ZManagedSemigroup[R, E, A]
-    with Monoid[ZManaged[R, E, A]] {
+    with Monoid[ZManaged[R, E, A]]  {
 
   override final val empty: T =
     ZManaged.succeedNow(monoid.empty)
 }
 
-private class ZManagedSemigroupK[R, E] extends SemigroupK[ZManaged[R, E, _]] {
+private class ZManagedSemigroupK[R, E]                          extends SemigroupK[ZManaged[R, E, _]] {
   type F[A] = ZManaged[R, E, A]
 
   override final def combineK[A](x: F[A], y: F[A]): F[A] =
     x orElse y
 }
 
-private class ZManagedMonoidK[R, E](implicit monoid: Monoid[E]) extends MonoidK[ZManaged[R, E, _]] {
+private class ZManagedMonoidK[R, E](implicit monoid: Monoid[E]) extends MonoidK[ZManaged[R, E, _]]    {
   type F[A] = ZManaged[R, E, A]
 
-  override final def empty[A]: F[A] =
+  override final def empty[A]: F[A]                      =
     ZManaged.fail(monoid.empty)
 
   override final def combineK[A](a: F[A], b: F[A]): F[A] =
@@ -277,7 +277,7 @@ private class ZManagedParMonoid[R, E, A](implicit monoid: CommutativeMonoid[A])
     ParallelF[ZManaged[R, E, _], A](ZManaged.succeedNow(monoid.empty))
 }
 
-private class ZManagedBifunctor[R] extends Bifunctor[ZManaged[R, _, _]] {
+private class ZManagedBifunctor[R]        extends Bifunctor[ZManaged[R, _, _]]     {
   type F[A, B] = ZManaged[R, A, B]
 
   override final def bimap[A, B, C, D](fab: F[A, B])(f: A => C, g: B => D): F[C, D] =
@@ -300,79 +300,79 @@ private class ZManagedParallel[R, E](final override implicit val monad: Monad[ZM
   final override val applicative: Applicative[F] =
     new ZManagedParApplicative[R, E]
 
-  final override val sequential: F ~> G = new (F ~> G) {
+  final override val sequential: F ~> G          = new (F ~> G) {
     def apply[A](fa: F[A]): G[A] = ParallelF.value(fa)
   }
 
-  final override val parallel: G ~> F = new (G ~> F) {
+  final override val parallel: G ~> F            = new (G ~> F) {
     def apply[A](fa: G[A]): F[A] = ParallelF(fa)
   }
 }
 
-private class ZManagedParApplicative[R, E] extends CommutativeApplicative[ParallelF[ZManaged[R, E, _], _]] {
+private class ZManagedParApplicative[R, E]                      extends CommutativeApplicative[ParallelF[ZManaged[R, E, _], _]] {
   type G[A] = ZManaged[R, E, A]
   type F[A] = ParallelF[G, A]
 
-  final override def pure[A](x: A): F[A] =
+  final override def pure[A](x: A): F[A]                                     =
     ParallelF[G, A](ZManaged.succeedNow(x))
 
   final override def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z] =
     ParallelF(ParallelF.value(fa).zipWithPar(ParallelF.value(fb))(f))
 
-  final override def ap[A, B](ff: F[A => B])(fa: F[A]): F[B] =
+  final override def ap[A, B](ff: F[A => B])(fa: F[A]): F[B]                 =
     map2(ff, fa)(_ apply _)
 
-  final override def product[A, B](fa: F[A], fb: F[B]): F[(A, B)] =
+  final override def product[A, B](fa: F[A], fb: F[B]): F[(A, B)]            =
     ParallelF(ParallelF.value(fa).zipPar(ParallelF.value(fb)))
 
-  final override def map[A, B](fa: F[A])(f: A => B): F[B] =
+  final override def map[A, B](fa: F[A])(f: A => B): F[B]                    =
     ParallelF(ParallelF.value(fa).map(f))
 
-  final override val unit: F[Unit] =
+  final override val unit: F[Unit]                                           =
     ParallelF[G, Unit](ZManaged.unit)
 }
 
-private class ZManagedArrowChoice[E] extends ArrowChoice[ZManaged[_, E, _]] {
+private class ZManagedArrowChoice[E]                            extends ArrowChoice[ZManaged[_, E, _]]                          {
   type F[A, B] = ZManaged[A, E, B]
 
-  final override def lift[A, B](f: A => B): F[A, B] =
+  final override def lift[A, B](f: A => B): F[A, B]                                            =
     ZManaged.fromFunction(f)
 
-  final override def compose[A, B, C](f: F[B, C], g: F[A, B]): F[A, C] =
+  final override def compose[A, B, C](f: F[B, C], g: F[A, B]): F[A, C]                         =
     f compose g
 
-  final override def id[A]: F[A, A] =
+  final override def id[A]: F[A, A]                                                            =
     ZManaged.identity[A]
 
-  final override def dimap[A, B, C, D](fab: F[A, B])(f: C => A)(g: B => D): F[C, D] =
+  final override def dimap[A, B, C, D](fab: F[A, B])(f: C => A)(g: B => D): F[C, D]            =
     fab.provideSome(f).map(g)
 
   final override def choose[A, B, C, D](f: F[A, C])(g: F[B, D]): F[Either[A, B], Either[C, D]] =
     f +++ g
 
-  final override def first[A, B, C](fa: F[A, B]): F[(A, C), (B, C)] =
+  final override def first[A, B, C](fa: F[A, B]): F[(A, C), (B, C)]                            =
     fa *** ZManaged.identity[C]
 
-  final override def second[A, B, C](fa: F[A, B]): F[(C, A), (C, B)] =
+  final override def second[A, B, C](fa: F[A, B]): F[(C, A), (C, B)]                           =
     ZManaged.identity[C] *** fa
 
-  final override def split[A, B, C, D](f: F[A, B], g: F[C, D]): F[(A, C), (B, D)] =
+  final override def split[A, B, C, D](f: F[A, B], g: F[C, D]): F[(A, C), (B, D)]              =
     f *** g
 
-  final override def merge[A, B, C](f: F[A, B], g: F[A, C]): F[A, (B, C)] =
+  final override def merge[A, B, C](f: F[A, B], g: F[A, C]): F[A, (B, C)]                      =
     f zip g
 
-  final override def lmap[A, B, C](fab: F[A, B])(f: C => A): F[C, B] =
+  final override def lmap[A, B, C](fab: F[A, B])(f: C => A): F[C, B]                           =
     fab.provideSome(f)
 
-  final override def rmap[A, B, C](fab: F[A, B])(f: B => C): F[A, C] =
+  final override def rmap[A, B, C](fab: F[A, B])(f: B => C): F[A, C]                           =
     fab.map(f)
 
-  final override def choice[A, B, C](f: F[A, C], g: F[B, C]): F[Either[A, B], C] =
+  final override def choice[A, B, C](f: F[A, C], g: F[B, C]): F[Either[A, B], C]               =
     f ||| g
 }
 
-private class ZManagedLiftIO[R](implicit ev: LiftIO[RIO[R, _]]) extends LiftIO[RManaged[R, _]] {
+private class ZManagedLiftIO[R](implicit ev: LiftIO[RIO[R, _]]) extends LiftIO[RManaged[R, _]]                                  {
   override final def liftIO[A](ioa: effect.IO[A]): RManaged[R, A] =
     ZManaged.fromEffect(ev.liftIO(ioa))
 }

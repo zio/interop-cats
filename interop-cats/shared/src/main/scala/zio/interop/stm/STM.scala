@@ -75,7 +75,7 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
   /**
    * See [[zio.stm.ZSTM#withFilter]]
    */
-  def filter(f: A => Boolean): STM[F, A]       =
+  def filter(f: A => Boolean): STM[F, A] =
     collect { case a if f(a) => a }
 
   /**
@@ -165,7 +165,7 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
   /**
    * See [[zio.stm.ZSTM#zipLeft]]
    */
-  def zipLeft[B](that: => STM[F, B]): STM[F, A]  =
+  def zipLeft[B](that: => STM[F, B]): STM[F, A] =
     zipWith(that)((a, _) => a)
 
   /**
@@ -190,39 +190,39 @@ object STM {
       }
     }
 
-  final def check[F[+_]](p: Boolean): STM[F, Unit] =
+  final def check[F[+_]](p: Boolean): STM[F, Unit]                                            =
     if (p) STM.unit else retry
 
-  final def collectAll[F[+_], A](i: Iterable[STM[F, A]]): STM[F, List[A]] =
+  final def collectAll[F[+_], A](i: Iterable[STM[F, A]]): STM[F, List[A]]                     =
     new STM(ZSTM.collectAll(i.map(_.underlying).toList))
 
-  final def die[F[+_]](t: Throwable): STM[F, Nothing] =
+  final def die[F[+_]](t: Throwable): STM[F, Nothing]                                         =
     succeed(throw t)
 
-  final def dieMessage[F[+_]](m: String): STM[F, Nothing] =
+  final def dieMessage[F[+_]](m: String): STM[F, Nothing]                                     =
     die(new RuntimeException(m))
 
-  final def fail[F[+_]](e: Throwable): STM[F, Nothing] =
+  final def fail[F[+_]](e: Throwable): STM[F, Nothing]                                        =
     new STM(ZSTM.fail(e))
 
-  final def foreach[F[+_], A, B](as: Iterable[A])(f: A => STM[F, B]): STM[F, List[B]] =
+  final def foreach[F[+_], A, B](as: Iterable[A])(f: A => STM[F, B]): STM[F, List[B]]         =
     collectAll(as.map(f))
 
-  final def fromEither[F[+_], A](e: Either[Throwable, A]): STM[F, A] =
+  final def fromEither[F[+_], A](e: Either[Throwable, A]): STM[F, A]                          =
     new STM(ZSTM.fromEither(e))
 
-  final def fromTry[F[+_], A](a: => Try[A]): STM[F, A] =
+  final def fromTry[F[+_], A](a: => Try[A]): STM[F, A]                                        =
     new STM(ZSTM.fromTry(a))
 
-  final def partial[F[+_], A](a: => A): STM[F, A] =
+  final def partial[F[+_], A](a: => A): STM[F, A]                                             =
     fromTry(Try(a))
 
-  final def retry[F[+_]]: STM[F, Nothing] =
+  final def retry[F[+_]]: STM[F, Nothing]                                                     =
     new STM(ZSTM.retry)
 
-  final def succeed[F[+_], A](a: => A): STM[F, A] =
+  final def succeed[F[+_], A](a: => A): STM[F, A]                                             =
     new STM(ZSTM.succeed(a))
 
-  final def unit[F[+_]]: STM[F, Unit] =
+  final def unit[F[+_]]: STM[F, Unit]                                                         =
     new STM(ZSTM.unit)
 }

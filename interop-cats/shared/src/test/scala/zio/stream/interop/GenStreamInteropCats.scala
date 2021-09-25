@@ -40,7 +40,7 @@ trait GenStreamInteropCats {
    * Given a generator for `Stream[E, A]`, produces a sized generator for `Stream[E, A]` which represents a transformatstreamn,
    * by using methods that can have no effect on the resulting value (e.g. `map(identity)`).
    */
-  def genIdentityTrans[E, A](gen: Gen[Stream[E, A]]): Gen[Stream[E, A]] = {
+  def genIdentityTrans[E, A](gen: Gen[Stream[E, A]]): Gen[Stream[E, A]]                  = {
     val functstreamns: Stream[E, A] => Gen[Stream[E, A]] = stream =>
       Gen.oneOf(
         genOfIdentityFlatMaps[E, A](stream),
@@ -66,12 +66,12 @@ trait GenStreamInteropCats {
   private def genOfMaps[E, A: Arbitrary: Cogen](stream: Stream[E, A]): Gen[Stream[E, A]] =
     Arbitrary.arbitrary[A => A].map(f => stream.map(f))
 
-  private def genOfIdentityMaps[E, A](stream: Stream[E, A]): Gen[Stream[E, A]] = Gen.const(stream.map(identity))
+  private def genOfIdentityMaps[E, A](stream: Stream[E, A]): Gen[Stream[E, A]]           = Gen.const(stream.map(identity))
 
   private def genOfMapErrors[E: Arbitrary: Cogen, A](stream: Stream[E, A]): Gen[Stream[E, A]] =
     Arbitrary.arbitrary[E => E].map(f => stream.mapError(f))
 
-  private def genOfIdentityMapErrors[E, A](stream: Stream[E, A]): Gen[Stream[E, A]] =
+  private def genOfIdentityMapErrors[E, A](stream: Stream[E, A]): Gen[Stream[E, A]]           =
     Gen.const(stream.mapError(identity))
 
   private def genOfFlatMaps[E, A](stream: Stream[E, A])(
@@ -79,7 +79,7 @@ trait GenStreamInteropCats {
   ): Gen[Stream[E, A]] =
     gen.map(nextIO => stream.flatMap(_ => nextIO))
 
-  private def genOfIdentityFlatMaps[E, A](stream: Stream[E, A]): Gen[Stream[E, A]] =
+  private def genOfIdentityFlatMaps[E, A](stream: Stream[E, A]): Gen[Stream[E, A]]            =
     Gen.const(stream.flatMap(a => Stream.succeed(a)))
 
 }

@@ -13,10 +13,10 @@ abstract class CatsRunnableSpec extends DefaultRunnableSpec {
   private[this] var openDispatcher: Dispatcher[CIO] = _
   private[this] var closeDispatcher: CIO[Unit]      = _
 
-  implicit val zioRuntime: Runtime[ZEnv] =
+  implicit val zioRuntime: Runtime[ZEnv]   =
     Runtime.default
 
-  implicit val cioRuntime: IORuntime =
+  implicit val cioRuntime: IORuntime       =
     Scheduler.createDefaultScheduler() match {
       case (scheduler, shutdown) =>
         val ec = zioRuntime.platform.executor.asEC
@@ -28,7 +28,7 @@ abstract class CatsRunnableSpec extends DefaultRunnableSpec {
       openDispatcher.unsafeToFutureCancelable(fa)
   }
 
-  override val aspects = List(
+  override val aspects                     = List(
     TestAspect.timeout(1.minute),
     TestAspect.beforeAll(ZIO.fromFuture { implicit ec =>
       Dispatcher[CIO].allocated.unsafeToFuture().andThen { case Success((dispatcher, close)) =>

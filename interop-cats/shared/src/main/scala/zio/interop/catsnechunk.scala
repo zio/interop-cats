@@ -28,10 +28,10 @@ import scala.annotation.tailrec
  */
 trait CatsNonEmptyChunkInstances extends CatsNonEmptyChunkInstances1 {
 
-  implicit def nonEmptyChunkSemigroup[A]: Semigroup[NonEmptyChunk[A]] =
+  implicit def nonEmptyChunkSemigroup[A]: Semigroup[NonEmptyChunk[A]]                     =
     new NonEmptyChunkSemigroup[A]
 
-  implicit def nonEmptyChunkOrder[A: Order]: Order[NonEmptyChunk[A]] =
+  implicit def nonEmptyChunkOrder[A: Order]: Order[NonEmptyChunk[A]]                      =
     Order.by((a: NonEmptyChunk[A]) => a.toChunk)(zio.interop.catz.core.chunkOrder)
 
   implicit def nonEmptyChunkPartialOrder[A: PartialOrder]: PartialOrder[NonEmptyChunk[A]] =
@@ -60,7 +60,7 @@ trait CatsNonEmptyChunkInstances extends CatsNonEmptyChunkInstances1 {
       override def flatMap[A, B](fa: NonEmptyChunk[A])(f: A => NonEmptyChunk[B]): NonEmptyChunk[B] =
         fa.flatMap(f)
 
-      override def tailRecM[A, B](a: A)(f: A => NonEmptyChunk[Either[A, B]]): NonEmptyChunk[B] =
+      override def tailRecM[A, B](a: A)(f: A => NonEmptyChunk[Either[A, B]]): NonEmptyChunk[B]     =
         NonEmptyChunk.nonEmpty(ChunkInstances.tailRecM(a)(f(_).toChunk))
 
       // CoflatMap
@@ -101,13 +101,13 @@ trait CatsNonEmptyChunkInstances extends CatsNonEmptyChunkInstances1 {
       }
 
       // Reducible
-      override def reduce[A](fa: NonEmptyChunk[A])(implicit A: Semigroup[A]): A =
+      override def reduce[A](fa: NonEmptyChunk[A])(implicit A: Semigroup[A]): A                              =
         fa.reduce(A.combine)
 
-      override def reduceLeft[A](fa: NonEmptyChunk[A])(f: (A, A) => A): A =
+      override def reduceLeft[A](fa: NonEmptyChunk[A])(f: (A, A) => A): A                                    =
         fa.reduceLeft(f)
 
-      override def reduceLeftTo[A, B](fa: NonEmptyChunk[A])(f: A => B)(g: (B, A) => B): B =
+      override def reduceLeftTo[A, B](fa: NonEmptyChunk[A])(f: A => B)(g: (B, A) => B): B                    =
         fa.reduceMapLeft(f)(g)
 
       override def reduceRightTo[A, B](fa: NonEmptyChunk[A])(f: A => B)(g: (A, Eval[B]) => Eval[B]): Eval[B] = {
@@ -118,47 +118,47 @@ trait CatsNonEmptyChunkInstances extends CatsNonEmptyChunkInstances1 {
         Eval.defer(loop(0))
       }
 
-      override def toNonEmptyList[A](fa: NonEmptyChunk[A]): NonEmptyList[A]      =
+      override def toNonEmptyList[A](fa: NonEmptyChunk[A]): NonEmptyList[A]                                  =
         fa.toCons match { case a :: as => NonEmptyList(a, as) }
 
       // Foldable
-      override def foldLeft[A, B](fa: NonEmptyChunk[A], b: B)(f: (B, A) => B): B =
+      override def foldLeft[A, B](fa: NonEmptyChunk[A], b: B)(f: (B, A) => B): B                                =
         fa.foldLeft(b)(f)
 
-      override def foldRight[A, B](fa: NonEmptyChunk[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
+      override def foldRight[A, B](fa: NonEmptyChunk[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B]      =
         ChunkInstances.foldRight(fa.toChunk, lb)(f)
 
-      override def reduceLeftOption[A](fa: NonEmptyChunk[A])(f: (A, A) => A): Option[A] =
+      override def reduceLeftOption[A](fa: NonEmptyChunk[A])(f: (A, A) => A): Option[A]                         =
         fa.reduceLeftOption(f)
 
-      override def get[A](fa: NonEmptyChunk[A])(idx: Long): Option[A] =
+      override def get[A](fa: NonEmptyChunk[A])(idx: Long): Option[A]                                           =
         ChunkInstances.get(fa.toChunk)(idx)
 
-      override def collectFirst[A, B](fa: NonEmptyChunk[A])(pf: PartialFunction[A, B]): Option[B] =
+      override def collectFirst[A, B](fa: NonEmptyChunk[A])(pf: PartialFunction[A, B]): Option[B]               =
         fa.collectFirst(pf)
 
-      override def collectFirstSome[A, B](fa: NonEmptyChunk[A])(f: A => Option[B]): Option[B] =
+      override def collectFirstSome[A, B](fa: NonEmptyChunk[A])(f: A => Option[B]): Option[B]                   =
         fa.collectFirst(Function.unlift(f))
 
-      override def fold[A](fa: NonEmptyChunk[A])(implicit A: Monoid[A]): A =
+      override def fold[A](fa: NonEmptyChunk[A])(implicit A: Monoid[A]): A                                      =
         fa.reduce(A.combine)
 
-      override def foldMap[A, B](fa: NonEmptyChunk[A])(f: A => B)(implicit B: Monoid[B]): B =
+      override def foldMap[A, B](fa: NonEmptyChunk[A])(f: A => B)(implicit B: Monoid[B]): B                     =
         ChunkInstances.foldMap(fa.toChunk)(f)
 
       override def foldM[G[_], A, B](fa: NonEmptyChunk[A], z: B)(f: (B, A) => G[B])(implicit G: Monad[G]): G[B] =
         ChunkInstances.foldM(fa.toChunk, z)(f)
 
-      override def find[A](fa: NonEmptyChunk[A])(f: A => Boolean): Option[A] =
+      override def find[A](fa: NonEmptyChunk[A])(f: A => Boolean): Option[A]                                    =
         fa.find(f)
 
-      override def exists[A](fa: NonEmptyChunk[A])(p: A => Boolean): Boolean =
+      override def exists[A](fa: NonEmptyChunk[A])(p: A => Boolean): Boolean                                    =
         fa.exists(p)
 
-      override def forall[A](fa: NonEmptyChunk[A])(p: A => Boolean): Boolean =
+      override def forall[A](fa: NonEmptyChunk[A])(p: A => Boolean): Boolean                                    =
         fa.forall(p)
 
-      override def toList[A](fa: NonEmptyChunk[A]): List[A] =
+      override def toList[A](fa: NonEmptyChunk[A]): List[A]                                                     =
         fa.toList
 
       // UnorderedFoldable
@@ -170,10 +170,10 @@ trait CatsNonEmptyChunkInstances extends CatsNonEmptyChunkInstances1 {
         a ++ b
 
       // Align
-      override def functor: Functor[NonEmptyChunk] =
+      override def functor: Functor[NonEmptyChunk]                                                                     =
         this
 
-      override def align[A, B](fa: NonEmptyChunk[A], fb: NonEmptyChunk[B]): NonEmptyChunk[Ior[A, B]] =
+      override def align[A, B](fa: NonEmptyChunk[A], fb: NonEmptyChunk[B]): NonEmptyChunk[Ior[A, B]]                   =
         alignWith(fa, fb)(identity)
 
       override def alignWith[A, B, C](fa: NonEmptyChunk[A], fb: NonEmptyChunk[B])(f: Ior[A, B] => C): NonEmptyChunk[C] =
@@ -186,7 +186,7 @@ trait CatsNonEmptyChunkInstances1 {
   implicit def nonEmptyChunkHash[A: Hash]: Hash[NonEmptyChunk[A]] =
     Hash.by((a: NonEmptyChunk[A]) => a.toChunk)(zio.interop.catz.core.chunkHash)
 
-  implicit def nonEmptyChunkEq[A: Eq]: Eq[NonEmptyChunk[A]] =
+  implicit def nonEmptyChunkEq[A: Eq]: Eq[NonEmptyChunk[A]]       =
     Eq.by((a: NonEmptyChunk[A]) => a.toChunk)(zio.interop.catz.core.chunkEq)
 }
 

@@ -68,7 +68,7 @@ private[zio] trait CatsSpecBase
     ZEnv.Services.live ++ Has(testClock) ++ Has(testBlocking)
   }
 
-  def unsafeRun[A](uio: UIO[A])(implicit ticker: Ticker): Exit[Nothing, Option[A]] =
+  def unsafeRun[A](uio: UIO[A])(implicit ticker: Ticker): Exit[Nothing, Option[A]]                               =
     try {
       var exit = Exit.succeed(Option.empty[A])
       runtime.unsafeRunAsync[Nothing, Option[A]](uio.asSome)(exit = _)
@@ -80,34 +80,34 @@ private[zio] trait CatsSpecBase
         throw error
     }
 
-  implicit def runtime(implicit ticker: Ticker): Runtime[Any] =
+  implicit def runtime(implicit ticker: Ticker): Runtime[Any]                                                    =
     Runtime((), platform)
 
-  implicit val arbitraryAny: Arbitrary[Any] =
+  implicit val arbitraryAny: Arbitrary[Any]                                                                      =
     Arbitrary(Gen.const(()))
 
-  implicit val cogenForAny: Cogen[Any] =
+  implicit val cogenForAny: Cogen[Any]                                                                           =
     Cogen(_.hashCode.toLong)
 
-  implicit def arbitraryEnvironment(implicit ticker: Ticker): Arbitrary[ZEnv] =
+  implicit def arbitraryEnvironment(implicit ticker: Ticker): Arbitrary[ZEnv]                                    =
     Arbitrary(Gen.const(environment))
 
-  implicit val eqForNothing: Eq[Nothing] =
+  implicit val eqForNothing: Eq[Nothing]                                                                         =
     Eq.allEqual
 
-  implicit val eqForExecutionContext: Eq[ExecutionContext] =
+  implicit val eqForExecutionContext: Eq[ExecutionContext]                                                       =
     Eq.allEqual
 
-  implicit val eqForCauseOfNothing: Eq[Cause[Nothing]] =
+  implicit val eqForCauseOfNothing: Eq[Cause[Nothing]]                                                           =
     (x, y) => (x.interrupted && y.interrupted) || x == y
 
-  implicit def eqForExitOfNothing[A: Eq]: Eq[Exit[Nothing, A]] = {
+  implicit def eqForExitOfNothing[A: Eq]: Eq[Exit[Nothing, A]]                                                   = {
     case (Exit.Success(x), Exit.Success(y)) => x eqv y
     case (Exit.Failure(x), Exit.Failure(y)) => x eqv y
     case _                                  => false
   }
 
-  implicit def eqForUIO[A: Eq](implicit ticker: Ticker): Eq[UIO[A]] = { (uio1, uio2) =>
+  implicit def eqForUIO[A: Eq](implicit ticker: Ticker): Eq[UIO[A]]                                              = { (uio1, uio2) =>
     val exit1 = unsafeRun(uio1)
     val exit2 = unsafeRun(uio2)
     (exit1 eqv exit2) || {
@@ -116,51 +116,51 @@ private[zio] trait CatsSpecBase
     }
   }
 
-  implicit def eqForURIO[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[URIO[R, A]] =
+  implicit def eqForURIO[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[URIO[R, A]]                           =
     eqForZIO[R, Nothing, A]
 
-  implicit def execRIO(rio: RIO[ZEnv, Boolean])(implicit ticker: Ticker): Prop =
+  implicit def execRIO(rio: RIO[ZEnv, Boolean])(implicit ticker: Ticker): Prop                                   =
     rio.provide(environment).toEffect[CIO]
 
-  implicit def orderForUIOofFiniteDuration(implicit ticker: Ticker): Order[UIO[FiniteDuration]] =
+  implicit def orderForUIOofFiniteDuration(implicit ticker: Ticker): Order[UIO[FiniteDuration]]                  =
     Order.by(unsafeRun(_).toEither.toOption)
 
   implicit def orderForRIOofFiniteDuration[R: Arbitrary](implicit ticker: Ticker): Order[RIO[R, FiniteDuration]] =
     (x, y) => Arbitrary.arbitrary[R].sample.fold(0)(r => x.orDie.provide(r) compare y.orDie.provide(r))
 
-  implicit def eqForUManaged[A: Eq](implicit ticker: Ticker): Eq[UManaged[A]] =
+  implicit def eqForUManaged[A: Eq](implicit ticker: Ticker): Eq[UManaged[A]]                                    =
     zManagedEq[Any, Nothing, A]
 
-  implicit def eqForURManaged[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[URManaged[R, A]] =
+  implicit def eqForURManaged[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[URManaged[R, A]]                 =
     zManagedEq[R, Nothing, A]
 }
 
 private[interop] sealed trait CatsSpecBaseLowPriority { this: CatsSpecBase =>
 
-  implicit def eqForIO[E: Eq, A: Eq](implicit ticker: Ticker): Eq[IO[E, A]] =
+  implicit def eqForIO[E: Eq, A: Eq](implicit ticker: Ticker): Eq[IO[E, A]]                    =
     Eq.by(_.either)
 
   implicit def eqForZIO[R: Arbitrary, E: Eq, A: Eq](implicit ticker: Ticker): Eq[ZIO[R, E, A]] =
     (x, y) => Arbitrary.arbitrary[R].sample.exists(r => x.provide(r) eqv y.provide(r))
 
-  implicit def eqForRIO[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[RIO[R, A]] =
+  implicit def eqForRIO[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[RIO[R, A]]           =
     eqForZIO[R, Throwable, A]
 
-  implicit def eqForTask[A: Eq](implicit ticker: Ticker): Eq[Task[A]] =
+  implicit def eqForTask[A: Eq](implicit ticker: Ticker): Eq[Task[A]]                          =
     eqForIO[Throwable, A]
 
-  def zManagedEq[R, E, A](implicit zio: Eq[ZIO[R, E, A]]): Eq[ZManaged[R, E, A]]               =
+  def zManagedEq[R, E, A](implicit zio: Eq[ZIO[R, E, A]]): Eq[ZManaged[R, E, A]]                         =
     Eq.by(managed => ZManaged.ReleaseMap.make.flatMap(rm => managed.zio.provideSome[R](_ -> rm).map(_._2)))
 
-  implicit def eqForRManaged[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[RManaged[R, A]] =
+  implicit def eqForRManaged[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[RManaged[R, A]]           =
     zManagedEq[R, Throwable, A]
 
-  implicit def eqForManaged[E: Eq, A: Eq](implicit ticker: Ticker): Eq[Managed[E, A]] =
+  implicit def eqForManaged[E: Eq, A: Eq](implicit ticker: Ticker): Eq[Managed[E, A]]                    =
     zManagedEq[Any, E, A]
 
   implicit def eqForZManaged[R: Arbitrary, E: Eq, A: Eq](implicit ticker: Ticker): Eq[ZManaged[R, E, A]] =
     zManagedEq[R, E, A]
 
-  implicit def eqForTaskManaged[A: Eq](implicit ticker: Ticker): Eq[TaskManaged[A]] =
+  implicit def eqForTaskManaged[A: Eq](implicit ticker: Ticker): Eq[TaskManaged[A]]                      =
     zManagedEq[Any, Throwable, A]
 }

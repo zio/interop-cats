@@ -39,7 +39,7 @@ package object interop {
   type Hub[F[+_], A] = CHub[F, A, A]
   val Hub: CHub.type = CHub
 
-  @inline private[interop] def toOutcome[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, _], E, A] =
+  @inline private[interop] def toOutcome[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, _], E, A]           =
     exit match {
       case Exit.Success(value)                      =>
         Outcome.Succeeded(ZIO.succeed(value))
@@ -52,14 +52,14 @@ package object interop {
         }
     }
 
-  @inline private[interop] def toExit(exitCase: Resource.ExitCase): Exit[Throwable, Unit] =
+  @inline private[interop] def toExit(exitCase: Resource.ExitCase): Exit[Throwable, Unit]                  =
     exitCase match {
       case Resource.ExitCase.Succeeded      => Exit.unit
       case Resource.ExitCase.Canceled       => Exit.interrupt(Fiber.Id.None)
       case Resource.ExitCase.Errored(error) => Exit.fail(error)
     }
 
-  @inline private[interop] def toExitCase(exit: Exit[Any, Any]): Resource.ExitCase =
+  @inline private[interop] def toExitCase(exit: Exit[Any, Any]): Resource.ExitCase                         =
     exit match {
       case Exit.Success(_)                          =>
         Resource.ExitCase.Succeeded
@@ -72,7 +72,7 @@ package object interop {
         }
     }
 
-  @inline private[zio] def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F]): Task[A] =
+  @inline private[zio] def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F]): Task[A]               =
     ZIO
       .effectTotal(F.unsafeToFutureCancelable(fa))
       .flatMap { case (future, cancel) =>

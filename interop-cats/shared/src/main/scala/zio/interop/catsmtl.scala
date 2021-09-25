@@ -24,7 +24,7 @@ abstract class CatsMtlPlatform extends CatsMtlInstances
 
 abstract class CatsMtlInstances {
 
-  implicit def zioLocal[R, E](implicit ev: Applicative[ZIO[R, E, _]]): Local[ZIO[R, E, _], R] =
+  implicit def zioLocal[R, E](implicit ev: Applicative[ZIO[R, E, _]]): Local[ZIO[R, E, _], R]        =
     new Local[ZIO[R, E, _], R] {
       override def applicative: Applicative[ZIO[R, E, _]]              = ev
       override def ask[E2 >: R]: ZIO[R, E, E2]                         = ZIO.environment
@@ -37,7 +37,7 @@ abstract class CatsMtlInstances {
       override def ask[R2 >: R1]: ZIO[R, E, R2]           = ZIO.environment
     }
 
-  implicit def zioHandle[R, E](implicit ev: Applicative[ZIO[R, E, _]]): Handle[ZIO[R, E, _], E] =
+  implicit def zioHandle[R, E](implicit ev: Applicative[ZIO[R, E, _]]): Handle[ZIO[R, E, _], E]      =
     new Handle[ZIO[R, E, _], E] {
       override def applicative: Applicative[ZIO[R, E, _]]                              = ev
       override def raise[E2 <: E, A](e: E2): ZIO[R, E, A]                              = ZIO.fail(e)

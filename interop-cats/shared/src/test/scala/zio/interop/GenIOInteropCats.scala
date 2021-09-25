@@ -72,7 +72,7 @@ trait GenIOInteropCats {
    * Given a generator for `IO[E, A]`, produces a sized generator for `IO[E, A]` which represents a transformation,
    * by using methods that can have no effect on the resulting value (e.g. `map(identity)`, `io.race(never)`, `io.par(io2).map(_._1)`).
    */
-  def genIdentityTrans[E, A: Arbitrary](gen: Gen[IO[E, A]]): Gen[IO[E, A]] = {
+  def genIdentityTrans[E, A: Arbitrary](gen: Gen[IO[E, A]]): Gen[IO[E, A]]   = {
     val functions: IO[E, A] => Gen[IO[E, A]] = io =>
       Gen.oneOf(
         genOfIdentityFlatMaps[E, A](io),
@@ -100,12 +100,12 @@ trait GenIOInteropCats {
   private def genOfMaps[E, A: Arbitrary: Cogen](io: IO[E, A]): Gen[IO[E, A]] =
     Arbitrary.arbitrary[A => A].map(f => io.map(f))
 
-  private def genOfIdentityMaps[E, A](io: IO[E, A]): Gen[IO[E, A]] = Gen.const(io.map(identity))
+  private def genOfIdentityMaps[E, A](io: IO[E, A]): Gen[IO[E, A]]           = Gen.const(io.map(identity))
 
-  private def genOfMapErrors[E: Arbitrary: Cogen, A](io: IO[E, A]): Gen[IO[E, A]] =
+  private def genOfMapErrors[E: Arbitrary: Cogen, A](io: IO[E, A]): Gen[IO[E, A]]  =
     Arbitrary.arbitrary[E => E].map(f => io.mapError(f))
 
-  private def genOfIdentityMapErrors[E, A](io: IO[E, A]): Gen[IO[E, A]] =
+  private def genOfIdentityMapErrors[E, A](io: IO[E, A]): Gen[IO[E, A]]            =
     Gen.const(io.mapError(identity))
 
   private def genOfFlatMaps[E, A](io: IO[E, A])(
@@ -113,10 +113,10 @@ trait GenIOInteropCats {
   ): Gen[IO[E, A]] =
     gen.map(nextIO => io.flatMap(_ => nextIO))
 
-  private def genOfIdentityFlatMaps[E, A](io: IO[E, A]): Gen[IO[E, A]] =
+  private def genOfIdentityFlatMaps[E, A](io: IO[E, A]): Gen[IO[E, A]]             =
     Gen.const(io.flatMap(a => IO.succeed(a)))
 
-  private def genOfRace[E, A](io: IO[E, A]): Gen[IO[E, A]] =
+  private def genOfRace[E, A](io: IO[E, A]): Gen[IO[E, A]]                         =
     Gen.const(io.raceFirst(ZIO.never.interruptible))
 
   private def genOfParallel[E, A](io: IO[E, A])(gen: Gen[IO[E, A]]): Gen[IO[E, A]] =

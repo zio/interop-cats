@@ -48,7 +48,7 @@ val disciplineScalaTestVersion = "2.1.5"
 val fs2Version                 = "3.0.6"
 val scalaJavaTimeVersion       = "2.3.0"
 
-lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
+lazy val interopCats    = crossProject(JSPlatform, JVMPlatform)
   .in(file("interop-cats"))
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-interop-cats"))
@@ -78,10 +78,10 @@ lazy val interopCats = crossProject(JSPlatform, JVMPlatform)
 
 lazy val interopCatsJVM = interopCats.jvm.settings(dottySettings)
 
-lazy val interopCatsJS = interopCats.js
+lazy val interopCatsJS   = interopCats.js
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
-lazy val coreOnlyTest  = crossProject(JSPlatform, JVMPlatform)
+lazy val coreOnlyTest    = crossProject(JSPlatform, JVMPlatform)
   .in(file("core-only-test"))
   .dependsOn(interopCats)
   .settings(stdSettings("core-only-test"))

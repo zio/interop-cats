@@ -16,7 +16,7 @@ class CatsNonEmptyChunkSpec extends ZioSpecBase {
       implicitly[Arbitrary[Chunk[A]]].arbitrary.flatMap(fa => A.arbitrary.map(a => NonEmptyChunk.fromIterable(a, fa)))
     )
 
-  implicit def cogenNonEmptyChunk[A](implicit A: Cogen[A]): Cogen[NonEmptyChunk[A]] =
+  implicit def cogenNonEmptyChunk[A](implicit A: Cogen[A]): Cogen[NonEmptyChunk[A]]             =
     Cogen[Chunk[A]].contramap(_.toChunk)
 
   checkAll("NonEmptyChunk[Int]", SemigroupKTests[NonEmptyChunk].semigroupK[Int])

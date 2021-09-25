@@ -12,7 +12,7 @@ trait FS2StreamSyntax {
   implicit final def fs2RIOStreamSyntax[R, A](stream: Stream[RIO[R, _], A]): FS2RIOStreamSyntax[R, A] =
     new FS2RIOStreamSyntax(stream)
 
-  implicit final def zStreamSyntax[R, E, A](stream: ZStream[R, E, A]): ZStreamSyntax[R, E, A] =
+  implicit final def zStreamSyntax[R, E, A](stream: ZStream[R, E, A]): ZStreamSyntax[R, E, A]         =
     new ZStreamSyntax(stream)
 }
 
@@ -37,10 +37,10 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
    *
    * @note when possible use only power of 2 queue sizes; this will provide better performance of the queue.
    */
-  def toZStream[R1 <: R](queueSize: Int = 16): ZStream[R1, Throwable, A] =
+  def toZStream[R1 <: R](queueSize: Int = 16): ZStream[R1, Throwable, A]         =
     if (queueSize > 1) toZStreamChunk(queueSize) else toZStreamSingle
 
-  private def toZStreamSingle[R1 <: R]: ZStream[R1, Throwable, A] =
+  private def toZStreamSingle[R1 <: R]: ZStream[R1, Throwable, A]                =
     ZStream.managed {
       for {
         queue <- Queue.bounded[Take[Throwable, A]](1).toManaged[R](_.shutdown)

@@ -55,7 +55,7 @@ final class TRef[F[+_], A] private (underlying: ZTRef[A]) {
   def set(newValue: A): STM[F, Unit] =
     new STM(underlying.set(newValue))
 
-  override def toString: String =
+  override def toString: String      =
     underlying.toString
 
   /**
@@ -73,7 +73,7 @@ final class TRef[F[+_], A] private (underlying: ZTRef[A]) {
 
 object TRef {
 
-  final def make[F[+_], A](a: => A): STM[F, TRef[F, A]] =
+  final def make[F[+_], A](a: => A): STM[F, TRef[F, A]]                                   =
     new STM(ZTRef.make(a).map(new TRef(_)))
 
   final def makeCommit[F[+_]: Async, A](a: => A)(implicit R: Runtime[Any]): F[TRef[F, A]] =

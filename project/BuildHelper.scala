@@ -13,7 +13,7 @@ object BuildHelper {
   val Scala213 = "2.13.6"
   val Scala3   = "3.0.2"
 
-  private val stdOptions = Seq(
+  private val stdOptions   = Seq(
     "-deprecation",
     "-encoding",
     "UTF-8",
