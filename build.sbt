@@ -81,7 +81,7 @@ lazy val interopCatsJVM = interopCats.jvm.settings(dottySettings)
 lazy val interopCatsJS = interopCats.js
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
-lazy val coreOnlyTest  = crossProject(JSPlatform, JVMPlatform)
+lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   .in(file("core-only-test"))
   .dependsOn(interopCats)
   .settings(stdSettings("core-only-test"))

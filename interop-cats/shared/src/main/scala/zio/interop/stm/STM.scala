@@ -75,7 +75,7 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
   /**
    * See [[zio.stm.ZSTM#withFilter]]
    */
-  def filter(f: A => Boolean): STM[F, A]       =
+  def filter(f: A => Boolean): STM[F, A] =
     collect { case a if f(a) => a }
 
   /**
@@ -165,7 +165,7 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
   /**
    * See [[zio.stm.ZSTM#zipLeft]]
    */
-  def zipLeft[B](that: => STM[F, B]): STM[F, A]  =
+  def zipLeft[B](that: => STM[F, B]): STM[F, A] =
     zipWith(that)((a, _) => a)
 
   /**

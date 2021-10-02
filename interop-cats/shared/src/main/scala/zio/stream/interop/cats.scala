@@ -38,7 +38,7 @@ sealed abstract class CatsInstances1 extends CatsInstances2 {
   implicit def zstreamBifunctorInstance[R]: Bifunctor[ZStream[R, _, _]] =
     new ZStreamBifunctor[R] {}
 
-  implicit def zstreamArrowInstance[E]: ArrowChoice[ZStream[_, E, _]]   = new ZStreamArrowChoice[E]
+  implicit def zstreamArrowInstance[E]: ArrowChoice[ZStream[_, E, _]] = new ZStreamArrowChoice[E]
 }
 
 sealed abstract class CatsInstances2 extends CatsInstances3 {
@@ -131,16 +131,16 @@ private class ZStreamArrowChoice[E] extends ArrowChoice[ZStream[_, E, _]] {
   def choose[A, B, C, D](f: F[A, C])(g: F[B, D]): F[Either[A, B], Either[C, D]] =
     id[Either[A, B]].flatMap(_.fold(f.provide(_).map(Left.apply), g.provide(_).map(Right.apply)))
 
-  final override def first[A, B, C](fa: F[A, B]): F[(A, C), (B, C)]               =
+  final override def first[A, B, C](fa: F[A, B]): F[(A, C), (B, C)] =
     id[(A, C)].flatMap { case (a, c) => fa.provide(a).map(_ -> c) }
 
-  final override def second[A, B, C](fa: F[A, B]): F[(C, A), (C, B)]              =
+  final override def second[A, B, C](fa: F[A, B]): F[(C, A), (C, B)] =
     id[(C, A)].flatMap { case (c, a) => fa.provide(a).map(c -> _) }
 
   final override def split[A, B, C, D](f: F[A, B], g: F[C, D]): F[(A, C), (B, D)] =
     id[(A, C)].flatMap { case (a, c) => f.provide(a) cross g.provide(c) }
 
-  final override def merge[A, B, C](f: F[A, B], g: F[A, C]): F[A, (B, C)]         =
+  final override def merge[A, B, C](f: F[A, B], g: F[A, C]): F[A, (B, C)] =
     f cross g
 
   final override def lmap[A, B, C](fab: F[A, B])(f: C => A): F[C, B] =
