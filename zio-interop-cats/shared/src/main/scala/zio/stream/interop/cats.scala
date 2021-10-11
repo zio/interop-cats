@@ -102,7 +102,7 @@ private class CatsMonoidK[R, E] extends CatsSemigroupK[R, E] with MonoidK[ZStrea
 
 private trait CatsBifunctor[R] extends Bifunctor[ZStream[R, *, *]] {
   override final def bimap[A, B, C, D](fab: ZStream[R, A, B])(f: A => C, g: B => D): ZStream[R, C, D] =
-    fab.bimap(f, g)
+    fab.mapBoth(f, g)
 }
 
 private class CatsArrow[E] extends ArrowChoice[ZStream[*, E, *]] {
