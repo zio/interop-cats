@@ -195,7 +195,7 @@ private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] w
 private object CatsZManagedArrowChoice extends ArrowChoice[ZManaged[*, Any, *]] {
   final override def lift[A, B](f: A => B): ZManaged[A, Any, B] = ZManaged.access(f)
   final override def compose[A, B, C](f: ZManaged[B, Any, C], g: ZManaged[A, Any, B]): ZManaged[A, Any, C] =
-    g.flatMap(f.provide)
+    g.flatMap(b => f.provide(b))
 
   final override def id[A]: ZManaged[A, Any, A] = ZManaged.environment
   final override def dimap[A, B, C, D](fab: ZManaged[A, Any, B])(f: C => A)(g: B => D): ZManaged[C, Any, D] =
@@ -217,5 +217,5 @@ private object CatsZManagedArrowChoice extends ArrowChoice[ZManaged[*, Any, *]] 
   final override def lmap[A, B, C](fab: ZManaged[A, Any, B])(f: C => A): ZManaged[C, Any, B]                  = fab.provideSome(f)
   final override def rmap[A, B, C](fab: ZManaged[A, Any, B])(f: B => C): ZManaged[A, Any, C]                  = fab.map(f)
   final override def choice[A, B, C](f: ZManaged[A, Any, C], g: ZManaged[B, Any, C]): ZManaged[Either[A, B], Any, C] =
-    ZManaged.accessManaged(_.fold(f.provide, g.provide))
+    ZManaged.accessManaged(aOrB => aOrB.fold(a => f.provide(a), b => g.provide(b)))
 }
