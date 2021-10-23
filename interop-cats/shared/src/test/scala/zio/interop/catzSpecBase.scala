@@ -1,7 +1,7 @@
 package zio.interop
 
 import cats.Eq
-import cats.effect.laws.util.{TestContext, TestInstances}
+import cats.effect.laws.util.{ TestContext, TestInstances }
 import cats.implicits._
 import org.scalacheck.Arbitrary
 import org.scalatest.funsuite.AnyFunSuite
@@ -11,7 +11,7 @@ import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio.Executor
 import zio.internal.tracing.Tracing
 import zio.interop.catz.taskEffectInstance
-import zio.{=!=, Cause, Clock, Console, IO, Random, Runtime, RuntimeConfig, System, Task, UIO, ZIO, ZManaged}
+import zio.{ =!=, Cause, Clock, Console, IO, Random, Runtime, RuntimeConfig, System, Task, UIO, ZIO, ZManaged }
 
 private[zio] trait catzSpecBase
     extends AnyFunSuite
@@ -24,7 +24,8 @@ private[zio] trait catzSpecBase
 
   implicit def rts(implicit tc: TestContext): Runtime[Unit] = Runtime(
     (),
-    RuntimeConfig.fromExecutor(Executor.fromExecutionContext(Int.MaxValue)(tc))
+    RuntimeConfig
+      .fromExecutor(Executor.fromExecutionContext(Int.MaxValue)(tc))
       .copy(tracing = Tracing.disabled)
 //      .withReportFailure(_ => ()) // TODO Investigate proper change here
   )

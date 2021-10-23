@@ -38,7 +38,7 @@ package object interop {
   val Hub: CHub.type = CHub
 
   @inline private[interop] final def exitToExitCase(exit: Exit[Any, Any]): ExitCase[Throwable] = exit match {
-    case Exit.Success(_)                          => ExitCase.Completed
+    case Exit.Success(_)                            => ExitCase.Completed
     case Exit.Failure(cause) if cause.isInterrupted => ExitCase.Canceled
     case Exit.Failure(cause) =>
       cause.failureOrCause match {

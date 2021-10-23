@@ -177,9 +177,8 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def collectAll[Out1 >: Out]: Schedule.WithState[F, (self.State, Chunk[Out1]), In, List[Out1]] =
     ???
-    // TODO restore once done checking for test compilation errors
-    // Schedule(underlying.collectAll.map(_.toList))
-
+  // TODO restore once done checking for test compilation errors
+  // Schedule(underlying.collectAll.map(_.toList))
 
   /**
    * @see zio.ZSchedule.compose

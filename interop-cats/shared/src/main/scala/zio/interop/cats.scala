@@ -282,8 +282,9 @@ private class CatsMonadError[R, E] extends MonadError[ZIO[R, E, *], E] with Stac
   override final def widen[A, B >: A](fa: ZIO[R, E, A]): ZIO[R, E, B]                                = fa
   override final def map2[A, B, Z](fa: ZIO[R, E, A], fb: ZIO[R, E, B])(f: (A, B) => Z): ZIO[R, E, Z] = fa.zipWith(fb)(f)
   override final def as[A, B](fa: ZIO[R, E, A], b: B): ZIO[R, E, B]                                  = fa.as(b)
-  override final def whenA[A](cond: Boolean)(f: => ZIO[R, E, A]): ZIO[R, E, Unit]                    = ZIO.suspendSucceed(f).when(cond).ignore // TODO Okay to ignore?
-  override final def unit: ZIO[R, E, Unit]                                                           = ZIO.unit
+  override final def whenA[A](cond: Boolean)(f: => ZIO[R, E, A]): ZIO[R, E, Unit] =
+    ZIO.suspendSucceed(f).when(cond).ignore // TODO Okay to ignore?
+  override final def unit: ZIO[R, E, Unit] = ZIO.unit
 
   override final def handleErrorWith[A](fa: ZIO[R, E, A])(f: E => ZIO[R, E, A]): ZIO[R, E, A] = fa.catchAll(f)
   override final def recoverWith[A](fa: ZIO[R, E, A])(pf: PartialFunction[E, ZIO[R, E, A]]): ZIO[R, E, A] =
@@ -376,9 +377,9 @@ private class CatsArrow[E] extends ArrowChoice[ZIO[*, E, *]] {
     ZIO.access[(C, A)](_._1) <*> fa.provideSome[(C, A)](_._2)
   final override def split[A, B, C, D](f: ZIO[A, E, B], g: ZIO[C, E, D]): ZIO[(A, C), E, (B, D)] =
     f.provideSome[(A, C)](_._1) <*> g.provideSome[(A, C)](_._2)
-  final override def merge[A, B, C](f: ZIO[A, E, B], g: ZIO[A, E, C]): ZIO[A, E, (B, C)] = f.zip(g)
-  final override def lmap[A, B, C](fab: ZIO[A, E, B])(f: C => A): ZIO[C, E, B]           = fab.provideSome(f)
-  final override def rmap[A, B, C](fab: ZIO[A, E, B])(f: B => C): ZIO[A, E, C]           = fab.map(f)
+  final override def merge[A, B, C](f: ZIO[A, E, B], g: ZIO[A, E, C]): ZIO[A, E, (B, C)]        = f.zip(g)
+  final override def lmap[A, B, C](fab: ZIO[A, E, B])(f: C => A): ZIO[C, E, B]                  = fab.provideSome(f)
+  final override def rmap[A, B, C](fab: ZIO[A, E, B])(f: B => C): ZIO[A, E, C]                  = fab.map(f)
   final override def choice[A, B, C](f: ZIO[A, E, C], g: ZIO[B, E, C]): ZIO[Either[A, B], E, C] =
     // TODO Why do I need all the explicit parameters now?
     ZIO.accessZIO(aOrB => aOrB.fold(a => f.provide(a), b => g.provide(b)))
