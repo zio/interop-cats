@@ -26,12 +26,13 @@ import cats.effect
 import cats.*
 import zio.Fiber
 import zio.*
-import zio.clock.{ currentTime, nanoTime, Clock }
-import zio.duration.Duration
+import zio.Duration
 
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration.*
+import zio.{ Clock, Has, ZIOAppDefault }
+import zio.Clock.{ currentTime, nanoTime }
 
 object catz extends CatsEffectPlatform {
   object core extends CatsPlatform
@@ -49,7 +50,7 @@ object catz extends CatsEffectPlatform {
    * }}}
    */
   object implicits {
-    implicit val rts: Runtime[Clock & CBlocking] = Runtime.default
+    implicit val rts: Runtime[Has[Clock]] = Runtime.default
   }
 }
 
@@ -61,8 +62,8 @@ abstract class CatsEffectPlatform
     with CatsNonEmptyChunkInstances
     with CatsZManagedSyntax {
 
-  trait CatsApp extends App {
-    implicit val runtime: Runtime[ZEnv] = this
+  trait CatsApp extends ZIOAppDefault {
+    implicit override def runtime: Runtime[ZEnv] = Runtime.default
   }
 
   val console: interop.console.cats.type =
@@ -80,25 +81,25 @@ abstract class CatsEffectInstances extends CatsZioInstances {
   implicit final def liftIOInstance[R](implicit runtime: IORuntime): LiftIO[RIO[R, _]] =
     new ZioLiftIO
 
-  implicit final def asyncInstance[R <: Clock & CBlocking]: Async[RIO[R, _]] =
+  implicit final def asyncInstance[R <: Has[Clock]]: Async[RIO[R, _]] =
     asyncInstance0.asInstanceOf[Async[RIO[R, _]]]
 
-  implicit final def temporalInstance[R <: Clock, E]: GenTemporal[ZIO[R, E, _], E] =
+  implicit final def temporalInstance[R <: Has[Clock], E]: GenTemporal[ZIO[R, E, _], E] =
     temporalInstance0.asInstanceOf[GenTemporal[ZIO[R, E, _], E]]
 
   implicit final def concurrentInstance[R, E]: GenConcurrent[ZIO[R, E, _], E] =
     concurrentInstance0.asInstanceOf[GenConcurrent[ZIO[R, E, _], E]]
 
-  implicit final def asyncRuntimeInstance[E](implicit runtime: Runtime[Clock & CBlocking]): Async[Task] =
+  implicit final def asyncRuntimeInstance[E](implicit runtime: Runtime[Has[Clock]]): Async[Task] =
     new ZioRuntimeAsync
 
-  implicit final def temporalRuntimeInstance[E](implicit runtime: Runtime[Clock]): GenTemporal[IO[E, _], E] =
+  implicit final def temporalRuntimeInstance[E](implicit runtime: Runtime[Has[Clock]]): GenTemporal[IO[E, _], E] =
     new ZioRuntimeTemporal[E]
 
-  private[this] val asyncInstance0: Async[RIO[Clock & CBlocking, _]] =
+  private[this] val asyncInstance0: Async[RIO[Has[Clock], _]] =
     new ZioAsync
 
-  private[this] val temporalInstance0: Temporal[RIO[Clock, _]] =
+  private[this] val temporalInstance0: Temporal[RIO[Has[Clock], _]] =
     new ZioTemporal
 
   private[this] val concurrentInstance0: Concurrent[Task] =
@@ -189,7 +190,7 @@ private class ZioDefer[R, E] extends Defer[ZIO[R, E, _]] {
   type F[A] = ZIO[R, E, A]
 
   override final def defer[A](fa: => F[A]): F[A] =
-    ZIO.effectSuspendTotal(fa)
+    ZIO.suspendSucceed(fa)
 }
 
 private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent[ZIO[R, E, _], E] {
@@ -222,7 +223,7 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     ZIO.yieldNow
 
   override final def forceR[A, B](fa: F[A])(fb: F[B]): F[B] =
-    fa.foldCauseM(cause => if (cause.interrupted) ZIO.halt(cause) else fb, _ => fb)
+    fa.foldCauseZIO(cause => if (cause.isInterrupted) ZIO.failCause(cause) else fb, _ => fb)
 
   override final def uncancelable[A](body: Poll[F] => F[A]): F[A] =
     ZIO.uninterruptibleMask(body.compose(toPoll))
@@ -231,7 +232,7 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     ZIO.interrupt
 
   override final def onCancel[A](fa: F[A], fin: F[Unit]): F[A] =
-    fa.onError(cause => fin.orDieWith(fiberFailure).unless(cause.failed))
+    fa.onError(cause => fin.orDieWith(fiberFailure).unless(cause.isFailure))
 
   override final def memoize[A](fa: F[A]): F[F[A]] =
     fa.memoize
@@ -249,10 +250,10 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     fa.ensuring(fin.orDieWith(fiberFailure))
 
   override final def bracket[A, B](acquire: F[A])(use: A => F[B])(release: A => F[Unit]): F[B] =
-    acquire.bracket(release.andThen(_.orDieWith(fiberFailure)), use)
+    acquire.acquireReleaseWith(release.andThen(_.orDieWith(fiberFailure)), use)
 
   override val unique: F[Unique.Token] =
-    ZIO.effectTotal(new Unique.Token)
+    ZIO.succeed(new Unique.Token)
 }
 
 private final class ZioDeferred[R, E, A](promise: Promise[E, A]) extends Deferred[ZIO[R, E, _], A] {
@@ -278,7 +279,7 @@ private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E
     get.map { current =>
       val called                   = new AtomicBoolean(false)
       def setter(a: A): F[Boolean] =
-        ZIO.effectSuspendTotal {
+        ZIO.suspendSucceed {
           if (called.getAndSet(true)) {
             ZIO.succeedNow(false)
           } else {
@@ -317,7 +318,7 @@ private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E
     ref.get
 }
 
-private class ZioTemporal[R <: Clock, E] extends ZioConcurrent[R, E] with GenTemporal[ZIO[R, E, _], E] {
+private class ZioTemporal[R <: Has[Clock], E] extends ZioConcurrent[R, E] with GenTemporal[ZIO[R, E, _], E] {
 
   override final def sleep(time: FiniteDuration): F[Unit] =
     ZIO.sleep(Duration.fromScala(time))
@@ -329,12 +330,12 @@ private class ZioTemporal[R <: Clock, E] extends ZioConcurrent[R, E] with GenTem
     currentTime(MILLISECONDS).map(FiniteDuration(_, MILLISECONDS))
 }
 
-private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Clock])
+private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Has[Clock]])
     extends ZioConcurrent[Any, E]
     with GenTemporal[IO[E, _], E] {
 
-  private[this] val underlying: GenTemporal[ZIO[Clock, E, _], E] = new ZioTemporal[Clock, E]
-  private[this] val clock: Clock                                 = runtime.environment
+  private[this] val underlying: GenTemporal[ZIO[Has[Clock], E, _], E] = new ZioTemporal[Has[Clock], E]
+  private[this] val clock: Has[Clock]                                 = runtime.environment
 
   override final def sleep(time: FiniteDuration): F[Unit] =
     underlying.sleep(time).provide(clock)
@@ -346,12 +347,12 @@ private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Clock])
     underlying.realTime.provide(clock)
 }
 
-private class ZioRuntimeAsync(implicit runtime: Runtime[Clock & CBlocking])
+private class ZioRuntimeAsync(implicit runtime: Runtime[Has[Clock]])
     extends ZioRuntimeTemporal[Throwable]
     with Async[Task] {
 
-  private[this] val underlying: Async[RIO[Clock & CBlocking, _]] = new ZioAsync[Clock & CBlocking]
-  private[this] val environment: Clock & CBlocking               = runtime.environment
+  private[this] val underlying: Async[RIO[Has[Clock], _]] = new ZioAsync[Has[Clock]]
+  private[this] val environment: Has[Clock]               = runtime.environment
 
   override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] =
     underlying.evalOn(fa, ec).provide(environment)
@@ -418,7 +419,7 @@ private class ZioMonadError[R, E] extends MonadError[ZIO[R, E, _], E] with Stack
     fa.as(b)
 
   override final def whenA[A](cond: Boolean)(f: => F[A]): F[Unit] =
-    ZIO.when(cond)(f)
+    ZIO.when(cond)(f).ignore // TODO Confirm this change with maintainers
 
   override final def unit: F[Unit] =
     ZIO.unit
@@ -506,28 +507,28 @@ private class ZioArrowChoice[E] extends ArrowChoice[ZIO[_, E, _]] {
   type F[A, B] = ZIO[A, E, B]
 
   final override def lift[A, B](f: A => B): F[A, B] =
-    ZIO.fromFunction(f)
+    ZIO.access(f)
 
   final override def compose[A, B, C](f: F[B, C], g: F[A, B]): F[A, C] =
-    f compose g
+    g.flatMap(f.provide(_))
 
   final override def id[A]: F[A, A] =
-    ZIO.identity[A]
+    ZIO.environment[A]
 
   final override def dimap[A, B, C, D](fab: F[A, B])(f: C => A)(g: B => D): F[C, D] =
     fab.provideSome(f).map(g)
 
   final override def choose[A, B, C, D](f: F[A, C])(g: F[B, D]): F[Either[A, B], Either[C, D]] =
-    f +++ g
+    ZIO.accessZIO[Either[A, B]](_.fold(f.provide(_).map(Left(_)), g.provide(_).map(Right(_))))
 
   final override def first[A, B, C](fa: F[A, B]): F[(A, C), (B, C)] =
-    fa *** ZIO.identity[C]
+    fa.provideSome[(A, C)](_._1) <*> ZIO.access[(A, C)](_._2)
 
   final override def second[A, B, C](fa: F[A, B]): F[(C, A), (C, B)] =
-    ZIO.identity[C] *** fa
+    ZIO.access[(C, A)](_._1) <*> fa.provideSome[(C, A)](_._2)
 
   final override def split[A, B, C, D](f: F[A, B], g: F[C, D]): F[(A, C), (B, D)] =
-    f *** g
+    f.provideSome[(A, C)](_._1) <*> g.provideSome[(A, C)](_._2)
 
   final override def merge[A, B, C](f: F[A, B], g: F[A, C]): F[A, (B, C)] =
     f zip g
@@ -539,14 +540,14 @@ private class ZioArrowChoice[E] extends ArrowChoice[ZIO[_, E, _]] {
     fab.map(f)
 
   final override def choice[A, B, C](f: F[A, C], g: F[B, C]): F[Either[A, B], C] =
-    f ||| g
+    ZIO.accessZIO(_.fold(f.provide(_), g.provide(_)))
 }
 
 private class ZioContravariant[E, T] extends Contravariant[ZIO[_, E, T]] {
   type F[A] = ZIO[A, E, T]
 
   final override def contramap[A, B](fa: F[A])(f: B => A): F[B] =
-    ZIO.accessM[B](b => fa.provide(f(b)))
+    ZIO.accessZIO[B](b => fa.provide(f(b)))
 }
 
 private class ZioSemigroup[R, E, A](implicit semigroup: Semigroup[A]) extends Semigroup[ZIO[R, E, A]] {
@@ -580,7 +581,7 @@ private class ZioParMonoid[R, E, A](implicit monoid: CommutativeMonoid[A])
 
 private class ZioLiftIO[R](implicit runtime: IORuntime) extends LiftIO[RIO[R, _]] {
   override final def liftIO[A](ioa: CIO[A]): RIO[R, A] =
-    ZIO.effectAsyncInterrupt { k =>
+    ZIO.asyncInterrupt { k =>
       val (result, cancel) = ioa.unsafeToFutureCancelable()
       k(ZIO.fromFuture(_ => result))
       Left(ZIO.fromFuture(_ => cancel()).orDie)

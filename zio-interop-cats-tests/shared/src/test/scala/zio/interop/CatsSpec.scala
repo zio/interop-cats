@@ -6,8 +6,7 @@ import cats.effect.laws.*
 import cats.effect.unsafe.IORuntime
 import cats.laws.discipline.*
 import cats.syntax.all.*
-import zio.*
-import zio.clock.Clock
+import zio.{ durationInt => _, Clock => ZClock, _ }
 import zio.interop.catz.*
 
 import scala.concurrent.duration.*
@@ -16,24 +15,24 @@ class CatsSpec extends ZioSpecBase {
 
   // ZIO tests
   checkAllAsync(
-    "Async[RIO[Clock & Blocking, _]]",
-    implicit tc => AsyncTests[RIO[Clock & CBlocking, _]].async[Int, Int, Int](100.millis)
+    "Async[RIO[Clock, _]]",
+    implicit tc => AsyncTests[RIO[Has[ZClock], _]].async[Int, Int, Int](100.millis)
   )
   checkAllAsync(
     "Async[Task]",
     { implicit tc =>
-      implicit val runtime: Runtime[Clock & CBlocking] = Runtime(environment, platform)
+      implicit val runtime: Runtime[Has[ZClock]] = Runtime(environment, platform)
       AsyncTests[Task].async[Int, Int, Int](100.millis)
     }
   )
   checkAllAsync(
     "Temporal[RIO[Clock, _]]",
-    implicit tc => GenTemporalTests[RIO[Clock, _], Throwable].temporal[Int, Int, Int](100.millis)
+    implicit tc => GenTemporalTests[RIO[Has[ZClock], _], Throwable].temporal[Int, Int, Int](100.millis)
   )
   checkAllAsync(
     "Temporal[Task]",
     { implicit tc =>
-      implicit val runtime: Runtime[Clock] = Runtime(environment, platform)
+      implicit val runtime: Runtime[Has[ZClock]] = Runtime(environment, platform)
       GenTemporalTests[Task, Throwable].temporal[Int, Int, Int](100.millis)
     }
   )
@@ -70,12 +69,11 @@ class CatsSpec extends ZioSpecBase {
   object summoningInstancesTest {
     import cats.*
     import cats.effect.*
-    import zio.clock.Clock as ZClock
 
-    Async[RIO[ZClock & CBlocking, _]]
-    Sync[RIO[ZClock & CBlocking, _]]
-    GenTemporal[ZIO[ZClock, Int, _], Int]
-    Temporal[RIO[ZClock, _]]
+    Async[RIO[Has[ZClock], _]]
+    Sync[RIO[Has[ZClock], _]]
+    GenTemporal[ZIO[Has[ZClock], Int, _], Int]
+    Temporal[RIO[Has[ZClock], _]]
     GenConcurrent[ZIO[String, Int, _], Int]
     Concurrent[RIO[String, _]]
     MonadError[RIO[String, _], Throwable]
@@ -92,10 +90,10 @@ class CatsSpec extends ZioSpecBase {
     Functor[ZManaged[String, Throwable, _]]
     SemigroupK[ZManaged[String, Throwable, _]]
 
-    def liftRIO(implicit runtime: IORuntime)                  = LiftIO[RIO[String, _]]
-    def liftZManaged(implicit runtime: IORuntime)             = LiftIO[ZManaged[String, Throwable, _]]
-    def runtimeGenTemporal(implicit runtime: Runtime[ZClock]) = GenTemporal[ZIO[Any, Int, _], Int]
-    def runtimeTemporal(implicit runtime: Runtime[ZClock])    = Temporal[Task]
+    def liftRIO(implicit runtime: IORuntime)                       = LiftIO[RIO[String, _]]
+    def liftZManaged(implicit runtime: IORuntime)                  = LiftIO[ZManaged[String, Throwable, _]]
+    def runtimeGenTemporal(implicit runtime: Runtime[Has[ZClock]]) = GenTemporal[ZIO[Any, Int, _], Int]
+    def runtimeTemporal(implicit runtime: Runtime[Has[ZClock]])    = Temporal[Task]
 
     // related to issue #173
     def getArrow[F[-_, +_, +_], R, E, A](f: F[R, E, A])(implicit a: ArrowChoice[F[_, E, _]]): Any = (a, f)

@@ -1,13 +1,14 @@
 package zio.test.interop
 
 import cats.effect.IO as CIO
-import zio.duration.*
+
 import zio.interop.CatsRunnableSpec
 import zio.test.Assertion.*
 import zio.test.TestAspect.*
 import zio.test.*
 import zio.test.environment.TestEnvironment
 import zio.test.interop.catz.test.*
+import zio.*
 
 object TestSpec extends CatsRunnableSpec {
   override def spec: ZSpec[TestEnvironment, Any] =

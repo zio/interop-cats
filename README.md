@@ -45,7 +45,7 @@ def ceConcurrentForTaskExample =
 
 ## `Temporal`
 
-`Temporal` requires a `Runtime` with `zio.clock.Clock`.
+`Temporal` requires a `Runtime` with `Has[Clock]`.
 
 ```scala
 import cats.effect._
@@ -53,7 +53,7 @@ import zio._
 import zio.interop.catz._
 
 def ceTemporal =
-  ZIO.runtime.flatMap { implicit r: Runtime[Clock] =>
+  ZIO.runtime.flatMap { implicit r: Runtime[Has[Clock]] =>
     val F: cats.effect.Temporal[Task] = implicitly
     F.sleep(1.second) *> F.unit
   }
@@ -61,7 +61,7 @@ def ceTemporal =
 
 ## `Async`
 
-Similar to the other examples, we require a `Runtime` with the `zio.clock.Clock` and `zio.blocking.Blocking` layer.
+Similar to the other examples, we require a `Runtime` with the `Has[Clock]` layer.
 
 ```scala
 import cats.effect._
@@ -69,7 +69,7 @@ import zio._
 import zio.interop.catz._
 
 def ceAsync =
-  ZIO.runtime.flatMap { implicit r: Runtime[Clock with Blocking] =>
+  ZIO.runtime.flatMap { implicit r: Runtime[Has[Clock]] =>
     val F: cats.effect.Async[Task] = implicitly
     F.racePair(F.unit, F.sleep(1.second) *> F.unit)
   }
@@ -84,12 +84,12 @@ There are many other typeclasses and useful conversions that this library provid
 
 ## Easier imports (at a cost)
 
-In the examples above, we had to bring the `Runtime[Clocking with Blocking]` via the `ZIO.runtime` combinator. This may
+In the examples above, we had to bring the `Runtime[Has[Clock]]` via the `ZIO.runtime` combinator. This may
 not be ideal since everywhere you use these typeclasses, you will now be required to feed in the `Runtime`. 
 For example, with FS2: 
 
 ```scala
-def example(implicit rts: Runtime[Clock with Blocking]): Task[Unit] =
+def example(implicit rts: Runtime[Has[Clock]]): Task[Unit] =
   fs2.Stream
     .awakeDelay[Task](10.seconds) // this type annotation is mandatory
     .evalTap(in => cats.effect.std.Console.make[Task].println(s"Hello $in"))
@@ -110,7 +110,7 @@ val example: Task[Unit] =
     .drain
 ```
 
-The major downside to doing this is you rely on live implementations of `Clock` and `Blocking` to summon instances which 
+The major downside to doing this is you rely on live implementations of `Clock` to summon instances which 
 makes testing much more difficult for any Cats Effect code that you use. 
 
 ### cats-core
@@ -138,7 +138,7 @@ import scala.concurrent.duration._
 
 object DoobieH2Example extends App {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    ZIO.runtime.flatMap { implicit r: Runtime[Clock with Blocking] =>
+    ZIO.runtime.flatMap { implicit r: Runtime[Has[Clock]] =>
       val xa: Transactor[Task] =
         Transactor.fromDriverManager[Task]("org.h2.Driver", "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", "user", "")
 
@@ -147,7 +147,7 @@ object DoobieH2Example extends App {
         .stream
         .transact(xa)
         .delayBy(1.second)
-        .evalTap(i => blocking.blocking(Task.effectTotal(println(s"Data $i"))))
+        .evalTap(i => ZIO.succeedBlocking(println(s"Data $i"))))
         .compile
         .drain
         .exitCode

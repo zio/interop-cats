@@ -42,6 +42,6 @@ private[interop] trait ZStreamSpecBaseLowPriority { self: ZStreamSpecBase =>
   ]: Arbitrary[ZStream[R, E, A]] = Arbitrary(
     Gen
       .function1[R, Stream[E, A]](arbitraryStream[E, A].arbitrary)
-      .map(ZStream.fromEffect(ZIO.environment[R]).flatMap)
+      .map(ZStream.fromZIO(ZIO.environment[R]).flatMap)
   )
 }

@@ -18,20 +18,20 @@ object Fs2ZioSpec extends CatsRunnableSpec {
             assert(ints)(equalTo(List(1, 1)))
           }
         },
-        testM("works if F is zio.interop.Task") {
+        test("works if F is zio.interop.Task") {
           testCaseJoin[Task].map { ints =>
             assert(ints)(equalTo(List(1, 1)))
           }
         }
       ),
       suite("fs2 resource handling")(
-        testM("works when fiber is failed") {
+        test("works when fiber is failed") {
           bracketFail
         },
-        testM("work when fiber is terminated") {
+        test("work when fiber is terminated") {
           bracketTerminate
         },
-        testM("work when fiber is interrupted") {
+        test("work when fiber is interrupted") {
           bracketInterrupt
         }
       )

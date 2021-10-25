@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: ['master']
+    branches: ['master', 'zio2-interop-ce3_separate_test_module']
   release:
     types:
       - published

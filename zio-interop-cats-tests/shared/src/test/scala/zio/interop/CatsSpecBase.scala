@@ -10,16 +10,17 @@ import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio.*
-import zio.clock.Clock
-import zio.duration.*
-import zio.internal.{ Executor, Platform, Tracing }
+import zio.Executor
+import zio.RuntimeConfig
+import zio.internal.tracing.Tracing
 
-import java.time.{ DateTimeException, Instant, OffsetDateTime, ZoneOffset }
+import java.time.{ Instant, LocalDateTime, OffsetDateTime, ZoneOffset }
 import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration.Infinite
-import scala.concurrent.duration.{ FiniteDuration, TimeUnit }
+import scala.concurrent.duration.FiniteDuration
 import scala.language.implicitConversions
+import zio.Clock
 
 private[zio] trait CatsSpecBase
     extends AnyFunSuite
@@ -31,47 +32,46 @@ private[zio] trait CatsSpecBase
   def checkAllAsync(name: String, f: Ticker => Laws#RuleSet): Unit =
     checkAll(name, f(Ticker()))
 
-  def platform(implicit ticker: Ticker): Platform =
-    Platform
+  def platform(implicit ticker: Ticker): RuntimeConfig =
+    RuntimeConfig
       .fromExecutor(Executor.fromExecutionContext(1024)(ticker.ctx))
-      .withTracing(Tracing.disabled)
-      .withReportFailure(_ => ())
+      .copy(tracing = Tracing.disabled, executor = Executor.fromExecutionContext(1024)(ticker.ctx))
 
   def environment(implicit ticker: Ticker): ZEnv = {
 
-    val testBlocking = new CBlockingService {
-      def blockingExecutor: Executor =
-        Executor.fromExecutionContext(1024)(ticker.ctx)
-    }
+    val testClock = new Clock {
 
-    val testClock = new Clock.Service {
-      def currentTime(unit: TimeUnit): UIO[Long] =
-        ZIO.effectTotal(ticker.ctx.now().toUnit(unit).toLong)
+      def instant(implicit trace: ZTraceElement): UIO[Instant]                     =
+        ???
+      def localDateTime(implicit trace: ZTraceElement): UIO[LocalDateTime]         =
+        ???
+      def currentTime(unit: => TimeUnit)(implicit trace: ZTraceElement): UIO[Long] =
+        ZIO.succeed(ticker.ctx.now().toUnit(unit).toLong)
 
-      val currentDateTime: IO[DateTimeException, OffsetDateTime] =
-        ZIO.effectTotal(OffsetDateTime.ofInstant(Instant.ofEpochMilli(ticker.ctx.now().toMillis), ZoneOffset.UTC))
+      def currentDateTime(implicit trace: ZTraceElement): UIO[OffsetDateTime] =
+        ZIO.succeed(OffsetDateTime.ofInstant(Instant.ofEpochMilli(ticker.ctx.now().toMillis), ZoneOffset.UTC))
 
-      val nanoTime: UIO[Long] =
-        ZIO.effectTotal(ticker.ctx.now().toNanos)
+      def nanoTime(implicit trace: ZTraceElement): UIO[Long] =
+        ZIO.succeed(ticker.ctx.now().toNanos)
 
-      def sleep(duration: Duration): UIO[Unit] = duration.asScala match {
+      def sleep(duration: => Duration)(implicit trace: ZTraceElement): UIO[Unit] = duration.asScala match {
         case finite: FiniteDuration =>
-          ZIO.effectAsyncInterrupt { cb =>
+          ZIO.asyncInterrupt { cb =>
             val cancel = ticker.ctx.schedule(finite, () => cb(UIO.unit))
-            Left(UIO.effectTotal(cancel()))
+            Left(UIO.succeed(cancel()))
           }
         case infinite: Infinite     =>
           ZIO.dieMessage(s"Unexpected infinite duration $infinite passed to Ticker")
       }
     }
 
-    ZEnv.Services.live ++ Has(testClock) ++ Has(testBlocking)
+    ZEnv.Services.live ++ Has(testClock)
   }
 
   def unsafeRun[A](uio: UIO[A])(implicit ticker: Ticker): Exit[Nothing, Option[A]] =
     try {
       var exit = Exit.succeed(Option.empty[A])
-      runtime.unsafeRunAsync[Nothing, Option[A]](uio.asSome)(exit = _)
+      runtime.unsafeRunAsyncWith[Nothing, Option[A]](uio.asSome)(exit = _)
       ticker.ctx.tickAll(FiniteDuration(1, TimeUnit.SECONDS))
       exit
     } catch {
@@ -99,7 +99,7 @@ private[zio] trait CatsSpecBase
     Eq.allEqual
 
   implicit val eqForCauseOfNothing: Eq[Cause[Nothing]] =
-    (x, y) => (x.interrupted && y.interrupted) || x == y
+    (x, y) => (x.isInterrupted && y.isInterrupted) || x == y
 
   implicit def eqForExitOfNothing[A: Eq]: Eq[Exit[Nothing, A]] = {
     case (Exit.Success(x), Exit.Success(y)) => x eqv y

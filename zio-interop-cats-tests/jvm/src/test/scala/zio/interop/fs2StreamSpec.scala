@@ -1,13 +1,14 @@
 package zio.interop
 
 import fs2.Stream
-import zio.clock.Clock
 import zio.{ Chunk, RIO, Ref, Task }
 import zio.stream.ZStream
 import zio.test.Assertion.{ equalTo, fails }
 import zio.test.*
 import zio.interop.catz.*
-import zio.random.nextIntBetween
+import zio.{ Clock, Has }
+import zio.Random.nextIntBetween
+import zio.test.Gen
 
 object fs2StreamSpec extends DefaultRunnableSpec {
   import zio.stream.interop.fs2z.*
@@ -31,35 +32,35 @@ object fs2StreamSpec extends DefaultRunnableSpec {
 
   def spec = suite("zio.stream.ZStream <-> fs2.Stream")(
     suite("test toFs2Stream conversion")(
-      testM("simple stream")(checkM(Gen.chunkOf(Gen.anyInt)) { (chunk: Chunk[Int]) =>
+      test("simple stream")(check(Gen.chunkOf(Gen.int)) { (chunk: Chunk[Int]) =>
         assertEqual(ZStream.fromChunk(chunk).toFs2Stream, fs2StreamFromChunk(chunk))
       }),
-      testM("non empty stream")(checkM(Gen.chunkOf1(Gen.anyLong)) { chunk =>
+      test("non empty stream")(check(Gen.chunkOf1(Gen.long)) { chunk =>
         assertEqual(ZStream.fromChunk(chunk).toFs2Stream, fs2StreamFromChunk(chunk))
       }),
-      testM("100 element stream")(checkM(Gen.chunkOfN(100)(Gen.anyLong)) { chunk =>
+      test("100 element stream")(check(Gen.chunkOfN(100)(Gen.long)) { chunk =>
         assertEqual(ZStream.fromChunk(chunk).toFs2Stream, fs2StreamFromChunk(chunk))
       }),
-      testM("error propagation") {
-        val result = ZStream.fail(exception).toFs2Stream.compile.drain.run
+      test("error propagation") {
+        val result = ZStream.fail(exception).toFs2Stream.compile.drain.exit
         assertM(result)(fails(equalTo(exception)))
       }
     ),
     suite("test toZStream conversion")(
-      testM("simple stream")(checkM(Gen.chunkOf(Gen.anyInt)) { (chunk: Chunk[Int]) =>
+      test("simple stream")(check(Gen.chunkOf(Gen.int)) { (chunk: Chunk[Int]) =>
         assertEqual(fs2StreamFromChunk(chunk).toZStream(), ZStream.fromChunk(chunk))
       }),
-      testM("non empty stream")(checkM(Gen.chunkOf1(Gen.anyLong)) { chunk =>
+      test("non empty stream")(check(Gen.chunkOf1(Gen.long)) { chunk =>
         assertEqual(fs2StreamFromChunk(chunk).toZStream(), ZStream.fromChunk(chunk))
       }),
-      testM("100 element stream")(checkM(Gen.chunkOfN(100)(Gen.anyLong)) { chunk =>
+      test("100 element stream")(check(Gen.chunkOfN(100)(Gen.long)) { chunk =>
         assertEqual(fs2StreamFromChunk(chunk).toZStream(), ZStream.fromChunk(chunk))
       }),
-      testM("error propagation") {
-        val result = Stream.raiseError[Task](exception).toZStream().runDrain.run
+      test("error propagation") {
+        val result = Stream.raiseError[Task](exception).toZStream().runDrain.exit
         assertM(result)(fails(equalTo(exception)))
       },
-      testM("releases all resources by the time the failover stream has started") {
+      test("releases all resources by the time the failover stream has started") {
         for {
           queueSize <- nextIntBetween(2, 32)
           fins      <- Ref.make(Chunk[Int]())
@@ -67,29 +68,29 @@ object fs2StreamSpec extends DefaultRunnableSpec {
                          Stream(2).onFinalize(fins.update(2 +: _)) >>
                          Stream(3).onFinalize(fins.update(3 +: _)) >>
                          Stream.raiseError[Task](exception)
-          result    <- stream.toZStream(queueSize).drain.catchAllCause(_ => ZStream.fromEffect(fins.get)).runCollect
+          result    <- stream.toZStream(queueSize).drain.catchAllCause(_ => ZStream.fromZIO(fins.get)).runCollect
         } yield assert(result.flatten)(equalTo(Chunk(1, 2, 3)))
       },
-      testM("bigger queueSize than a chunk size")(checkM(Gen.chunkOfN(10)(Gen.anyLong)) { chunk =>
+      test("bigger queueSize than a chunk size")(check(Gen.chunkOfN(10)(Gen.long)) { chunk =>
         for {
           queueSize <- nextIntBetween(32, 256)
           result    <- assertEqual(fs2StreamFromChunk(chunk).toZStream(queueSize), ZStream.fromChunk(chunk))
         } yield result
       }),
-      testM("queueSize == 1")(checkM(Gen.chunkOfN(10)(Gen.anyLong)) { chunk =>
+      test("queueSize == 1")(check(Gen.chunkOfN(10)(Gen.long)) { chunk =>
         assertEqual(fs2StreamFromChunk(chunk).toZStream(1), ZStream.fromChunk(chunk))
       }),
-      testM("negative queueSize")(checkM(Gen.chunkOfN(10)(Gen.anyLong)) { chunk =>
+      test("negative queueSize")(check(Gen.chunkOfN(10)(Gen.long)) { chunk =>
         for {
           queueSize <- nextIntBetween(-128, 0)
           result    <- assertEqual(fs2StreamFromChunk(chunk).toZStream(queueSize), ZStream.fromChunk(chunk))
         } yield result
       }),
-      testM("RIO")(checkM(Gen.chunkOfN(10)(Gen.anyLong)) { chunk =>
+      test("RIO")(check(Gen.chunkOfN(10)(Gen.long)) { chunk =>
         for {
           queueSize <- nextIntBetween(2, 128)
           result    <- assertEqual(
-                         fs2StreamFromChunk(chunk).covary[RIO[Clock, _]].toZStream(queueSize),
+                         fs2StreamFromChunk(chunk).covary[RIO[Has[Clock], _]].toZStream(queueSize),
                          ZStream.fromChunk(chunk)
                        )
         } yield result

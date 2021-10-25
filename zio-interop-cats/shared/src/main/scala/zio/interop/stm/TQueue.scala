@@ -32,14 +32,14 @@ final class TQueue[F[+_], A] private (underlying: ZTQueue[A]) {
   /**
    * See [[zio.stm.TQueue#offer]]
    */
-  def offer(a: A): STM[F, Unit] =
+  def offer(a: A): STM[F, Boolean] =
     new STM(underlying.offer(a))
 
   /**
    * See [[zio.stm.TQueue#offerAll]]
    */
-  def offerAll(as: List[A]): STM[F, List[A]] =
-    new STM(underlying.offerAll(as)).map(_.toList)
+  def offerAll(as: List[A]): STM[F, Boolean] =
+    new STM(underlying.offerAll(as))
 
   /**
    * See [[zio.stm.TQueue#poll]]
@@ -63,13 +63,13 @@ final class TQueue[F[+_], A] private (underlying: ZTQueue[A]) {
    * See [[zio.stm.TQueue#takeAll]]
    */
   def takeAll: STM[F, List[A]] =
-    new STM(underlying.takeAll)
+    new STM(underlying.takeAll).map(_.toList) // TODO Confirm Chunk=>List change
 
   /**
    * See [[zio.stm.TQueue#takeUpTo]]
    */
   def takeUpTo(max: Int): STM[F, List[A]] =
-    new STM(underlying.takeUpTo(max))
+    new STM(underlying.takeUpTo(max)).map(_.toList) // TODO Confirm Chunk=>List change
 }
 
 object TQueue {

@@ -18,19 +18,19 @@ package zio.interop.console
 
 import _root_.cats.Show
 import zio.ZIO
-import zio.console.Console
+import zio.{ Console, Has }
 
 object cats {
 
   /**
    * Prints the string representation of an object to the console.
    */
-  def putStr[A](a: A)(implicit ev: Show[A]): ZIO[Console, Nothing, Unit] =
-    zio.console.putStr(ev.show(a)).orDie
+  def print[A](a: A)(implicit ev: Show[A]): ZIO[Has[Console], Nothing, Unit] =
+    zio.Console.print(ev.show(a)).orDie
 
   /**
    * Prints the string representation of an object to the console, including a newline character.
    */
-  def putStrLn[A](a: A)(implicit ev: Show[A]): ZIO[Console, Nothing, Unit] =
-    zio.console.putStrLn(ev.show(a)).orDie
+  def printLine[A](a: A)(implicit ev: Show[A]): ZIO[Has[Console], Nothing, Unit] =
+    zio.Console.printLine(ev.show(a)).orDie
 }

@@ -17,7 +17,7 @@
 package zio.interop.stm
 
 import cats.effect.kernel.Async
-import zio.Runtime
+import zio.{ Runtime, Zippable }
 import zio.stm.STM as ZSTM
 
 import scala.util.Try
@@ -30,7 +30,7 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
   /**
    * See [[zio.stm.ZSTM#<*>]]
    */
-  def <*>[B](that: => STM[F, B]): STM[F, (A, B)] =
+  def <*>[B](that: => STM[F, B])(implicit zippable: Zippable[A, B]): STM[F, zippable.Out] =
     this zip that
 
   /**
@@ -44,12 +44,6 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
    */
   def *>[B](that: => STM[F, B]): STM[F, B] =
     this zipRight that
-
-  /**
-   * See [[zio.stm.ZSTM#>>=]]
-   */
-  def >>=[B](f: A => STM[F, B]): STM[F, B] =
-    flatMap(f)
 
   /**
    * See [[zio.stm.ZSTM#collect]]
@@ -97,10 +91,10 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
     new STM(underlying.fold(f, g))
 
   /**
-   * See [[zio.stm.ZSTM#foldM]]
+   * See [[zio.stm.ZSTM#foldSTM]]
    */
   def foldM[B](f: Throwable => STM[F, B], g: A => STM[F, B]): STM[F, B] =
-    new STM(underlying.foldM(f(_).underlying, g(_).underlying))
+    new STM(underlying.foldSTM(f(_).underlying, g(_).underlying))
 
   /**
    * See [[zio.stm.ZSTM#map]]
@@ -159,13 +153,13 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
   /**
    * See [[zio.stm.ZSTM#zip]]
    */
-  def zip[B](that: => STM[F, B]): STM[F, (A, B)] =
-    zipWith(that)(_ -> _)
+  def zip[B](that: => STM[F, B])(implicit zippable: Zippable[A, B]): STM[F, zippable.Out] =
+    zipWith(that)(zippable.zip(_, _))
 
   /**
    * See [[zio.stm.ZSTM#zipLeft]]
    */
-  def zipLeft[B](that: => STM[F, B]): STM[F, A]  =
+  def zipLeft[B](that: => STM[F, B]): STM[F, A] =
     zipWith(that)((a, _) => a)
 
   /**
@@ -183,20 +177,23 @@ final class STM[F[+_], +A] private[stm] (private[stm] val underlying: ZSTM[Throw
 
 object STM {
 
-  final def atomically[F[+_], A](stm: STM[F, A])(implicit R: Runtime[Any], F: Async[F]): F[A] =
+  final def atomically[F[+_], A](stm: => STM[F, A])(implicit R: Runtime[Any], F: Async[F]): F[A] =
     F.async_ { cb =>
-      R.unsafeRunAsync(ZSTM.atomically(stm.underlying)) { exit =>
+      R.unsafeRunAsyncWith(ZSTM.atomically(stm.underlying)) { exit =>
         cb(exit.toEither)
       }
     }
 
-  final def check[F[+_]](p: Boolean): STM[F, Unit] =
-    if (p) STM.unit else retry
+  final def attempt[F[+_], A](a: => A): STM[F, A] =
+    fromTry(Try(a))
+
+  final def check[F[+_]](p: => Boolean): STM[F, Unit] =
+    succeed(p).flatMap(p => if (p) STM.unit else retry)
 
   final def collectAll[F[+_], A](i: Iterable[STM[F, A]]): STM[F, List[A]] =
     new STM(ZSTM.collectAll(i.map(_.underlying).toList))
 
-  final def die[F[+_]](t: Throwable): STM[F, Nothing] =
+  final def die[F[+_]](t: => Throwable): STM[F, Nothing] =
     succeed(throw t)
 
   final def dieMessage[F[+_]](m: String): STM[F, Nothing] =

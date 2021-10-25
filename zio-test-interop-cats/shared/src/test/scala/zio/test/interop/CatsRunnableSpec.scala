@@ -4,7 +4,7 @@ import cats.effect.std.Dispatcher
 import cats.effect.unsafe.{ IORuntime, IORuntimeConfig, Scheduler }
 import cats.effect.IO as CIO
 import zio.*
-import zio.duration.*
+
 import zio.test.{ DefaultRunnableSpec, TestAspect }
 
 import scala.util.Success
@@ -19,7 +19,7 @@ abstract class CatsRunnableSpec extends DefaultRunnableSpec {
   implicit val cioRuntime: IORuntime =
     Scheduler.createDefaultScheduler() match {
       case (scheduler, shutdown) =>
-        val ec = zioRuntime.platform.executor.asEC
+        val ec = zioRuntime.runtimeConfig.executor.asExecutionContext
         IORuntime(ec, ec, scheduler, shutdown, IORuntimeConfig())
     }
 

@@ -117,13 +117,13 @@ private class ZStreamArrowChoice[E] extends ArrowChoice[ZStream[_, E, _]] {
   type F[A, B] = ZStream[A, E, B]
 
   final override def lift[A, B](f: A => B): F[A, B] =
-    ZStream.fromEffect(ZIO.fromFunction(f))
+    ZStream.fromZIO(ZIO.access(f))
 
   final override def compose[A, B, C](f: F[B, C], g: F[A, B]): F[A, C] =
     g.flatMap(f.provide)
 
   final override def id[A]: F[A, A] =
-    ZStream.fromEffect(ZIO.identity)
+    ZStream.fromZIO(ZIO.environment)
 
   final override def dimap[A, B, C, D](fab: F[A, B])(f: C => A)(g: B => D): F[C, D] =
     fab.provideSome(f).map(g)

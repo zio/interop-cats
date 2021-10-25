@@ -200,23 +200,23 @@ object CHub {
       def contramap[C](f: C => A): CHub[F, C, B]                     =
         CHub(hub.contramap(f))
       def contramapM[C](f: C => F[A]): CHub[F, C, B]                 =
-        CHub(hub.contramapM(c => fromEffect(f(c))))
+        CHub(hub.contramapZIO(c => fromEffect(f(c))))
       def dimap[C, D](f: C => A, g: B => D): CHub[F, C, D]           =
         CHub(hub.dimap(f, g))
       def dimapM[C, D](f: C => F[A], g: B => F[D]): CHub[F, C, D]    =
-        CHub(hub.dimapM(c => fromEffect(f(c)), b => fromEffect(g(b))))
+        CHub(hub.dimapZIO(c => fromEffect(f(c)), b => fromEffect(g(b))))
       def filterInput[A1 <: A](f: A1 => Boolean): CHub[F, A1, B]     =
         CHub(hub.filterInput(f))
       def filterInputM[A1 <: A](f: A1 => F[Boolean]): CHub[F, A1, B] =
-        CHub(hub.filterInputM(a => fromEffect(f(a))))
+        CHub(hub.filterInputZIO(a => fromEffect(f(a))))
       def filterOutput(f: B => Boolean): CHub[F, A, B]               =
         CHub(hub.filterOutput(f))
       def filterOutputM(f: B => F[Boolean]): CHub[F, A, B]           =
-        CHub(hub.filterOutputM(a => fromEffect(f(a))))
+        CHub(hub.filterOutputZIO(a => fromEffect(f(a))))
       def map[C](f: B => C): CHub[F, A, C]                           =
         CHub(hub.map(f))
       def mapM[C](f: B => F[C]): CHub[F, A, C]                       =
-        CHub(hub.mapM(a => fromEffect(f(a))))
+        CHub(hub.mapZIO(a => fromEffect(f(a))))
       def toQueue: Enqueue[F, A]                                     =
         Enqueue(hub.toQueue)
     }

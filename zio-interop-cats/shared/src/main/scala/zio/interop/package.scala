@@ -21,11 +21,9 @@ import cats.effect.std.Dispatcher
 import cats.syntax.all.*
 
 import scala.concurrent.Future
+import zio.FiberId
 
 package object interop {
-
-  type CBlocking        = interop.PlatformSpecific.CBlocking
-  type CBlockingService = interop.PlatformSpecific.CBlockingService
 
   type Queue[F[+_], A] = CQueue[F, A, A]
   val Queue: CQueue.type = CQueue
@@ -41,31 +39,31 @@ package object interop {
 
   @inline private[interop] def toOutcome[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, _], E, A] =
     exit match {
-      case Exit.Success(value)                      =>
+      case Exit.Success(value)                        =>
         Outcome.Succeeded(ZIO.succeed(value))
-      case Exit.Failure(cause) if cause.interrupted =>
+      case Exit.Failure(cause) if cause.isInterrupted =>
         Outcome.Canceled()
-      case Exit.Failure(cause)                      =>
+      case Exit.Failure(cause)                        =>
         cause.failureOrCause match {
           case Left(error)  => Outcome.Errored(error)
-          case Right(cause) => Outcome.Succeeded(ZIO.halt(cause))
+          case Right(cause) => Outcome.Succeeded(ZIO.failCause(cause))
         }
     }
 
   @inline private[interop] def toExit(exitCase: Resource.ExitCase): Exit[Throwable, Unit] =
     exitCase match {
       case Resource.ExitCase.Succeeded      => Exit.unit
-      case Resource.ExitCase.Canceled       => Exit.interrupt(Fiber.Id.None)
+      case Resource.ExitCase.Canceled       => Exit.interrupt(FiberId.None)
       case Resource.ExitCase.Errored(error) => Exit.fail(error)
     }
 
   @inline private[interop] def toExitCase(exit: Exit[Any, Any]): Resource.ExitCase =
     exit match {
-      case Exit.Success(_)                          =>
+      case Exit.Success(_)                            =>
         Resource.ExitCase.Succeeded
-      case Exit.Failure(cause) if cause.interrupted =>
+      case Exit.Failure(cause) if cause.isInterrupted =>
         Resource.ExitCase.Canceled
-      case Exit.Failure(cause)                      =>
+      case Exit.Failure(cause)                        =>
         cause.failureOrCause match {
           case Left(error: Throwable) => Resource.ExitCase.Errored(error)
           case _                      => Resource.ExitCase.Errored(FiberFailure(cause))
@@ -74,7 +72,7 @@ package object interop {
 
   @inline private[zio] def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F]): Task[A] =
     ZIO
-      .effectTotal(F.unsafeToFutureCancelable(fa))
+      .succeed(F.unsafeToFutureCancelable(fa))
       .flatMap { case (future, cancel) =>
         ZIO.fromFuture(_ => future).onInterrupt(ZIO.fromFuture(_ => cancel()).orDie).interruptible
       }
