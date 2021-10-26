@@ -18,6 +18,7 @@ package zio
 
 import cats.effect.{ Effect, ExitCase, LiftIO }
 import zio.interop.catz.taskEffectInstance
+import zio.FiberId
 
 package object interop {
   type ParIO[-R, +E, +A] = Par.T[R, E, A]
@@ -38,8 +39,8 @@ package object interop {
   val Hub: CHub.type = CHub
 
   @inline private[interop] final def exitToExitCase(exit: Exit[Any, Any]): ExitCase[Throwable] = exit match {
-    case Exit.Success(_)                          => ExitCase.Completed
-    case Exit.Failure(cause) if cause.interrupted => ExitCase.Canceled
+    case Exit.Success(_)                            => ExitCase.Completed
+    case Exit.Failure(cause) if cause.isInterrupted => ExitCase.Canceled
     case Exit.Failure(cause) =>
       cause.failureOrCause match {
         case Left(t: Throwable) => ExitCase.Error(t)
@@ -50,7 +51,7 @@ package object interop {
   @inline private[interop] final def exitCaseToExit[E](exitCase: ExitCase[E]): Exit[E, Unit] = exitCase match {
     case ExitCase.Completed => Exit.unit
     case ExitCase.Error(e)  => Exit.fail(e)
-    case ExitCase.Canceled  => Exit.interrupt(Fiber.Id.None)
+    case ExitCase.Canceled  => Exit.interrupt(FiberId.None)
   }
 
   private[interop] def fromEffect[F[+_], R, A](

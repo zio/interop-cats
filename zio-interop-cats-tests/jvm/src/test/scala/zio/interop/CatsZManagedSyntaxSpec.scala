@@ -278,7 +278,7 @@ object CatsZManagedSyntaxSpec extends DefaultRunnableSpec {
           val effects = new mutable.ListBuffer[Int]
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
             ZManaged.acquireReleaseExitWith(ZIO.succeed(effects += x).unit) {
-              case (_, e) if e.interrupted =>
+              case (_, e) if e.isInterrupted =>
                 ZIO.succeed(effects += x + 1)
               case _ =>
                 ZIO.unit

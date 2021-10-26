@@ -8,9 +8,24 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
-import zio.internal.{ Executor, Platform, Tracing }
+import zio.internal.tracing.{ Tracing, TracingConfig }
 import zio.interop.catz.taskEffectInstance
-import zio.{ =!=, Cause, Clock, Console, IO, Random, Runtime, System, Task, UIO, ZIO, ZManaged }
+import zio.{
+  =!=,
+  Cause,
+  Clock,
+  Console,
+  Executor,
+  IO,
+  Random,
+  Runtime,
+  RuntimeConfig,
+  System,
+  Task,
+  UIO,
+  ZIO,
+  ZManaged
+}
 
 private[zio] trait catzSpecBase
     extends AnyFunSuite
@@ -23,10 +38,9 @@ private[zio] trait catzSpecBase
 
   implicit def rts(implicit tc: TestContext): Runtime[Unit] = Runtime(
     (),
-    Platform
+    RuntimeConfig
       .fromExecutor(Executor.fromExecutionContext(Int.MaxValue)(tc))
-      .withTracing(Tracing.disabled)
-      .withReportFailure(_ => ())
+      .copy(tracing = Tracing(TracingConfig.disabled))
   )
 
   implicit val zioEqCauseNothing: Eq[Cause[Nothing]] = Eq.fromUniversalEquals
