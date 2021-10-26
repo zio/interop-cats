@@ -18,7 +18,6 @@ package zio
 
 import cats.effect.{ Effect, ExitCase, LiftIO }
 import zio.interop.catz.taskEffectInstance
-import zio.FiberId
 
 package object interop {
   type ParIO[-R, +E, +A] = Par.T[R, E, A]
