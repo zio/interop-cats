@@ -35,7 +35,7 @@ private[zio] trait CatsSpecBase
   def platform(implicit ticker: Ticker): RuntimeConfig =
     RuntimeConfig
       .fromExecutor(Executor.fromExecutionContext(1024)(ticker.ctx))
-      .copy(tracing = Tracing.disabled, executor = Executor.fromExecutionContext(1024)(ticker.ctx))
+      .copy(tracing = Tracing.disabled)
 
   def environment(implicit ticker: Ticker): ZEnv = {
 

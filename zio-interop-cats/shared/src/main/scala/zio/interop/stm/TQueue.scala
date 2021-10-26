@@ -63,13 +63,13 @@ final class TQueue[F[+_], A] private (underlying: ZTQueue[A]) {
    * See [[zio.stm.TQueue#takeAll]]
    */
   def takeAll: STM[F, List[A]] =
-    new STM(underlying.takeAll).map(_.toList) // TODO Confirm Chunk=>List change
+    new STM(underlying.takeAll).map(_.toList)
 
   /**
    * See [[zio.stm.TQueue#takeUpTo]]
    */
   def takeUpTo(max: Int): STM[F, List[A]] =
-    new STM(underlying.takeUpTo(max)).map(_.toList) // TODO Confirm Chunk=>List change
+    new STM(underlying.takeUpTo(max)).map(_.toList)
 }
 
 object TQueue {

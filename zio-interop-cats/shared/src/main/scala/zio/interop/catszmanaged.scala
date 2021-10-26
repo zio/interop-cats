@@ -201,7 +201,7 @@ private class ZManagedMonadError[R, E] extends MonadError[ZManaged[R, E, _], E] 
     fa.as(b)
 
   override final def whenA[A](cond: Boolean)(f: => F[A]): F[Unit] =
-    ZManaged.when(cond)(f).ignore // TODO Confirm change with maintainers
+    ZManaged.when(cond)(f).unit
 
   override final def unit: F[Unit] =
     ZManaged.unit

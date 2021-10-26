@@ -419,7 +419,7 @@ private class ZioMonadError[R, E] extends MonadError[ZIO[R, E, _], E] with Stack
     fa.as(b)
 
   override final def whenA[A](cond: Boolean)(f: => F[A]): F[Unit] =
-    ZIO.when(cond)(f).ignore // TODO Confirm this change with maintainers
+    ZIO.when(cond)(f).unit
 
   override final def unit: F[Unit] =
     ZIO.unit
