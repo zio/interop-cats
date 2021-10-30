@@ -21,7 +21,7 @@ import cats.effect.kernel.Resource
 import cats.effect.std.Dispatcher
 import zio.interop.*
 import zio.interop.catz.*
-import zio.Runtime
+import zio.{ Runtime, ZTraceElement }
 import zio.stm.TSemaphore as ZTSemaphore
 
 /**
@@ -68,29 +68,31 @@ final class TSemaphore[F[+_]] private (underlying: ZTSemaphore) {
   /**
    * See [[zio.stm.TSemaphore#withPermit]]
    */
-  def withPermit[B](effect: F[B])(implicit R: Runtime[Any], F: Async[F], D: Dispatcher[F]): F[B] =
+  def withPermit[B](effect: F[B])(implicit R: Runtime[Any], F: Async[F], D: Dispatcher[F], trace: ZTraceElement): F[B] =
     withPermits(1L)(effect)
 
   /**
    * See [[zio.stm.TSemaphore#withPermitManaged]]
    */
-  def withPermitResource(implicit R: Runtime[Any], F: Async[F]): Resource[F, Unit] =
+  def withPermitResource(implicit R: Runtime[Any], F: Async[F], trace: ZTraceElement): Resource[F, Unit] =
     withPermitsResource(1L)
 
   /**
    * See [[zio.stm.TSemaphore#withPermits]]
    */
-  def withPermits[B](n: Long)(effect: F[B])(implicit R: Runtime[Any], F: Async[F], D: Dispatcher[F]): F[B] =
+  def withPermits[B](n: Long)(
+    effect: F[B]
+  )(implicit R: Runtime[Any], F: Async[F], D: Dispatcher[F], trace: ZTraceElement): F[B] =
     underlying.withPermits(n)(fromEffect(effect)).toEffect[F]
 
   /**
    * See [[zio.stm.TSemaphore#withPermitsManaged]]
    */
-  def withPermitsResource(n: Long)(implicit R: Runtime[Any], F: Async[F]): Resource[F, Unit] =
+  def withPermitsResource(n: Long)(implicit R: Runtime[Any], F: Async[F], trace: ZTraceElement): Resource[F, Unit] =
     underlying.withPermitsManaged(n).toResource[F]
 }
 
 object TSemaphore {
-  final def make[F[+_]](n: Long): STM[F, TSemaphore[F]] =
+  final def make[F[+_]](n: Long)(implicit trace: ZTraceElement): STM[F, TSemaphore[F]] =
     new STM(ZTSemaphore.make(n).map(new TSemaphore(_)))
 }

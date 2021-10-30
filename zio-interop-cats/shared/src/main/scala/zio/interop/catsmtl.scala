@@ -18,7 +18,9 @@ package zio.interop
 
 import cats.Applicative
 import cats.mtl.*
-import zio.ZIO
+import zio.{ CanFail, ZIO, ZTraceElement }
+import zio.internal.stacktracer.{ Tracer => CoreTracer }
+import zio.internal.stacktracer.InteropTracer
 
 abstract class CatsMtlPlatform extends CatsMtlInstances
 
@@ -26,22 +28,27 @@ abstract class CatsMtlInstances {
 
   implicit def zioLocal[R, E](implicit ev: Applicative[ZIO[R, E, _]]): Local[ZIO[R, E, _], R] =
     new Local[ZIO[R, E, _], R] {
-      override def applicative: Applicative[ZIO[R, E, _]]              = ev
-      override def ask[E2 >: R]: ZIO[R, E, E2]                         = ZIO.environment
-      override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] = ZIO.accessZIO(fa provide f(_))
+      override def applicative: Applicative[ZIO[R, E, _]] = ev
+      override def ask[E2 >: R]: ZIO[R, E, E2]            = ZIO.environment
+      override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] = {
+        implicit def tracer: ZTraceElement = InteropTracer.newTrace(f)
+
+        ZIO.accessZIO(fa provide f(_))
+      }
     }
 
   implicit def zioAsk[R1, R <: R1, E](implicit ev: Applicative[ZIO[R, E, _]]): Ask[ZIO[R, E, _], R1] =
     new Ask[ZIO[R, E, _], R1] {
       override def applicative: Applicative[ZIO[R, E, _]] = ev
-      override def ask[R2 >: R1]: ZIO[R, E, R2]           = ZIO.environment
+      override def ask[R2 >: R1]: ZIO[R, E, R2]           = ZIO.environment(CoreTracer.newTrace)
     }
 
   implicit def zioHandle[R, E](implicit ev: Applicative[ZIO[R, E, _]]): Handle[ZIO[R, E, _], E] =
     new Handle[ZIO[R, E, _], E] {
       override def applicative: Applicative[ZIO[R, E, _]]                              = ev
       override def raise[E2 <: E, A](e: E2): ZIO[R, E, A]                              = ZIO.fail(e)
-      override def handleWith[A](fa: ZIO[R, E, A])(f: E => ZIO[R, E, A]): ZIO[R, E, A] = fa.catchAll(f)
+      override def handleWith[A](fa: ZIO[R, E, A])(f: E => ZIO[R, E, A]): ZIO[R, E, A] =
+        fa.catchAll(f)(implicitly[CanFail[E]], InteropTracer.newTrace(f))
     }
 
 }
