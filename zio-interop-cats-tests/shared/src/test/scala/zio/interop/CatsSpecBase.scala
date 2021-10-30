@@ -149,7 +149,7 @@ private[interop] sealed trait CatsSpecBaseLowPriority { this: CatsSpecBase =>
   implicit def eqForTask[A: Eq](implicit ticker: Ticker): Eq[Task[A]] =
     eqForIO[Throwable, A]
 
-  def zManagedEq[R, E, A](implicit zio: Eq[ZIO[R, E, A]]): Eq[ZManaged[R, E, A]]               =
+  def zManagedEq[R, E, A](implicit zio: Eq[ZIO[R, E, A]]): Eq[ZManaged[R, E, A]] =
     Eq.by(managed => ZManaged.ReleaseMap.make.flatMap(rm => managed.zio.provideSome[R](_ -> rm).map(_._2)))
 
   implicit def eqForRManaged[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[RManaged[R, A]] =
