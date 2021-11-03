@@ -19,7 +19,7 @@ trait FS2StreamSyntax {
 class ZStreamSyntax[R, E, A](private val stream: ZStream[R, E, A]) extends AnyVal {
 
   /** Convert a [[zio.stream.ZStream]] into an [[fs2.Stream]]. */
-  def toFs2Stream: fs2.Stream[ZIO[R, E, _], A] =
+  def toFs2Stream(implicit trace: ZTraceElement): fs2.Stream[ZIO[R, E, _], A] =
     fs2.Stream.resource(stream.process.toResourceZIO).flatMap { pull =>
       fs2.Stream.repeatEval(pull.unsome).unNoneTerminate.flatMap { chunk =>
         fs2.Stream.chunk(fs2.Chunk.indexedSeq(chunk))
@@ -37,10 +37,10 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
    *
    * @note when possible use only power of 2 queue sizes; this will provide better performance of the queue.
    */
-  def toZStream[R1 <: R](queueSize: Int = 16): ZStream[R1, Throwable, A] =
+  def toZStream[R1 <: R](queueSize: Int = 16)(implicit trace: ZTraceElement): ZStream[R1, Throwable, A] =
     if (queueSize > 1) toZStreamChunk(queueSize) else toZStreamSingle
 
-  private def toZStreamSingle[R1 <: R]: ZStream[R1, Throwable, A] =
+  private def toZStreamSingle[R1 <: R](implicit trace: ZTraceElement): ZStream[R1, Throwable, A] =
     ZStream.managed {
       for {
         queue <- Queue.bounded[Take[Throwable, A]](1).toManagedWith[R](_.shutdown)
@@ -56,7 +56,7 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
       } yield ZStream.fromQueue(queue).flattenTake
     }.flatten
 
-  private def toZStreamChunk[R1 <: R](queueSize: Int): ZStream[R1, Throwable, A] =
+  private def toZStreamChunk[R1 <: R](queueSize: Int)(implicit trace: ZTraceElement): ZStream[R1, Throwable, A] =
     ZStream.managed {
       for {
         queue <- Queue.bounded[Take[Throwable, A]](queueSize).toManagedWith(_.shutdown)

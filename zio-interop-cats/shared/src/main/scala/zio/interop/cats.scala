@@ -29,6 +29,9 @@ import zio.*
 import zio.Clock.{ currentTime, nanoTime }
 import zio.Duration
 
+import zio.internal.stacktracer.InteropTracer
+import zio.internal.stacktracer.{ Tracer => CoreTracer }
+
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration.*
@@ -188,17 +191,19 @@ sealed abstract class CatsZioInstances2 {
 private class ZioDefer[R, E] extends Defer[ZIO[R, E, _]] {
   type F[A] = ZIO[R, E, A]
 
-  override final def defer[A](fa: => F[A]): F[A] =
-    ZIO.suspendSucceed(fa)
+  override final def defer[A](fa: => F[A]): F[A] = {
+    val byName: () => F[A] = () => fa
+    ZIO.suspendSucceed(fa)(InteropTracer.newTrace(byName))
+  }
 }
 
 private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent[ZIO[R, E, _], E] {
 
   private def toPoll(restore: ZIO.InterruptStatusRestore) = new Poll[ZIO[R, E, _]] {
-    override def apply[T](fa: ZIO[R, E, T]): ZIO[R, E, T] = restore(fa)
+    override def apply[T](fa: ZIO[R, E, T]): ZIO[R, E, T] = restore(fa)(CoreTracer.newTrace)
   }
 
-  private def toFiber[A](fiber: Fiber[E, A]) = new effect.Fiber[F, E, A] {
+  private def toFiber[A](fiber: Fiber[E, A])(implicit trace: ZTraceElement) = new effect.Fiber[F, E, A] {
     override final val cancel: F[Unit]           = fiber.interrupt.unit
     override final val join: F[Outcome[F, E, A]] = fiber.await.map(toOutcome)
   }
@@ -206,75 +211,110 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
   private def fiberFailure(error: E) =
     FiberFailure(Cause.fail(error))
 
-  override def ref[A](a: A): F[effect.Ref[F, A]] =
+  override def ref[A](a: A): F[effect.Ref[F, A]] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     ZRef.make(a).map(new ZioRef(_))
+  }
 
-  override def deferred[A]: F[Deferred[F, A]] =
+  override def deferred[A]: F[Deferred[F, A]] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     Promise.make[E, A].map(new ZioDeferred(_))
+  }
 
-  override final def start[A](fa: F[A]): F[effect.Fiber[F, E, A]] =
+  override final def start[A](fa: F[A]): F[effect.Fiber[F, E, A]] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     fa.interruptible.forkDaemon.map(toFiber)
+  }
 
   override def never[A]: F[A] =
-    ZIO.never
+    ZIO.never(CoreTracer.newTrace)
 
   override final def cede: F[Unit] =
-    ZIO.yieldNow
+    ZIO.yieldNow(CoreTracer.newTrace)
 
-  override final def forceR[A, B](fa: F[A])(fb: F[B]): F[B] =
+  override final def forceR[A, B](fa: F[A])(fb: F[B]): F[B] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     fa.foldCauseZIO(cause => if (cause.isInterrupted) ZIO.failCause(cause) else fb, _ => fb)
+  }
 
-  override final def uncancelable[A](body: Poll[F] => F[A]): F[A] =
+  override final def uncancelable[A](body: Poll[F] => F[A]): F[A] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(body)
+
     ZIO.uninterruptibleMask(body.compose(toPoll))
+  }
 
   override final def canceled: F[Unit] =
-    ZIO.interrupt
+    ZIO.interrupt(CoreTracer.newTrace)
 
-  override final def onCancel[A](fa: F[A], fin: F[Unit]): F[A] =
+  override final def onCancel[A](fa: F[A], fin: F[Unit]): F[A] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     fa.onError(cause => fin.orDieWith(fiberFailure).unless(cause.isFailure))
+  }
 
   override final def memoize[A](fa: F[A]): F[F[A]] =
-    fa.memoize
+    fa.memoize(CoreTracer.newTrace)
 
-  override final def racePair[A, B](fa: F[A], fb: F[B]) =
+  override final def racePair[A, B](fa: F[A], fb: F[B]) = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     (fa.interruptible raceWith fb.interruptible)(
       (exit, fiber) => ZIO.succeedNow(Left((toOutcome(exit), toFiber(fiber)))),
       (exit, fiber) => ZIO.succeedNow(Right((toFiber(fiber), toOutcome(exit))))
     )
+  }
 
-  override final def both[A, B](fa: F[A], fb: F[B]): F[(A, B)] =
+  override final def both[A, B](fa: F[A], fb: F[B]): F[(A, B)] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     fa.interruptible zipPar fb.interruptible
+  }
 
-  override final def guarantee[A](fa: F[A], fin: F[Unit]): F[A] =
+  override final def guarantee[A](fa: F[A], fin: F[Unit]): F[A] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     fa.ensuring(fin.orDieWith(fiberFailure))
+  }
 
-  override final def bracket[A, B](acquire: F[A])(use: A => F[B])(release: A => F[Unit]): F[B] =
+  override final def bracket[A, B](acquire: F[A])(use: A => F[B])(release: A => F[Unit]): F[B] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(use)
+
     acquire.acquireReleaseWith(release.andThen(_.orDieWith(fiberFailure)), use)
+  }
 
   override val unique: F[Unique.Token] =
-    ZIO.succeed(new Unique.Token)
+    ZIO.succeed(new Unique.Token)(CoreTracer.newTrace)
 }
 
 private final class ZioDeferred[R, E, A](promise: Promise[E, A]) extends Deferred[ZIO[R, E, _], A] {
   type F[T] = ZIO[R, E, T]
 
   override val get: F[A] =
-    promise.await
+    promise.await(CoreTracer.newTrace)
 
   override def complete(a: A): F[Boolean] =
-    promise.succeed(a)
+    promise.succeed(a)(CoreTracer.newTrace)
 
-  override val tryGet: F[Option[A]] =
+  override val tryGet: F[Option[A]] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     promise.isDone.flatMap {
       case true  => get.asSome
       case false => ZIO.none
     }
+  }
 }
 
 private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E, _], A] {
   type F[T] = ZIO[R, E, T]
 
-  override def access: F[(A, A => F[Boolean])] =
+  override def access: F[(A, A => F[Boolean])] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     get.map { current =>
       val called                   = new AtomicBoolean(false)
       def setter(a: A): F[Boolean] =
@@ -291,42 +331,67 @@ private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E
 
       (current, setter)
     }
+  }
 
-  override def tryUpdate(f: A => A): F[Boolean] =
+  override def tryUpdate(f: A => A): F[Boolean] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     update(f).as(true)
+  }
 
-  override def tryModify[B](f: A => (A, B)): F[Option[B]] =
+  override def tryModify[B](f: A => (A, B)): F[Option[B]] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     modify(f).asSome
+  }
 
-  override def update(f: A => A): F[Unit] =
+  override def update(f: A => A): F[Unit] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     ref.update(f)
+  }
 
-  override def modify[B](f: A => (A, B)): F[B] =
+  override def modify[B](f: A => (A, B)): F[B] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     ref.modify(f(_).swap)
+  }
 
-  override def tryModifyState[B](state: State[A, B]): F[Option[B]] =
+  override def tryModifyState[B](state: State[A, B]): F[Option[B]] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     modifyState(state).asSome
+  }
 
   override def modifyState[B](state: State[A, B]): F[B] =
     modify(state.run(_).value)
 
   override def set(a: A): F[Unit] =
-    ref.set(a)
+    ref.set(a)(CoreTracer.newTrace)
 
   override def get: F[A] =
-    ref.get
+    ref.get(CoreTracer.newTrace)
 }
 
 private class ZioTemporal[R <: Has[Clock], E] extends ZioConcurrent[R, E] with GenTemporal[ZIO[R, E, _], E] {
 
-  override final def sleep(time: FiniteDuration): F[Unit] =
+  override final def sleep(time: FiniteDuration): F[Unit] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     ZIO.sleep(Duration.fromScala(time))
+  }
 
-  override final val monotonic: F[FiniteDuration] =
+  override final val monotonic: F[FiniteDuration] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     nanoTime.map(FiniteDuration(_, NANOSECONDS))
+  }
 
-  override final val realTime: F[FiniteDuration] =
+  override final val realTime: F[FiniteDuration] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     currentTime(MILLISECONDS).map(FiniteDuration(_, MILLISECONDS))
+  }
 }
 
 private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Has[Clock]])
@@ -336,14 +401,23 @@ private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Has[Clock]])
   private[this] val underlying: GenTemporal[ZIO[Has[Clock], E, _], E] = new ZioTemporal[Has[Clock], E]
   private[this] val clock: Has[Clock]                                 = runtime.environment
 
-  override final def sleep(time: FiniteDuration): F[Unit] =
+  override final def sleep(time: FiniteDuration): F[Unit] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     underlying.sleep(time).provide(clock)
+  }
 
-  override final val monotonic: F[FiniteDuration] =
+  override final val monotonic: F[FiniteDuration] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     underlying.monotonic.provide(clock)
+  }
 
-  override final val realTime: F[FiniteDuration] =
+  override final val realTime: F[FiniteDuration] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     underlying.realTime.provide(clock)
+  }
 }
 
 private class ZioRuntimeAsync(implicit runtime: Runtime[Has[Clock]])
@@ -353,44 +427,82 @@ private class ZioRuntimeAsync(implicit runtime: Runtime[Has[Clock]])
   private[this] val underlying: Async[RIO[Has[Clock], _]] = new ZioAsync[Has[Clock]]
   private[this] val environment: Has[Clock]               = runtime.environment
 
-  override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] =
+  override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     underlying.evalOn(fa, ec).provide(environment)
+  }
 
-  override final val executionContext: F[ExecutionContext] =
+  override final val executionContext: F[ExecutionContext] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     underlying.executionContext.provide(environment)
+  }
 
-  override final val unique: F[Unique.Token] =
+  override final val unique: F[Unique.Token] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     underlying.unique.provide(environment)
+  }
 
   override final def cont[K, Q](body: Cont[F, K, Q]): F[Q] =
     Async.defaultCont(body)(this)
 
-  override final def suspend[A](hint: Sync.Type)(thunk: => A): F[A] =
+  override final def suspend[A](hint: Sync.Type)(thunk: => A): F[A] = {
+    val byName: () => A               = () => thunk
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(byName)
+
     underlying.suspend(hint)(thunk).provide(environment)
+  }
 
-  override final def delay[A](thunk: => A): F[A] =
+  override final def delay[A](thunk: => A): F[A] = {
+    val byName: () => A               = () => thunk
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(byName)
+
     underlying.delay(thunk).provide(environment)
+  }
 
-  override final def defer[A](thunk: => F[A]): F[A] =
+  override final def defer[A](thunk: => F[A]): F[A] = {
+    val byName: () => F[A]            = () => thunk
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(byName)
+
     underlying.defer(thunk).provide(environment)
+  }
 
-  override final def blocking[A](thunk: => A): F[A] =
+  override final def blocking[A](thunk: => A): F[A] = {
+    val byName: () => A               = () => thunk
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(byName)
+
     underlying.blocking(thunk).provide(environment)
+  }
 
-  override final def interruptible[A](many: Boolean)(thunk: => A): F[A] =
+  override final def interruptible[A](many: Boolean)(thunk: => A): F[A] = {
+    val byName: () => A               = () => thunk
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(byName)
+
     underlying.interruptible(many)(thunk).provide(environment)
+  }
 
-  override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] =
+  override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(k)
+
     underlying.async(k).provide(environment)
+  }
 
-  override final def async_[A](k: (Either[Throwable, A] => Unit) => Unit): F[A] =
+  override final def async_[A](k: (Either[Throwable, A] => Unit) => Unit): F[A] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(k)
+
     underlying.async_(k).provide(environment)
+  }
 
-  override final def fromFuture[A](fut: F[Future[A]]): F[A] =
+  override final def fromFuture[A](fut: F[Future[A]]): F[A] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     underlying.fromFuture(fut).provide(environment)
+  }
 
   override final def never[A]: F[A] =
-    ZIO.never
+    ZIO.never(CoreTracer.newTrace)
 }
 
 private class ZioMonadError[R, E] extends MonadError[ZIO[R, E, _], E] with StackSafeMonad[ZIO[R, E, _]] {
@@ -399,68 +511,107 @@ private class ZioMonadError[R, E] extends MonadError[ZIO[R, E, _], E] with Stack
   override final def pure[A](a: A): F[A] =
     ZIO.succeedNow(a)
 
-  override final def map[A, B](fa: F[A])(f: A => B): F[B] =
+  override final def map[A, B](fa: F[A])(f: A => B): F[B] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     fa.map(f)
+  }
 
-  override final def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B] =
+  override final def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     fa.flatMap(f)
+  }
 
-  override final def flatTap[A, B](fa: F[A])(f: A => F[B]): F[A] =
+  override final def flatTap[A, B](fa: F[A])(f: A => F[B]): F[A] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     fa.tap(f)
+  }
 
   override final def widen[A, B >: A](fa: F[A]): F[B] =
     fa
 
-  override final def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z] =
+  override final def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     fa.zipWith(fb)(f)
+  }
 
   override final def as[A, B](fa: F[A], b: B): F[B] =
-    fa.as(b)
+    fa.as(b)(CoreTracer.newTrace)
 
-  override final def whenA[A](cond: Boolean)(f: => F[A]): F[Unit] =
+  override final def whenA[A](cond: Boolean)(f: => F[A]): F[Unit] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     ZIO.when(cond)(f).unit
+  }
 
   override final def unit: F[Unit] =
     ZIO.unit
 
-  override final def handleErrorWith[A](fa: F[A])(f: E => F[A]): F[A] =
+  override final def handleErrorWith[A](fa: F[A])(f: E => F[A]): F[A] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     fa.catchAll(f)
+  }
 
-  override final def recoverWith[A](fa: F[A])(pf: PartialFunction[E, F[A]]): F[A] =
+  override final def recoverWith[A](fa: F[A])(pf: PartialFunction[E, F[A]]): F[A] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     fa.catchSome(pf)
+  }
 
-  override final def raiseError[A](e: E): F[A] =
+  override final def raiseError[A](e: E): F[A] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     ZIO.fail(e)
+  }
 
-  override final def attempt[A](fa: F[A]): F[Either[E, A]] =
+  override final def attempt[A](fa: F[A]): F[Either[E, A]] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     fa.either
+  }
 
-  override final def adaptError[A](fa: F[A])(pf: PartialFunction[E, E]): F[A] =
+  override final def adaptError[A](fa: F[A])(pf: PartialFunction[E, E]): F[A] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     fa.mapError(pf.orElse { case error => error })
+  }
 }
 
 private class ZioSemigroupK[R, E] extends SemigroupK[ZIO[R, E, _]] {
   type F[A] = ZIO[R, E, A]
 
-  override final def combineK[A](a: F[A], b: F[A]): F[A] =
+  override final def combineK[A](a: F[A], b: F[A]): F[A] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     a orElse b
+  }
 }
 
 private class ZioMonoidK[R, E](implicit monoid: Monoid[E]) extends MonoidK[ZIO[R, E, _]] {
   type F[A] = ZIO[R, E, A]
 
   override final def empty[A]: F[A] =
-    ZIO.fail(monoid.empty)
+    ZIO.fail(monoid.empty)(CoreTracer.newTrace)
 
-  override final def combineK[A](a: F[A], b: F[A]): F[A] =
+  override final def combineK[A](a: F[A], b: F[A]): F[A] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     a.catchAll(e1 => b.catchAll(e2 => ZIO.fail(monoid.combine(e1, e2))))
+  }
 }
 
 private class ZioBifunctor[R] extends Bifunctor[ZIO[R, _, _]] {
   type F[A, B] = ZIO[R, A, B]
 
-  override final def bimap[A, B, C, D](fab: F[A, B])(f: A => C, g: B => D): F[C, D] =
+  override final def bimap[A, B, C, D](fab: F[A, B])(f: A => C, g: B => D): F[C, D] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     fab.mapBoth(f, g)
+  }
 }
 
 private class ZioParallel[R, E](final override implicit val monad: Monad[ZIO[R, E, _]]) extends Parallel[ZIO[R, E, _]] {
@@ -486,17 +637,26 @@ private class ZioParApplicative[R, E] extends CommutativeApplicative[ParallelF[Z
   final override def pure[A](x: A): F[A] =
     ParallelF[G, A](ZIO.succeedNow(x))
 
-  final override def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z] =
+  final override def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     ParallelF(ParallelF.value(fa).interruptible.zipWithPar(ParallelF.value(fb).interruptible)(f))
+  }
 
   final override def ap[A, B](ff: F[A => B])(fa: F[A]): F[B] =
     map2(ff, fa)(_ apply _)
 
-  final override def product[A, B](fa: F[A], fb: F[B]): F[(A, B)] =
-    ParallelF(ParallelF.value(fa).interruptible.zipPar(ParallelF.value(fb).interruptible))
+  final override def product[A, B](fa: F[A], fb: F[B]): F[(A, B)] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
 
-  final override def map[A, B](fa: F[A])(f: A => B): F[B] =
+    ParallelF(ParallelF.value(fa).interruptible.zipPar(ParallelF.value(fb).interruptible))
+  }
+
+  final override def map[A, B](fa: F[A])(f: A => B): F[B] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     ParallelF(ParallelF.value(fa).map(f))
+  }
 
   final override val unit: F[Unit] =
     ParallelF[G, Unit](ZIO.unit)
@@ -506,54 +666,87 @@ private class ZioArrowChoice[E] extends ArrowChoice[ZIO[_, E, _]] {
   type F[A, B] = ZIO[A, E, B]
 
   final override def lift[A, B](f: A => B): F[A, B] =
-    ZIO.access(f)
+    ZIO.access(f)(InteropTracer.newTrace(f))
 
-  final override def compose[A, B, C](f: F[B, C], g: F[A, B]): F[A, C] =
+  final override def compose[A, B, C](f: F[B, C], g: F[A, B]): F[A, C] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     g.flatMap(f.provide(_))
+  }
 
   final override def id[A]: F[A, A] =
-    ZIO.environment[A]
+    ZIO.environment[A](CoreTracer.newTrace)
 
-  final override def dimap[A, B, C, D](fab: F[A, B])(f: C => A)(g: B => D): F[C, D] =
+  final override def dimap[A, B, C, D](fab: F[A, B])(f: C => A)(g: B => D): F[C, D] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     fab.provideSome(f).map(g)
+  }
 
-  final override def choose[A, B, C, D](f: F[A, C])(g: F[B, D]): F[Either[A, B], Either[C, D]] =
+  final override def choose[A, B, C, D](f: F[A, C])(g: F[B, D]): F[Either[A, B], Either[C, D]] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     ZIO.accessZIO[Either[A, B]](_.fold(f.provide(_).map(Left(_)), g.provide(_).map(Right(_))))
+  }
 
-  final override def first[A, B, C](fa: F[A, B]): F[(A, C), (B, C)] =
+  final override def first[A, B, C](fa: F[A, B]): F[(A, C), (B, C)] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     fa.provideSome[(A, C)](_._1) <*> ZIO.access[(A, C)](_._2)
+  }
 
-  final override def second[A, B, C](fa: F[A, B]): F[(C, A), (C, B)] =
+  final override def second[A, B, C](fa: F[A, B]): F[(C, A), (C, B)] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     ZIO.access[(C, A)](_._1) <*> fa.provideSome[(C, A)](_._2)
+  }
 
-  final override def split[A, B, C, D](f: F[A, B], g: F[C, D]): F[(A, C), (B, D)] =
+  final override def split[A, B, C, D](f: F[A, B], g: F[C, D]): F[(A, C), (B, D)] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     f.provideSome[(A, C)](_._1) <*> g.provideSome[(A, C)](_._2)
+  }
 
-  final override def merge[A, B, C](f: F[A, B], g: F[A, C]): F[A, (B, C)] =
+  final override def merge[A, B, C](f: F[A, B], g: F[A, C]): F[A, (B, C)] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     f zip g
+  }
 
-  final override def lmap[A, B, C](fab: F[A, B])(f: C => A): F[C, B] =
+  final override def lmap[A, B, C](fab: F[A, B])(f: C => A): F[C, B] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     fab.provideSome(f)
+  }
 
   final override def rmap[A, B, C](fab: F[A, B])(f: B => C): F[A, C] =
-    fab.map(f)
+    fab.map(f)(InteropTracer.newTrace(f))
 
-  final override def choice[A, B, C](f: F[A, C], g: F[B, C]): F[Either[A, B], C] =
+  final override def choice[A, B, C](f: F[A, C], g: F[B, C]): F[Either[A, B], C] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     ZIO.accessZIO(_.fold(f.provide(_), g.provide(_)))
+  }
 }
 
 private class ZioContravariant[E, T] extends Contravariant[ZIO[_, E, T]] {
   type F[A] = ZIO[A, E, T]
 
-  final override def contramap[A, B](fa: F[A])(f: B => A): F[B] =
+  final override def contramap[A, B](fa: F[A])(f: B => A): F[B] = {
+    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+
     ZIO.accessZIO[B](b => fa.provide(f(b)))
+  }
 }
 
 private class ZioSemigroup[R, E, A](implicit semigroup: Semigroup[A]) extends Semigroup[ZIO[R, E, A]] {
   type T = ZIO[R, E, A]
 
-  override final def combine(x: T, y: T): T =
+  override final def combine(x: T, y: T): T = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     x.zipWith(y)(semigroup.combine)
+  }
 }
 
 private class ZioMonoid[R, E, A](implicit monoid: Monoid[A]) extends ZioSemigroup[R, E, A] with Monoid[ZIO[R, E, A]] {
@@ -566,8 +759,11 @@ private class ZioParSemigroup[R, E, A](implicit semigroup: CommutativeSemigroup[
 
   type T = ParallelF[ZIO[R, E, _], A]
 
-  override final def combine(x: T, y: T): T =
+  override final def combine(x: T, y: T): T = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     ParallelF(ParallelF.value(x).zipWithPar(ParallelF.value(y))(semigroup.combine))
+  }
 }
 
 private class ZioParMonoid[R, E, A](implicit monoid: CommutativeMonoid[A])
@@ -579,10 +775,13 @@ private class ZioParMonoid[R, E, A](implicit monoid: CommutativeMonoid[A])
 }
 
 private class ZioLiftIO[R](implicit runtime: IORuntime) extends LiftIO[RIO[R, _]] {
-  override final def liftIO[A](ioa: CIO[A]): RIO[R, A] =
+  override final def liftIO[A](ioa: CIO[A]): RIO[R, A] = {
+    implicit def trace: ZTraceElement = CoreTracer.newTrace
+
     ZIO.asyncInterrupt { k =>
       val (result, cancel) = ioa.unsafeToFutureCancelable()
       k(ZIO.fromFuture(_ => result))
       Left(ZIO.fromFuture(_ => cancel()).orDie)
     }
+  }
 }

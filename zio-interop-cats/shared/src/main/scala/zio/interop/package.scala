@@ -36,7 +36,9 @@ package object interop {
   type Hub[F[+_], A] = CHub[F, A, A]
   val Hub: CHub.type = CHub
 
-  @inline private[interop] def toOutcome[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, _], E, A] =
+  @inline private[interop] def toOutcome[R, E, A](
+    exit: Exit[E, A]
+  )(implicit trace: ZTraceElement): Outcome[ZIO[R, E, _], E, A] =
     exit match {
       case Exit.Success(value)                        =>
         Outcome.Succeeded(ZIO.succeed(value))
@@ -69,7 +71,7 @@ package object interop {
         }
     }
 
-  @inline private[zio] def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F]): Task[A] =
+  @inline private[zio] def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F], trace: ZTraceElement): Task[A] =
     ZIO
       .succeed(F.unsafeToFutureCancelable(fa))
       .flatMap { case (future, cancel) =>
@@ -77,7 +79,9 @@ package object interop {
       }
       .uninterruptible
 
-  @inline private[zio] def toEffect[F[_], R, A](rio: RIO[R, A])(implicit R: Runtime[R], F: Async[F]): F[A] =
+  @inline private[zio] def toEffect[F[_], R, A](
+    rio: RIO[R, A]
+  )(implicit R: Runtime[R], F: Async[F], trace: ZTraceElement): F[A] =
     F.uncancelable { poll =>
       F.delay(R.unsafeRunToFuture(rio)).flatMap { future =>
         poll(F.onCancel(F.fromFuture(F.pure[Future[A]](future)), F.fromFuture(F.delay(future.cancel())).void))
@@ -85,6 +89,6 @@ package object interop {
     }
 
   private[zio] implicit class ToEffectSyntax[R, A](private val rio: RIO[R, A]) extends AnyVal {
-    @inline def toEffect[F[_]: Async](implicit R: Runtime[R]): F[A] = interop.toEffect(rio)
+    @inline def toEffect[F[_]: Async](implicit R: Runtime[R], trace: ZTraceElement): F[A] = interop.toEffect(rio)
   }
 }
