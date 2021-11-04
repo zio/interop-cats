@@ -86,7 +86,7 @@ object BuildHelper {
     scalacOptions            := stdOptions ++ extraOptions(scalaVersion.value),
     libraryDependencies ++= testDeps ++ {
       if (isDotty(scalaVersion.value)) Seq.empty
-      else Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.0") cross CrossVersion.full)
+      else Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.2") cross CrossVersion.full)
     },
     Test / parallelExecution := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
