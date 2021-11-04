@@ -17,9 +17,8 @@
 package zio.interop
 
 import java.time.{ Duration, OffsetDateTime }
-
 import cats.effect.{ Effect, LiftIO }
-import zio.{ Chunk, Runtime, ZEnv, Schedule => ZSchedule, Zippable }
+import zio.{ Chunk, Runtime, ZEnv, Schedule => ZSchedule, Zippable, ZTraceElement }
 
 /**
  * @see zio.ZSchedule
@@ -50,7 +49,9 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
   /**
    * @see zio.ZSchedule.*>
    */
-  def *>[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule.WithState[F, (self.State, that.State), In1, Out2] =
+  def *>[In1 <: In, Out2](
+    that: Schedule[F, In1, Out2]
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, (self.State, that.State), In1, Out2] =
     Schedule(underlying *> that.underlying)
 
   /**
@@ -58,7 +59,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def ++[In1 <: In, Out2 >: Out](
     that: Schedule[F, In1, Out2]
-  ): Schedule.WithState[F, (self.State, that.State, Boolean), In1, Out2] =
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, (self.State, that.State, Boolean), In1, Out2] =
     Schedule(underlying ++ that.underlying)
 
   /**
@@ -80,7 +81,9 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
   /**
    * @see zio.ZSchedule.<*
    */
-  def <*[In1 <: In, Out2](that: Schedule[F, In1, Out2]): Schedule.WithState[F, (self.State, that.State), In1, Out] =
+  def <*[In1 <: In, Out2](
+    that: Schedule[F, In1, Out2]
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, (self.State, that.State), In1, Out] =
     Schedule(self.underlying <* that.underlying)
 
   /**
@@ -116,7 +119,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def |||[Out1 >: Out, In2](
     that: Schedule[F, In2, Out1]
-  ): Schedule.WithState[F, (self.State, that.State), Either[In, In2], Out1] =
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, (self.State, that.State), Either[In, In2], Out1] =
     Schedule(
       (self.underlying ||| that.underlying)
         .asInstanceOf[ZSchedule.WithState[(self.State, that.State), ZEnv, Either[In, In2], Out1]]
@@ -125,7 +128,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
   /**
    * @see zio.ZSchedule.addDelay
    */
-  def addDelay(f: Out => Duration): Schedule.WithState[F, self.State, In, Out] =
+  def addDelay(f: Out => Duration)(implicit trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out] =
     Schedule(underlying.addDelay(f))
 
   /**
@@ -133,7 +136,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def addDelayM(
     f: Out => F[Duration]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, self.State, In, Out] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out] =
     Schedule(underlying.addDelayZIO(out => fromEffect(f(out)).orDie))
 
   /**
@@ -141,7 +144,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def andThen[In1 <: In, Out2 >: Out](
     that: Schedule[F, In1, Out2]
-  ): Schedule.WithState[F, (self.State, that.State, Boolean), In1, Out2] =
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, (self.State, that.State, Boolean), In1, Out2] =
     Schedule(self.underlying andThen that.underlying)
 
   /**
@@ -155,13 +158,15 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
   /**
    * @see zio.ZSchedule.as
    */
-  def as[Out2](out2: => Out2): Schedule.WithState[F, self.State, In, Out2] =
+  def as[Out2](out2: => Out2)(implicit trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out2] =
     Schedule(underlying.as(out2))
 
   /**
    * @see zio.ZSchedule.check
    */
-  def check[In11 <: In](test: (In11, Out) => Boolean): Schedule.WithState[F, self.State, In11, Out] =
+  def check[In11 <: In](
+    test: (In11, Out) => Boolean
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, self.State, In11, Out] =
     Schedule(underlying.check(test))
 
   /**
@@ -169,13 +174,15 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def checkM[In1 <: In](
     test: (In1, Out) => F[Boolean]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, self.State, In1, Out] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, self.State, In1, Out] =
     Schedule(underlying.checkZIO((in1, out) => fromEffect(test(in1, out)).orDie))
 
   /**
    * @see zio.ZSchedule.collectAll
    */
-  def collectAll[Out1 >: Out]: Schedule.WithState[F, (self.State, Chunk[Out1]), In, List[Out1]] =
+  def collectAll[Out1 >: Out](
+    implicit trace: ZTraceElement
+  ): Schedule.WithState[F, (self.State, Chunk[Out1]), In, List[Out1]] =
     Schedule(underlying.collectAll[Out1].map(_.toList))
 
   /**
@@ -197,13 +204,13 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
   /**
    * @see zio.ZSchedule.contramap
    */
-  def contramap[In2](f: In2 => In): Schedule.WithState[F, self.State, In2, Out] =
+  def contramap[In2](f: In2 => In)(implicit trace: ZTraceElement): Schedule.WithState[F, self.State, In2, Out] =
     Schedule(underlying.contramap(f))
 
   /**
    * @see zio.ZSchedule.delayed
    */
-  def delayed(f: Duration => Duration): Schedule.WithState[F, self.State, In, Out] =
+  def delayed(f: Duration => Duration)(implicit trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out] =
     Schedule(underlying.delayed(f))
 
   /**
@@ -211,19 +218,21 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def delayedM(
     f: Duration => F[Duration]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, self.State, In, Out] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out] =
     Schedule(underlying.delayedZIO(d => fromEffect(f(d)).orDie))
 
   /**
    * @see zio.ZSchedule.dimap
    */
-  def dimap[In2, Out2](f: In2 => In, g: Out => Out2): Schedule.WithState[F, self.State, In2, Out2] =
+  def dimap[In2, Out2](f: In2 => In, g: Out => Out2)(
+    implicit trace: ZTraceElement
+  ): Schedule.WithState[F, self.State, In2, Out2] =
     Schedule(underlying.dimap(f, g))
 
   /**
    * @see zio.ZSchedule.driver
    */
-  def driver(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Schedule.Driver[F, State, In, Out]] =
+  def driver(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: ZTraceElement): F[Schedule.Driver[F, State, In, Out]] =
     toEffect(underlying.driver.map(driver => new Schedule.Driver(driver)))
 
   /**
@@ -239,13 +248,15 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def eitherWith[In1 <: In, Out2, Out3](
     that: Schedule[F, In1, Out2]
-  )(f: (Out, Out2) => Out3): Schedule.WithState[F, (self.State, that.State), In1, Out3] =
+  )(f: (Out, Out2) => Out3)(implicit trace: ZTraceElement): Schedule.WithState[F, (self.State, that.State), In1, Out3] =
     Schedule(underlying.eitherWith(that.underlying)(f))
 
   /**
    * @see zio.ZSchedule.ensuring
    */
-  def ensuring(finalizer: F[Any])(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, self.State, In, Out] =
+  def ensuring(
+    finalizer: F[Any]
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out] =
     Schedule(underlying.ensuring(fromEffect(finalizer).orDie))
 
   /**
@@ -257,7 +268,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
   /**
    * @see zio.ZSchedule.fold
    */
-  def fold[Z](z: Z)(f: (Z, Out) => Z): Schedule.WithState[F, (self.State, Z), In, Z] =
+  def fold[Z](z: Z)(f: (Z, Out) => Z)(implicit trace: ZTraceElement): Schedule.WithState[F, (self.State, Z), In, Z] =
     Schedule(underlying.fold(z)(f))
 
   /**
@@ -265,7 +276,9 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def foldM[Z](
     z: Z
-  )(f: (Z, Out) => F[Z])(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, (self.State, Z), In, Z] =
+  )(
+    f: (Z, Out) => F[Z]
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, (self.State, Z), In, Z] =
     Schedule(underlying.foldZIO(z)((z2, out) => fromEffect(f(z2, out)).orDie))
 
   /**
@@ -277,13 +290,13 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
   /**
    * @see zio.ZSchedule.jittered
    */
-  def jittered: Schedule.WithState[F, self.State, In, Out] =
+  def jittered(implicit trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out] =
     Schedule(underlying.jittered)
 
   /**
    * @see zio.ZSchedule.jittered
    */
-  def jittered(min: Double, max: Double): Schedule.WithState[F, self.State, In, Out] =
+  def jittered(min: Double, max: Double)(implicit trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out] =
     Schedule(underlying.jittered(min, max))
 
   /**
@@ -295,7 +308,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
   /**
    * @see zio.ZSchedule.map
    */
-  def map[Out2](f: Out => Out2): Schedule.WithState[F, self.State, In, Out2] =
+  def map[Out2](f: Out => Out2)(implicit trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out2] =
     Schedule(underlying.map(f))
 
   /**
@@ -303,7 +316,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def mapM[Out2](
     f: Out => F[Out2]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, self.State, In, Out2] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out2] =
     Schedule(underlying.mapZIO(out => fromEffect(f(out)).orDie))
 
   /**
@@ -317,19 +330,21 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def modifyDelayM(
     f: (Out, Duration) => F[Duration]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, self.State, In, Out] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out] =
     Schedule(underlying.modifyDelayZIO((out, duration) => fromEffect(f(out, duration)).orDie))
 
   /**
    * @see zio.ZSchedule.repetitions
    */
-  def repetitions: Schedule.WithState[F, (self.State, Long), In, Long] =
+  def repetitions(implicit trace: ZTraceElement): Schedule.WithState[F, (self.State, Long), In, Long] =
     Schedule(underlying.repetitions)
 
   /**
    * @see zio.ZSchedule.resetAfter
    */
-  def resetAfter(duration: Duration): Schedule.WithState[F, (self.State, Option[OffsetDateTime]), In, Out] =
+  def resetAfter(
+    duration: Duration
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, (self.State, Option[OffsetDateTime]), In, Out] =
     Schedule(underlying.resetAfter(duration))
 
   /**
@@ -347,7 +362,10 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
   /**
    * @see zio.ZSchedule.run
    */
-  def run(now: OffsetDateTime, input: Iterable[In])(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[List[Out]] =
+  def run(
+    now: OffsetDateTime,
+    input: Iterable[In]
+  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: ZTraceElement): F[List[Out]] =
     toEffect(underlying.run(now, input).map(_.toList))
 
   /**
@@ -361,13 +379,15 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def tapInput[In1 <: In](
     f: In1 => F[Any]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, self.State, In1, Out] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, self.State, In1, Out] =
     Schedule(underlying.tapInput(in => fromEffect(f(in)).orDie))
 
   /**
    * @see zio.ZSchedule.tapOutput
    */
-  def tapOutput(f: Out => F[Any])(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, self.State, In, Out] =
+  def tapOutput(
+    f: Out => F[Any]
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out] =
     Schedule(underlying.tapOutput(out => fromEffect(f(out)).orDie))
 
   /**
@@ -383,13 +403,15 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
   /**
    * @see zio.ZSchedule.unit
    */
-  def unit: Schedule.WithState[F, self.State, In, Unit] =
+  def unit(implicit trace: ZTraceElement): Schedule.WithState[F, self.State, In, Unit] =
     Schedule(underlying.unit)
 
   /**
    * @see zio.ZSchedule.untilInput
    */
-  def untilInput[In1 <: In](f: In1 => Boolean): Schedule.WithState[F, self.State, In1, Out] =
+  def untilInput[In1 <: In](
+    f: In1 => Boolean
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, self.State, In1, Out] =
     Schedule(underlying.untilInput(f))
 
   /**
@@ -397,13 +419,13 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def untilInputM[In1 <: In](
     f: In1 => F[Boolean]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, self.State, In1, Out] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, self.State, In1, Out] =
     Schedule(underlying.untilInputZIO(in => fromEffect(f(in)).orDie))
 
   /**
    * @see zio.ZSchedule.untilOutput
    */
-  def untilOutput(f: Out => Boolean): Schedule.WithState[F, self.State, In, Out] =
+  def untilOutput(f: Out => Boolean)(implicit trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out] =
     Schedule(underlying.untilOutput(f))
 
   /**
@@ -411,13 +433,15 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def untilOutputM(
     f: Out => F[Boolean]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, self.State, In, Out] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out] =
     Schedule(underlying.untilOutputZIO(out => fromEffect(f(out)).orDie))
 
   /**
    * @see zio.ZSchedule.whileInput
    */
-  def whileInput[In1 <: In](f: In1 => Boolean): Schedule.WithState[F, self.State, In1, Out] =
+  def whileInput[In1 <: In](
+    f: In1 => Boolean
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, self.State, In1, Out] =
     Schedule(underlying.whileInput(f))
 
   /**
@@ -425,13 +449,13 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def whileInputM[In1 <: In](
     f: In1 => F[Boolean]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, self.State, In1, Out] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, self.State, In1, Out] =
     Schedule(underlying.whileInputZIO(in => fromEffect(f(in)).orDie))
 
   /**
    * @see zio.ZSchedule.whileOutput
    */
-  def whileOutput(f: Out => Boolean): Schedule.WithState[F, self.State, In, Out] =
+  def whileOutput(f: Out => Boolean)(implicit trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out] =
     Schedule(underlying.whileOutput(f))
 
   /**
@@ -439,7 +463,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def whileOutputM(
     f: Out => F[Boolean]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, self.State, In, Out] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, self.State, In, Out] =
     Schedule(underlying.whileOutputZIO(out => fromEffect(f(out)).orDie))
 
   /**
@@ -455,7 +479,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def zipLeft[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  ): Schedule.WithState[F, (self.State, that.State), In1, Out] =
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, (self.State, that.State), In1, Out] =
     Schedule(self.underlying zipLeft that.underlying)
 
   /**
@@ -463,7 +487,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def zipRight[In1 <: In, Out2](
     that: Schedule[F, In1, Out2]
-  ): Schedule.WithState[F, (self.State, that.State), In1, Out2] =
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, (self.State, that.State), In1, Out2] =
     Schedule(self.underlying zipRight that.underlying)
 
   /**
@@ -471,7 +495,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
    */
   def zipWith[In1 <: In, Out2, Out3](
     that: Schedule[F, In1, Out2]
-  )(f: (Out, Out2) => Out3): Schedule.WithState[F, (self.State, that.State), In1, Out3] =
+  )(f: (Out, Out2) => Out3)(implicit trace: ZTraceElement): Schedule.WithState[F, (self.State, that.State), In1, Out3] =
     Schedule(self.underlying.zipWith(that.underlying)(f))
 }
 
@@ -480,13 +504,15 @@ object Schedule {
   /**
    * @see zio.ZSchedule.collectAll
    */
-  def collectAll[F[+_], A]: Schedule.WithState[F, (Unit, Chunk[A]), A, List[A]] =
+  def collectAll[F[+_], A](implicit trace: ZTraceElement): Schedule.WithState[F, (Unit, Chunk[A]), A, List[A]] =
     Schedule(ZSchedule.collectAll.map(_.toList))
 
   /**
    * @see zio.ZSchedule.collectWhile
    */
-  def collectWhile[F[+_], A](f: A => Boolean): Schedule.WithState[F, (Unit, Chunk[A]), A, List[A]] =
+  def collectWhile[F[+_], A](
+    f: A => Boolean
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, (Unit, Chunk[A]), A, List[A]] =
     Schedule(ZSchedule.collectWhile(f).map(_.toList))
 
   /**
@@ -494,13 +520,15 @@ object Schedule {
    */
   def collectWhileM[F[+_], A](
     f: A => F[Boolean]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, (Unit, Chunk[A]), A, List[A]] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, (Unit, Chunk[A]), A, List[A]] =
     Schedule(ZSchedule.collectWhileZIO((a: A) => fromEffect(f(a)).orDie).map(_.toList))
 
   /**
    * @see zio.ZSchedule.collectUntil
    */
-  def collectUntil[F[+_], A](f: A => Boolean): Schedule.WithState[F, (Unit, Chunk[A]), A, List[A]] =
+  def collectUntil[F[+_], A](
+    f: A => Boolean
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, (Unit, Chunk[A]), A, List[A]] =
     Schedule(ZSchedule.collectUntil(f).map(_.toList))
 
   /**
@@ -508,7 +536,7 @@ object Schedule {
    */
   def collectUntilM[F[+_], A](
     f: A => F[Boolean]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, (Unit, Chunk[A]), A, List[A]] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, (Unit, Chunk[A]), A, List[A]] =
     Schedule(ZSchedule.collectUntilZIO((a: A) => fromEffect(f(a)).orDie).map(_.toList))
 
   /**
@@ -516,13 +544,13 @@ object Schedule {
    */
   def delayed[F[+_], In, Out](
     schedule: Schedule[F, In, Duration]
-  ): Schedule.WithState[F, schedule.State, In, Duration] =
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, schedule.State, In, Duration] =
     Schedule(ZSchedule.delayed(schedule.underlying))
 
   /**
    * @see zio.ZSchedule.recurWhile
    */
-  def recurWhile[F[+_], A](f: A => Boolean): Schedule.WithState[F, Unit, A, A] =
+  def recurWhile[F[+_], A](f: A => Boolean)(implicit trace: ZTraceElement): Schedule.WithState[F, Unit, A, A] =
     Schedule(ZSchedule.recurWhile(f))
 
   /**
@@ -530,19 +558,19 @@ object Schedule {
    */
   def recurWhileM[F[+_], A](
     f: A => F[Boolean]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, Unit, A, A] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, Unit, A, A] =
     Schedule(ZSchedule.recurWhileZIO(a => fromEffect(f(a)).orDie))
 
   /**
    * @see zio.ZSchedule.recurWhileEquals
    */
-  def recurWhileEquals[F[+_], A](a: => A): Schedule.WithState[F, Unit, A, A] =
+  def recurWhileEquals[F[+_], A](a: => A)(implicit trace: ZTraceElement): Schedule.WithState[F, Unit, A, A] =
     Schedule(ZSchedule.recurWhileEquals(a))
 
   /**
    * @see zio.ZSchedule.recurUntil
    */
-  def recurUntil[F[+_], A](f: A => Boolean): Schedule.WithState[F, Unit, A, A] =
+  def recurUntil[F[+_], A](f: A => Boolean)(implicit trace: ZTraceElement): Schedule.WithState[F, Unit, A, A] =
     Schedule(ZSchedule.recurUntil(f))
 
   /**
@@ -550,19 +578,21 @@ object Schedule {
    */
   def recurUntilM[F[+_], A](
     f: A => F[Boolean]
-  )(implicit R: Runtime[Any], F: Effect[F]): Schedule.WithState[F, Unit, A, A] =
+  )(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Schedule.WithState[F, Unit, A, A] =
     Schedule(ZSchedule.recurUntilZIO(a => fromEffect(f(a)).orDie))
 
   /**
    * @see zio.ZSchedule.recurUntilEquals
    */
-  def recurUntilEquals[F[+_], A](a: => A): Schedule.WithState[F, Unit, A, A] =
+  def recurUntilEquals[F[+_], A](a: => A)(implicit trace: ZTraceElement): Schedule.WithState[F, Unit, A, A] =
     Schedule(ZSchedule.recurUntilEquals(a))
 
   /**
    * @see zio.ZSchedule.recurUntil
    */
-  def recurUntil[F[+_], A, B](pf: PartialFunction[A, B]): Schedule.WithState[F, Unit, A, Option[B]] =
+  def recurUntil[F[+_], A, B](
+    pf: PartialFunction[A, B]
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, Unit, A, Option[B]] =
     Schedule(ZSchedule.recurUntil(pf))
 
   /**
@@ -580,13 +610,17 @@ object Schedule {
   /**
    * @see zio.ZSchedule.exponential
    */
-  def exponential[F[+_]](base: Duration, factor: Double = 2.0): Schedule.WithState[F, Long, Any, Duration] =
+  def exponential[F[+_]](base: Duration, factor: Double = 2.0)(
+    implicit trace: ZTraceElement
+  ): Schedule.WithState[F, Long, Any, Duration] =
     Schedule(ZSchedule.exponential(base, factor))
 
   /**
    * @see zio.ZSchedule.fibonacci
    */
-  def fibonacci[F[+_]](one: Duration): Schedule.WithState[F, (Duration, Duration), Any, Duration] =
+  def fibonacci[F[+_]](
+    one: Duration
+  )(implicit trace: ZTraceElement): Schedule.WithState[F, (Duration, Duration), Any, Duration] =
     Schedule(ZSchedule.fibonacci(one))
 
   /**
@@ -623,7 +657,7 @@ object Schedule {
   /**
    * @see zio.ZSchedule.fromFunction
    */
-  def fromFunction[F[+_], A, B](f: A => B): Schedule.WithState[F, Unit, A, B] =
+  def fromFunction[F[+_], A, B](f: A => B)(implicit trace: ZTraceElement): Schedule.WithState[F, Unit, A, B] =
     Schedule(ZSchedule.fromFunction(f))
 
   /**
@@ -641,43 +675,43 @@ object Schedule {
   /**
    * @see zio.ZSchedule.linear
    */
-  def linear[F[+_]](base: Duration): Schedule.WithState[F, Long, Any, Duration] =
+  def linear[F[+_]](base: Duration)(implicit trace: ZTraceElement): Schedule.WithState[F, Long, Any, Duration] =
     Schedule(ZSchedule.linear(base))
 
   /**
    * @see zio.ZSchedule.once
    */
-  def once[F[+_]]: Schedule.WithState[F, Long, Any, Unit] =
+  def once[F[+_]](implicit trace: ZTraceElement): Schedule.WithState[F, Long, Any, Unit] =
     Schedule(ZSchedule.once)
 
   /**
    * @see zio.ZSchedule.recurs
    */
-  def recurs[F[+_]](n: Long): Schedule.WithState[F, Long, Any, Long] =
+  def recurs[F[+_]](n: Long)(implicit trace: ZTraceElement): Schedule.WithState[F, Long, Any, Long] =
     Schedule(ZSchedule.recurs(n))
 
   /**
    * @see zio.ZSchedule.recurs
    */
-  def recurs[F[+_]](n: Int): Schedule.WithState[F, Long, Any, Long] =
+  def recurs[F[+_]](n: Int)(implicit trace: ZTraceElement): Schedule.WithState[F, Long, Any, Long] =
     Schedule(ZSchedule.recurs(n))
 
   /**
    * @see zio.ZSchedule.spaced
    */
-  def spaced[F[+_]](duration: Duration): Schedule.WithState[F, Long, Any, Long] =
+  def spaced[F[+_]](duration: Duration)(implicit trace: ZTraceElement): Schedule.WithState[F, Long, Any, Long] =
     Schedule(ZSchedule.spaced(duration))
 
   /**
    * @see zio.ZSchedule.stop
    */
-  def stop[F[+_]]: Schedule.WithState[F, Long, Any, Unit] =
+  def stop[F[+_]](implicit trace: ZTraceElement): Schedule.WithState[F, Long, Any, Unit] =
     Schedule(ZSchedule.stop)
 
   /**
    * @see zio.ZSchedule.succeed
    */
-  def succeed[F[+_], A](a: => A): Schedule.WithState[F, Long, Any, A] =
+  def succeed[F[+_], A](a: => A)(implicit trace: ZTraceElement): Schedule.WithState[F, Long, Any, A] =
     Schedule(ZSchedule.succeed(a))
 
   /**
@@ -695,9 +729,9 @@ object Schedule {
   final class Driver[F[+_], +State, -In, +Out] private[Schedule] (
     private[Schedule] val underlying: ZSchedule.Driver[State, ZEnv, In, Out]
   ) {
-    def next(in: In)(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Either[None.type, Out]] =
+    def next(in: In)(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: ZTraceElement): F[Either[None.type, Out]] =
       toEffect(underlying.next(in).either)
-    def last(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Either[NoSuchElementException, Out]] =
+    def last(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: ZTraceElement): F[Either[NoSuchElementException, Out]] =
       toEffect(underlying.last.either)
     def reset(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Unit] =
       toEffect(underlying.reset)

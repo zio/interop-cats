@@ -19,7 +19,7 @@ package zio.interop.stm
 import cats.effect.{ Effect, Resource }
 import zio.interop._
 import zio.interop.catz._
-import zio.Runtime
+import zio.{ Runtime, ZTraceElement }
 import zio.stm.{ TSemaphore => ZTSemaphore }
 
 /**
@@ -57,29 +57,29 @@ class TSemaphore[F[+_]] private (underlying: ZTSemaphore) {
    */
   final def releaseN(n: Long): STM[F, Unit] = new STM(underlying.releaseN(n))
 
-  def withPermit[B](effect: F[B])(implicit R: Runtime[Any], F: Effect[F]): F[B] =
+  def withPermit[B](effect: F[B])(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): F[B] =
     withPermits(1L)(effect)
 
   /**
    * See [[zio.stm.TSemaphore#withPermitManaged]]
    */
-  def withPermitResource(implicit R: Runtime[Any], F: Effect[F]): Resource[F, Unit] =
+  def withPermitResource(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Resource[F, Unit] =
     withPermitsResource(1L)
 
   /**
    * See [[zio.stm.TSemaphore#withPermits]]
    */
-  def withPermits[B](n: Long)(effect: F[B])(implicit R: Runtime[Any], F: Effect[F]): F[B] =
+  def withPermits[B](n: Long)(effect: F[B])(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): F[B] =
     toEffect(underlying.withPermits(n)(fromEffect(effect)))
 
   /**
    * See [[zio.stm.TSemaphore#withPermitsManaged]]
    */
-  def withPermitsResource(n: Long)(implicit R: Runtime[Any], F: Effect[F]): Resource[F, Unit] =
+  def withPermitsResource(n: Long)(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Resource[F, Unit] =
     underlying.withPermitsManaged(n).toResource[F]
 }
 
 object TSemaphore {
-  final def make[F[+_]](n: Long): STM[F, TSemaphore[F]] =
+  final def make[F[+_]](n: Long)(implicit trace: ZTraceElement): STM[F, TSemaphore[F]] =
     new STM(ZTSemaphore.make(n).map(new TSemaphore(_)))
 }
