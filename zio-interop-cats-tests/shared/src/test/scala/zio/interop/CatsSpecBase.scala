@@ -1,6 +1,7 @@
 package zio.interop
 
 import cats.effect.testkit.TestInstances
+import cats.effect.kernel.Outcome
 import cats.effect.IO as CIO
 import cats.syntax.all.*
 import cats.{ Eq, Order }
@@ -68,10 +69,10 @@ private[zio] trait CatsSpecBase
     ZEnv.Services.live ++ Has(testClock) ++ Has(testBlocking)
   }
 
-  def unsafeRun[A](uio: UIO[A])(implicit ticker: Ticker): Exit[Nothing, Option[A]] =
+  def unsafeRun[E, A](io: IO[E, A])(implicit ticker: Ticker): Exit[E, Option[A]] =
     try {
-      var exit = Exit.succeed(Option.empty[A])
-      runtime.unsafeRunAsync[Nothing, Option[A]](uio.asSome)(exit = _)
+      var exit: Exit[E, Option[A]] = Exit.succeed(Option.empty[A])
+      runtime.unsafeRunAsync[E, Option[A]](io.asSome)(exit = _)
       ticker.ctx.tickAll(FiniteDuration(1, TimeUnit.SECONDS))
       exit
     } catch {
@@ -133,6 +134,27 @@ private[zio] trait CatsSpecBase
 
   implicit def eqForURManaged[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[URManaged[R, A]] =
     zManagedEq[R, Nothing, A]
+
+  implicit def cogenZIO[R: Arbitrary, E: Cogen, A: Cogen](implicit ticker: Ticker): Cogen[ZIO[R, E, A]] =
+    Cogen[Outcome[Option, E, A]].contramap { zio: ZIO[R, E, A] =>
+      Arbitrary.arbitrary[R].sample match {
+        case Some(r) =>
+          val result = unsafeRun(zio.provide(r))
+
+          result match {
+            case Exit.Failure(cause) =>
+              if (cause.interrupted) Outcome.canceled[Option, E, A]
+              else Outcome.errored(cause.failureOption.get)
+            case Exit.Success(value) => Outcome.succeeded(value)
+          }
+        case None    => Outcome.succeeded(None)
+      }
+    }
+
+  implicit def cogenOutcomeZIO[R, A](implicit
+    cogen: Cogen[ZIO[R, Throwable, A]]
+  ): Cogen[Outcome[ZIO[R, Throwable, *], Throwable, A]] =
+    cogenOutcome[RIO[R, *], Throwable, A]
 }
 
 private[interop] sealed trait CatsSpecBaseLowPriority { this: CatsSpecBase =>
