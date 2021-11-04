@@ -12,6 +12,7 @@ object BuildHelper {
   val Scala212 = "2.12.14"
   val Scala213 = "2.13.7"
   val Scala3   = "3.0.2"
+  val Scala3   = "3.1.0"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -86,7 +87,7 @@ object BuildHelper {
     scalacOptions            := stdOptions ++ extraOptions(scalaVersion.value),
     libraryDependencies ++= testDeps ++ {
       if (isDotty(scalaVersion.value)) Seq.empty
-      else Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.0") cross CrossVersion.full)
+      else Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.2") cross CrossVersion.full)
     },
     Test / parallelExecution := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),

@@ -637,16 +637,16 @@ object Schedule {
         Schedule(underlying compose that.underlying)
       def intersectWith[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)]                                            =
+      )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)] =
         Schedule(underlying.intersectWith(that.underlying)(f))
       @deprecated("use intersectWith", "2.1.5")
       def combineWith[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)]                                            =
+      )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)] =
         intersectWith(that)(f)
       def unionWith[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)]                                            =
+      )(f: (Interval, Interval) => Interval): Schedule[F, In1, (Out, Out2)] =
         Schedule(underlying.unionWith(that.underlying)(f))
       def contramap[In2](f: In2 => In): Schedule[F, In2, Out]                                                          =
         Schedule(underlying.contramap(f))
@@ -662,7 +662,7 @@ object Schedule {
         Schedule(underlying either that.underlying)
       def eitherWith[In1 <: In, Out2, Out3](
         that: Schedule[F, In1, Out2]
-      )(f: (Out, Out2) => Out3): Schedule[F, In1, Out3]                                                                =
+      )(f: (Out, Out2) => Out3): Schedule[F, In1, Out3] =
         Schedule(underlying.eitherWith(that.underlying)(f))
       def ensuring(finalizer: F[Any]): Schedule[F, In, Out]                                                            =
         Schedule(underlying.ensuring(fromEffect(finalizer).orDie))
