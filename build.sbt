@@ -28,8 +28,8 @@ inThisBuild(
 
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
 addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
-addCommandAlias("testJVM", ";zioInteropCatsJVM/test;zioTestInteropCatsJVM/test;coreOnlyTestJVM/test")
-addCommandAlias("testJS", ";zioInteropCatsJS/test;zioTestInteropCatsJS/test;coreOnlyTestJS/test")
+addCommandAlias("testJVM", ";zioInteropCatsTestsJVM/test;zioTestInteropCatsJVM/test;coreOnlyTestJVM/test")
+addCommandAlias("testJS", ";zioInteropCatsTestsJS/test;zioTestInteropCatsJS/test;coreOnlyTestJS/test")
 
 lazy val root = project
   .in(file("."))
@@ -49,7 +49,7 @@ lazy val root = project
 
 val zioVersion                 = "1.0.12"
 val catsVersion                = "2.6.1"
-val catsEffectVersion          = "3.2.9"
+val catsEffectVersion          = "3.1.1"
 val catsMtlVersion             = "1.2.1"
 val disciplineScalaTestVersion = "2.1.5"
 val fs2Version                 = "3.0.6"
