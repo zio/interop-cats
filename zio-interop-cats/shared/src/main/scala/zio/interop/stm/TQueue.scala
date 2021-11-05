@@ -29,37 +29,37 @@ class TQueue[F[+_], A] private (val underlying: ZTQueue[A]) extends AnyVal {
   def mapK[G[+_]]: TQueue[G, A] = new TQueue(underlying)
 
   /**
-   * See [[zio.stm.TQueue#offer]]
+   * See [[zio.stm.ZTQueue#offer]]
    */
   final def offer(a: A): STM[F, Boolean] = new STM(underlying.offer(a))
 
   /**
-   * See [[zio.stm.TQueue#offerAll]]
+   * See [[zio.stm.ZTQueue#offerAll]]
    */
   final def offerAll(as: List[A]): STM[F, Boolean] = new STM(underlying.offerAll(as))
 
   /**
-   * See [[zio.stm.TQueue#poll]]
+   * See [[zio.stm.ZTQueue#poll]]
    */
   final def poll: STM[F, Option[A]] = new STM(underlying.poll)
 
   /**
-   * See [[zio.stm.TQueue#size]]
+   * See [[zio.stm.ZTQueue#size]]
    */
   final def size: STM[F, Int] = new STM(underlying.size)
 
   /**
-   * See [[zio.stm.TQueue#take]]
+   * See [[zio.stm.ZTQueue#take]]
    */
   final def take: STM[F, A] = new STM(underlying.take)
 
   /**
-   * See [[zio.stm.TQueue#takeAll]]
+   * See [[zio.stm.ZTQueue#takeAll]]
    */
   final def takeAll: STM[F, List[A]] = new STM(underlying.takeAll.map(_.toList))
 
   /**
-   * See [[zio.stm.TQueue#takeUpTo]]
+   * See [[zio.stm.ZTQueue#takeUpTo]]
    */
   final def takeUpTo(max: Int): STM[F, List[A]] = new STM(underlying.takeUpTo(max).map(_.toList))
 }
