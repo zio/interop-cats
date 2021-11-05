@@ -17,7 +17,7 @@
 package zio.interop
 
 import cats.effect.{ Effect, LiftIO }
-import zio.{ Runtime, ZQueue }
+import zio.{ Runtime, ZQueue, ZTraceElement }
 
 /**
  * @see [[zio.ZQueue]]
@@ -29,7 +29,8 @@ final class CQueue[F[+_], -A, +B] private[interop] (
   /**
    * @see [[ZQueue.awaitShutdown]]
    */
-  def awaitShutdown(implicit R: Runtime[Any], F: LiftIO[F]): F[Unit] = toEffect(underlying.awaitShutdown)
+  def awaitShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Unit] =
+    toEffect(underlying.awaitShutdown)
 
   /**
    * @see [[ZQueue.capacity]]
@@ -39,42 +40,46 @@ final class CQueue[F[+_], -A, +B] private[interop] (
   /**
    * @see [[ZQueue.isShutdown]]
    */
-  def isShutdown(implicit R: Runtime[Any], F: LiftIO[F]): F[Boolean] = toEffect(underlying.isShutdown)
+  def isShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean] =
+    toEffect(underlying.isShutdown)
 
   /**
    * @see [[ZQueue.offer]]
    */
-  def offer(a: A)(implicit R: Runtime[Any], F: LiftIO[F]): F[Boolean] = toEffect(underlying.offer(a))
+  def offer(a: A)(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean] =
+    toEffect(underlying.offer(a))
 
   /**
    * @see [[ZQueue.offerAll]]
    */
-  def offerAll(as: Iterable[A])(implicit R: Runtime[Any], F: LiftIO[F]): F[Boolean] = toEffect(underlying.offerAll(as))
+  def offerAll(as: Iterable[A])(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean] =
+    toEffect(underlying.offerAll(as))
 
   /**
    * @see [[ZQueue.shutdown]]
    */
-  def shutdown(implicit R: Runtime[Any], F: LiftIO[F]): F[Unit] = toEffect(underlying.shutdown)
+  def shutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Unit] = toEffect(underlying.shutdown)
 
   /**
    * @see [[ZQueue.size]]
    */
-  def size(implicit R: Runtime[Any], F: LiftIO[F]): F[Int] = toEffect(underlying.size)
+  def size(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Int] = toEffect(underlying.size)
 
   /**
    * @see [[ZQueue.take]]
    */
-  def take(implicit R: Runtime[Any], F: LiftIO[F]): F[B] = toEffect(underlying.take)
+  def take(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[B] = toEffect(underlying.take)
 
   /**
    * @see [[ZQueue.takeAll]]
    */
-  def takeAll(implicit R: Runtime[Any], F: LiftIO[F]): F[List[B]] = toEffect(underlying.takeAll.map(_.toList))
+  def takeAll(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[List[B]] =
+    toEffect(underlying.takeAll.map(_.toList))
 
   /**
    * @see [[ZQueue.takeUpTo]]
    */
-  def takeUpTo(max: Int)(implicit R: Runtime[Any], F: LiftIO[F]): F[List[B]] =
+  def takeUpTo(max: Int)(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[List[B]] =
     toEffect(underlying.takeUpTo(max).map(_.toList))
 
   /**
@@ -113,5 +118,5 @@ final class CQueue[F[+_], -A, +B] private[interop] (
   /**
    * @see [[ZQueue.poll]]
    */
-  def poll(implicit R: Runtime[Any], F: LiftIO[F]): F[Option[B]] = toEffect(underlying.poll)
+  def poll(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Option[B]] = toEffect(underlying.poll)
 }

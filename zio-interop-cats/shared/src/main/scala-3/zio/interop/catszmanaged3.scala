@@ -29,7 +29,7 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
    * Convert a cats Resource into a ZManaged.
    * Beware that unhandled error during release of the resource will result in the fiber dying.
    */
-  def toManagedZIO: ZManaged[R, E, A] = {
+  def toManagedZIO(implicit trace: ZTraceElement): ZManaged[R, E, A] = {
     def go[A1](res: Resource[ZIO[R, E, *], A1]): ZManaged[R, E, A1] =
       res match {
         case Allocate(resource) =>
