@@ -26,27 +26,7 @@ trait GenIOInteropCats {
    */
   def genSuccess[E, A: Arbitrary]: Gen[IO[E, A]] = Gen.oneOf(genSyncSuccess[E, A], genAsyncSuccess[E, A])
 
-  /**
-   * Given a generator for `E`, produces a generator for `IO[E, A]` using the `IO.fail` constructor.
-   */
-  def genSyncFailure[E: Arbitrary, A]: Gen[IO[E, A]] = Arbitrary.arbitrary[E].map(IO.fail[E](_))
-
-  /**
-   * Given a generator for `E`, produces a generator for `IO[E, A]` using the `IO.async` constructor.
-   */
-  def genAsyncFailure[E: Arbitrary, A]: Gen[IO[E, A]] =
-    Arbitrary.arbitrary[E].map(err => IO.async[E, A](k => k(IO.fail(err))))
-
-  /**
-   * Randomly uses either `genSyncFailure` or `genAsyncFailure` with equal probability.
-   */
-  def genFailure[E: Arbitrary, A]: Gen[IO[E, A]] = Gen.oneOf(genSyncFailure[E, A], genAsyncFailure[E, A])
-
-  /**
-   * Randomly uses either `genSuccess` or `genFailure` with equal probability.
-   */
-  def genIO[E: Arbitrary, A: Arbitrary]: Gen[IO[E, A]] =
-    Gen.oneOf(genSuccess[E, A], genFailure[E, A])
+  def genIO[E, A: Arbitrary]: Gen[IO[E, A]] = genSuccess[E, A]
 
   def genUIO[A: Arbitrary]: Gen[UIO[A]] =
     Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
