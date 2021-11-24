@@ -89,7 +89,7 @@ abstract class CatsEffectInstances extends CatsZioInstances {
   implicit final def concurrentInstance[R, E]: GenConcurrent[ZIO[R, E, _], E] =
     concurrentInstance0.asInstanceOf[GenConcurrent[ZIO[R, E, _], E]]
 
-  implicit final def asyncRuntimeInstance[E](implicit runtime: Runtime[Clock & CBlocking]): Async[Task] =
+  implicit final def asyncRuntimeInstance(implicit runtime: Runtime[Clock & CBlocking]): Async[Task] =
     new ZioRuntimeAsync
 
   implicit final def temporalRuntimeInstance[E](implicit runtime: Runtime[Clock]): GenTemporal[IO[E, _], E] =
