@@ -35,6 +35,7 @@ class catzSpec extends catzSpecZIOBase {
     implicit def ioArbitrary[A: Arbitrary]: Arbitrary[UIO[A]] = Arbitrary(genUIO[A])
     MonadTests[UIO].apply[Int, Int, Int]
   })
+  checkAllAsync("Monad[UIO]", implicit tc => ExtraMonadTests[UIO].monadExtras[Int])
   checkAllAsync(
     "ArrowChoice[ZIO]",
     implicit tc => ArrowChoiceTests[ZIO[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
