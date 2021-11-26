@@ -136,7 +136,7 @@ private[zio] trait CatsSpecBase
     zManagedEq[R, Nothing, A]
 
   implicit def cogenZIO[R: Arbitrary, E: Cogen, A: Cogen](implicit ticker: Ticker): Cogen[ZIO[R, E, A]] =
-    Cogen[Outcome[Option, E, A]].contramap { zio: ZIO[R, E, A] =>
+    Cogen[Outcome[Option, E, A]].contramap { (zio: ZIO[R, E, A]) =>
       Arbitrary.arbitrary[R].sample match {
         case Some(r) =>
           val result = unsafeRun(zio.provide(r))

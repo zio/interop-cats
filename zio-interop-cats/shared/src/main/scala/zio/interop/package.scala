@@ -72,7 +72,7 @@ package object interop {
         }
     }
 
-  @inline private[zio] def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F]): Task[A] =
+  @inline def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F]): Task[A] =
     ZIO
       .effectTotal(F.unsafeToFutureCancelable(fa))
       .flatMap { case (future, cancel) =>
@@ -80,14 +80,14 @@ package object interop {
       }
       .uninterruptible
 
-  @inline private[zio] def toEffect[F[_], R, A](rio: RIO[R, A])(implicit R: Runtime[R], F: Async[F]): F[A] =
+  @inline def toEffect[F[_], R, A](rio: RIO[R, A])(implicit R: Runtime[R], F: Async[F]): F[A] =
     F.uncancelable { poll =>
       F.delay(R.unsafeRunToFuture(rio)).flatMap { future =>
         poll(F.onCancel(F.fromFuture(F.pure[Future[A]](future)), F.fromFuture(F.delay(future.cancel())).void))
       }
     }
 
-  private[zio] implicit class ToEffectSyntax[R, A](private val rio: RIO[R, A]) extends AnyVal {
+  implicit class ToEffectSyntax[R, A](private val rio: RIO[R, A]) extends AnyVal {
     @inline def toEffect[F[_]: Async](implicit R: Runtime[R]): F[A] = interop.toEffect(rio)
   }
 }

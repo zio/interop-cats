@@ -28,8 +28,8 @@ inThisBuild(
 
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
 addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
-addCommandAlias("testJVM", ";zioInteropCatsJVM/test;zioTestInteropCatsJVM/test;coreOnlyTestJVM/test")
-addCommandAlias("testJS", ";zioInteropCatsJS/test;zioTestInteropCatsJS/test;coreOnlyTestJS/test")
+addCommandAlias("testJVM", ";zioInteropCatsTestsJVM/test;zioTestInteropCatsJVM/test;coreOnlyTestJVM/test")
+addCommandAlias("testJS", ";zioInteropCatsTestsJS/test;zioTestInteropCatsJS/test;coreOnlyTestJS/test")
 
 lazy val root = project
   .in(file("."))
