@@ -291,11 +291,14 @@ private class CatsMonadError[R, E] extends MonadError[ZIO[R, E, *], E] {
 
   override final def attempt[A](fa: ZIO[R, E, A]): ZIO[R, E, Either[E, A]] = fa.either
 
-  override def tailRecM[A, B](a: A)(f: A => ZIO[R, E, Either[A, B]]): ZIO[R, E, B] =
-    flatMap(ZIO.effectSuspendTotal(f(a))) {
-      case Left(a)  => tailRecM(a)(f)
-      case Right(b) => pure(b)
+  override def tailRecM[A, B](a: A)(f: A => ZIO[R, E, Either[A, B]]): ZIO[R, E, B] = {
+    def loop(a: A): ZIO[R, E, B] = f(a).flatMap {
+      case Left(a)  => loop(a)
+      case Right(b) => ZIO.succeedNow(b)
     }
+
+    ZIO.effectSuspendTotal(loop(a))
+  }
 }
 
 /** lossy, throws away errors using the "first success" interpretation of SemigroupK */
