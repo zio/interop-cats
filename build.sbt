@@ -84,6 +84,7 @@ lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-interop-cats-tests"))
   .settings(buildInfoSettings)
+  .settings(publish / skip := true)
   .settings(
     libraryDependencies ++= {
       val optLibraries0 = List(
@@ -117,7 +118,6 @@ lazy val zioTestInteropCats = crossProject(JSPlatform, JVMPlatform)
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-test-interop-cats"))
   .settings(buildInfoSettings)
-  .settings(publish / skip := true)
   .settings(
     libraryDependencies ++= {
       val optLibraries0 = List(
