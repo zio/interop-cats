@@ -38,13 +38,14 @@ class CatsSpec extends ZioSpecBase {
     }
   )
   checkAllAsync("GenSpawn[IO[Int, _], Int]", implicit tc => GenSpawnTests[IO[Int, _], Int].spawn[Int, Int, Int])
-  checkAllAsync("MonadError[IO[In t, _]]", implicit tc => MonadErrorTests[IO[Int, _], Int].monadError[Int, Int, Int])
+  checkAllAsync("MonadError[IO[Int, _]]", implicit tc => MonadErrorTests[IO[Int, _], Int].monadError[Int, Int, Int])
   checkAllAsync("MonoidK[IO[Int, _]]", implicit tc => MonoidKTests[IO[Int, _]].monoidK[Int])
   checkAllAsync("SemigroupK[IO[Option[Unit], _]]", implicit tc => SemigroupKTests[IO[Option[Unit], _]].semigroupK[Int])
   checkAllAsync("SemigroupK[Task]", implicit tc => SemigroupKTests[Task].semigroupK[Int])
   checkAllAsync("Bifunctor[IO]", implicit tc => BifunctorTests[IO].bifunctor[Int, Int, Int, Int, Int, Int])
   checkAllAsync("Parallel[Task]", implicit tc => ParallelTests[Task, ParallelF[Task, _]].parallel[Int, Int])
-  checkAllAsync("Monad[URIO[Int, _]]", implicit tc => MonadTests[URIO[Int, _]].apply[Int, Int, Int])
+  checkAllAsync("Monad[URIO[Int, _]]", implicit tc => MonadTests[URIO[Int, _]].monad[Int, Int, Int])
+  checkAllAsync("Monad[URIO[Int, _]]", implicit tc => ExtraMonadTests[URIO[Int, _]].monadExtras[Int])
   checkAllAsync(
     "ArrowChoice[ZIO[_, Int, _]]",
     implicit tc => ArrowChoiceTests[ZIO[_, Int, _]].arrowChoice[Int, Int, Int, Int, Int, Int]

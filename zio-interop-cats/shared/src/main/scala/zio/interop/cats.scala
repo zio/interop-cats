@@ -393,7 +393,7 @@ private class ZioRuntimeAsync(implicit runtime: Runtime[Clock & CBlocking])
     ZIO.never
 }
 
-private class ZioMonadError[R, E] extends MonadError[ZIO[R, E, _], E] with StackSafeMonad[ZIO[R, E, _]] {
+private class ZioMonadError[R, E] extends MonadError[ZIO[R, E, _], E] {
   type F[A] = ZIO[R, E, A]
 
   override final def pure[A](a: A): F[A] =
@@ -437,6 +437,15 @@ private class ZioMonadError[R, E] extends MonadError[ZIO[R, E, _], E] with Stack
 
   override final def adaptError[A](fa: F[A])(pf: PartialFunction[E, E]): F[A] =
     fa.mapError(pf.orElse { case error => error })
+
+  override final def tailRecM[A, B](a: A)(f: A => F[Either[A, B]]): F[B] = {
+    def loop(a: A): F[B] = f(a).flatMap {
+      case Left(a)  => loop(a)
+      case Right(b) => ZIO.succeedNow(b)
+    }
+
+    ZIO.effectSuspendTotal(loop(a))
+  }
 }
 
 private class ZioSemigroupK[R, E] extends SemigroupK[ZIO[R, E, _]] {
