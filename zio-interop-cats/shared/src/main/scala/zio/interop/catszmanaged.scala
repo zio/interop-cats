@@ -221,11 +221,14 @@ private class ZManagedMonadError[R, E] extends MonadError[ZManaged[R, E, _], E] 
   override final def adaptError[A](fa: F[A])(pf: PartialFunction[E, E]): F[A] =
     fa.mapError(pf.orElse { case error => error })
 
-  override final def tailRecM[A, B](a: A)(f: A => ZManaged[R, E, Either[A, B]]): ZManaged[R, E, B] =
-    ZManaged.suspend(f(a)).flatMap {
-      case Left(a)  => tailRecM(a)(f)
+  override final def tailRecM[A, B](a: A)(f: A => F[Either[A, B]]): F[B] = {
+    def loop(a: A): F[B] = f(a).flatMap {
+      case Left(a)  => loop(a)
       case Right(b) => ZManaged.succeedNow(b)
     }
+
+    ZManaged.suspend(loop(a))
+  }
 }
 
 private class ZManagedSemigroup[R, E, A](implicit semigroup: Semigroup[A]) extends Semigroup[ZManaged[R, E, A]] {
