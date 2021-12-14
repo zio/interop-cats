@@ -52,7 +52,7 @@ val catsVersion                = "2.6.1"
 val catsEffectVersion          = "3.2.9"
 val catsMtlVersion             = "1.2.1"
 val disciplineScalaTestVersion = "2.1.5"
-val fs2Version                 = "3.0.6"
+val fs2Version                 = "3.1.6"
 val scalaJavaTimeVersion       = "2.3.0"
 
 lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
