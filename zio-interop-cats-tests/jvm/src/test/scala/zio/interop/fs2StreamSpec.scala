@@ -1,7 +1,7 @@
 package zio.interop
 
 import fs2.Stream
-import zio.{ Chunk, Clock, Has, RIO, Ref, Task }
+import zio.{ Chunk, Clock, RIO, Ref, Task }
 import zio.stream.ZStream
 import zio.test.Assertion.{ equalTo, fails }
 import zio.test.*
@@ -88,7 +88,7 @@ object fs2StreamSpec extends DefaultRunnableSpec {
         for {
           queueSize <- nextIntBetween(2, 128)
           result    <- assertEqual(
-                         fs2StreamFromChunk(chunk).covary[RIO[Has[Clock], _]].toZStream(queueSize),
+                         fs2StreamFromChunk(chunk).covary[RIO[Clock, _]].toZStream(queueSize),
                          ZStream.fromChunk(chunk)
                        )
         } yield result

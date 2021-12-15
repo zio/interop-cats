@@ -27,10 +27,6 @@ class ZStreamSpec extends ZStreamSpecBase with GenStreamInteropCats {
   )
   checkAllAsync("Bifunctor[Stream]", implicit tc => BifunctorTests[Stream].bifunctor[Int, Int, Int, Int, Int, Int])
   checkAllAsync("Monad[UStream]", implicit tc => MonadTests[UStream].apply[Int, Int, Int])
-  checkAllAsync(
-    "ArrowChoice[ZStream]",
-    implicit tc => ArrowChoiceTests[ZStream[_, Int, _]].arrowChoice[Int, Int, Int, Int, Int, Int]
-  )
 
   object summoningInstancesTest {
     import cats.*

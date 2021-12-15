@@ -16,7 +16,6 @@
 
 package zio.interop
 
-import cats.arrow.ArrowChoice
 import cats.data.State
 import cats.effect.kernel.*
 import cats.effect.unsafe.IORuntime
@@ -24,7 +23,7 @@ import cats.effect.{ IO as CIO, LiftIO }
 import cats.kernel.{ CommutativeMonoid, CommutativeSemigroup }
 import cats.effect
 import cats.*
-import zio.{ Clock, Fiber }
+import zio.{ Clock, Fiber, ZEnvironment }
 import zio.*
 import zio.Clock.{ currentTime, nanoTime }
 import zio.Duration
@@ -52,7 +51,7 @@ object catz extends CatsEffectPlatform {
    * }}}
    */
   object implicits {
-    implicit val rts: Runtime[Has[Clock]] = Runtime.default
+    implicit val rts: Runtime[Clock] = Runtime.default
   }
 }
 
@@ -83,25 +82,25 @@ abstract class CatsEffectInstances extends CatsZioInstances {
   implicit final def liftIOInstance[R](implicit runtime: IORuntime): LiftIO[RIO[R, _]] =
     new ZioLiftIO
 
-  implicit final def asyncInstance[R <: Has[Clock]]: Async[RIO[R, _]] =
+  implicit final def asyncInstance[R <: Clock]: Async[RIO[R, _]] =
     asyncInstance0.asInstanceOf[Async[RIO[R, _]]]
 
-  implicit final def temporalInstance[R <: Has[Clock], E]: GenTemporal[ZIO[R, E, _], E] =
+  implicit final def temporalInstance[R <: Clock, E]: GenTemporal[ZIO[R, E, _], E] =
     temporalInstance0.asInstanceOf[GenTemporal[ZIO[R, E, _], E]]
 
   implicit final def concurrentInstance[R, E]: GenConcurrent[ZIO[R, E, _], E] =
     concurrentInstance0.asInstanceOf[GenConcurrent[ZIO[R, E, _], E]]
 
-  implicit final def asyncRuntimeInstance[E](implicit runtime: Runtime[Has[Clock]]): Async[Task] =
+  implicit final def asyncRuntimeInstance[E](implicit runtime: Runtime[Clock]): Async[Task] =
     new ZioRuntimeAsync
 
-  implicit final def temporalRuntimeInstance[E](implicit runtime: Runtime[Has[Clock]]): GenTemporal[IO[E, _], E] =
+  implicit final def temporalRuntimeInstance[E](implicit runtime: Runtime[Clock]): GenTemporal[IO[E, _], E] =
     new ZioRuntimeTemporal[E]
 
-  private[this] val asyncInstance0: Async[RIO[Has[Clock], _]] =
+  private[this] val asyncInstance0: Async[RIO[Clock, _]] =
     new ZioAsync
 
-  private[this] val temporalInstance0: Temporal[RIO[Has[Clock], _]] =
+  private[this] val temporalInstance0: Temporal[RIO[Clock, _]] =
     new ZioTemporal
 
   private[this] val concurrentInstance0: Concurrent[Task] =
@@ -126,26 +125,14 @@ abstract class CatsZioInstances extends CatsZioInstances1 {
   implicit final def bifunctorInstance[R]: Bifunctor[ZIO[R, _, _]] =
     bifunctorInstance0.asInstanceOf[Bifunctor[ZIO[R, _, _]]]
 
-  implicit final def rioArrowChoiceInstance: ArrowChoice[RIO] =
-    arrowChoiceInstance0
-
-  implicit final def contravariantInstance[E, A]: Contravariant[ZIO[_, E, A]] =
-    contravariantInstance0.asInstanceOf[Contravariant[ZIO[_, E, A]]]
-
   private[this] val deferInstance0: Defer[UIO] =
     new ZioDefer[Any, Nothing]
 
   private[this] val bifunctorInstance0: Bifunctor[IO] =
     new ZioBifunctor[Any]
-
-  private[this] val contravariantInstance0: Contravariant[RIO[_, Any]] =
-    new ZioContravariant
 }
 
 sealed abstract class CatsZioInstances1 extends CatsZioInstances2 {
-
-  implicit final def urioArrowChoiceInstance: ArrowChoice[URIO] =
-    arrowChoiceInstance0.asInstanceOf[ArrowChoice[URIO]]
 
   implicit final def parallelInstance[R, E]: Parallel.Aux[ZIO[R, E, _], ParallelF[ZIO[R, E, _], _]] =
     parallelInstance0.asInstanceOf[Parallel.Aux[ZIO[R, E, _], ParallelF[ZIO[R, E, _], _]]]
@@ -175,14 +162,8 @@ sealed abstract class CatsZioInstances1 extends CatsZioInstances2 {
 
 sealed abstract class CatsZioInstances2 {
 
-  implicit final def zioArrowChoiceInstance[E]: ArrowChoice[ZIO[_, E, _]] =
-    arrowChoiceInstance0.asInstanceOf[ArrowChoice[ZIO[_, E, _]]]
-
   implicit final def monadErrorInstance[R, E]: MonadError[ZIO[R, E, _], E] =
     monadErrorInstance0.asInstanceOf[MonadError[ZIO[R, E, _], E]]
-
-  protected[this] final val arrowChoiceInstance0: ArrowChoice[RIO] =
-    new ZioArrowChoice
 
   private[this] val monadErrorInstance0: MonadError[Task, Throwable] =
     new ZioMonadError[Any, Throwable]
@@ -373,7 +354,7 @@ private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E
     ref.get(CoreTracer.newTrace)
 }
 
-private class ZioTemporal[R <: Has[Clock], E] extends ZioConcurrent[R, E] with GenTemporal[ZIO[R, E, _], E] {
+private class ZioTemporal[R <: Clock, E] extends ZioConcurrent[R, E] with GenTemporal[ZIO[R, E, _], E] {
 
   override final def sleep(time: FiniteDuration): F[Unit] = {
     implicit def trace: ZTraceElement = CoreTracer.newTrace
@@ -394,55 +375,55 @@ private class ZioTemporal[R <: Has[Clock], E] extends ZioConcurrent[R, E] with G
   }
 }
 
-private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Has[Clock]])
+private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Clock])
     extends ZioConcurrent[Any, E]
     with GenTemporal[IO[E, _], E] {
 
-  private[this] val underlying: GenTemporal[ZIO[Has[Clock], E, _], E] = new ZioTemporal[Has[Clock], E]
-  private[this] val clock: Has[Clock]                                 = runtime.environment
+  private[this] val underlying: GenTemporal[ZIO[Clock, E, _], E] = new ZioTemporal[Clock, E]
+  private[this] val clock: ZEnvironment[Clock]                                 = runtime.environment
 
   override final def sleep(time: FiniteDuration): F[Unit] = {
     implicit def trace: ZTraceElement = CoreTracer.newTrace
 
-    underlying.sleep(time).provide(clock)
+    underlying.sleep(time).provideEnvironment(clock)
   }
 
   override final val monotonic: F[FiniteDuration] = {
     implicit def trace: ZTraceElement = CoreTracer.newTrace
 
-    underlying.monotonic.provide(clock)
+    underlying.monotonic.provideEnvironment(clock)
   }
 
   override final val realTime: F[FiniteDuration] = {
     implicit def trace: ZTraceElement = CoreTracer.newTrace
 
-    underlying.realTime.provide(clock)
+    underlying.realTime.provideEnvironment(clock)
   }
 }
 
-private class ZioRuntimeAsync(implicit runtime: Runtime[Has[Clock]])
+private class ZioRuntimeAsync(implicit runtime: Runtime[Clock])
     extends ZioRuntimeTemporal[Throwable]
     with Async[Task] {
 
-  private[this] val underlying: Async[RIO[Has[Clock], _]] = new ZioAsync[Has[Clock]]
-  private[this] val environment: Has[Clock]               = runtime.environment
+  private[this] val underlying: Async[RIO[Clock, _]] = new ZioAsync[Clock]
+  private[this] val environment: ZEnvironment[Clock]              = runtime.environment
 
   override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] = {
     implicit def trace: ZTraceElement = CoreTracer.newTrace
 
-    underlying.evalOn(fa, ec).provide(environment)
+    underlying.evalOn(fa, ec).provideEnvironment(environment)
   }
 
   override final val executionContext: F[ExecutionContext] = {
     implicit def trace: ZTraceElement = CoreTracer.newTrace
 
-    underlying.executionContext.provide(environment)
+    underlying.executionContext.provideEnvironment(environment)
   }
 
   override final val unique: F[Unique.Token] = {
     implicit def trace: ZTraceElement = CoreTracer.newTrace
 
-    underlying.unique.provide(environment)
+    underlying.unique.provideEnvironment(environment)
   }
 
   override final def cont[K, Q](body: Cont[F, K, Q]): F[Q] =
@@ -452,53 +433,53 @@ private class ZioRuntimeAsync(implicit runtime: Runtime[Has[Clock]])
     val byName: () => A               = () => thunk
     implicit def trace: ZTraceElement = InteropTracer.newTrace(byName)
 
-    underlying.suspend(hint)(thunk).provide(environment)
+    underlying.suspend(hint)(thunk).provideEnvironment(environment)
   }
 
   override final def delay[A](thunk: => A): F[A] = {
     val byName: () => A               = () => thunk
     implicit def trace: ZTraceElement = InteropTracer.newTrace(byName)
 
-    underlying.delay(thunk).provide(environment)
+    underlying.delay(thunk).provideEnvironment(environment)
   }
 
   override final def defer[A](thunk: => F[A]): F[A] = {
     val byName: () => F[A]            = () => thunk
     implicit def trace: ZTraceElement = InteropTracer.newTrace(byName)
 
-    underlying.defer(thunk).provide(environment)
+    underlying.defer(thunk).provideEnvironment(environment)
   }
 
   override final def blocking[A](thunk: => A): F[A] = {
     val byName: () => A               = () => thunk
     implicit def trace: ZTraceElement = InteropTracer.newTrace(byName)
 
-    underlying.blocking(thunk).provide(environment)
+    underlying.blocking(thunk).provideEnvironment(environment)
   }
 
   override final def interruptible[A](many: Boolean)(thunk: => A): F[A] = {
     val byName: () => A               = () => thunk
     implicit def trace: ZTraceElement = InteropTracer.newTrace(byName)
 
-    underlying.interruptible(many)(thunk).provide(environment)
+    underlying.interruptible(many)(thunk).provideEnvironment(environment)
   }
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] = {
     implicit def trace: ZTraceElement = InteropTracer.newTrace(k)
 
-    underlying.async(k).provide(environment)
+    underlying.async(k).provideEnvironment(environment)
   }
 
   override final def async_[A](k: (Either[Throwable, A] => Unit) => Unit): F[A] = {
     implicit def trace: ZTraceElement = InteropTracer.newTrace(k)
 
-    underlying.async_(k).provide(environment)
+    underlying.async_(k).provideEnvironment(environment)
   }
 
   override final def fromFuture[A](fut: F[Future[A]]): F[A] = {
     implicit def trace: ZTraceElement = CoreTracer.newTrace
 
-    underlying.fromFuture(fut).provide(environment)
+    underlying.fromFuture(fut).provideEnvironment(environment)
   }
 
   override final def never[A]: F[A] =
@@ -660,83 +641,6 @@ private class ZioParApplicative[R, E] extends CommutativeApplicative[ParallelF[Z
 
   final override val unit: F[Unit] =
     ParallelF[G, Unit](ZIO.unit)
-}
-
-private class ZioArrowChoice[E] extends ArrowChoice[ZIO[_, E, _]] {
-  type F[A, B] = ZIO[A, E, B]
-
-  final override def lift[A, B](f: A => B): F[A, B] =
-    ZIO.access(f)(InteropTracer.newTrace(f))
-
-  final override def compose[A, B, C](f: F[B, C], g: F[A, B]): F[A, C] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    g.flatMap(f.provide(_))
-  }
-
-  final override def id[A]: F[A, A] =
-    ZIO.environment[A](CoreTracer.newTrace)
-
-  final override def dimap[A, B, C, D](fab: F[A, B])(f: C => A)(g: B => D): F[C, D] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
-
-    fab.provideSome(f).map(g)
-  }
-
-  final override def choose[A, B, C, D](f: F[A, C])(g: F[B, D]): F[Either[A, B], Either[C, D]] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    ZIO.accessZIO[Either[A, B]](_.fold(f.provide(_).map(Left(_)), g.provide(_).map(Right(_))))
-  }
-
-  final override def first[A, B, C](fa: F[A, B]): F[(A, C), (B, C)] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    fa.provideSome[(A, C)](_._1) <*> ZIO.access[(A, C)](_._2)
-  }
-
-  final override def second[A, B, C](fa: F[A, B]): F[(C, A), (C, B)] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    ZIO.access[(C, A)](_._1) <*> fa.provideSome[(C, A)](_._2)
-  }
-
-  final override def split[A, B, C, D](f: F[A, B], g: F[C, D]): F[(A, C), (B, D)] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    f.provideSome[(A, C)](_._1) <*> g.provideSome[(A, C)](_._2)
-  }
-
-  final override def merge[A, B, C](f: F[A, B], g: F[A, C]): F[A, (B, C)] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    f zip g
-  }
-
-  final override def lmap[A, B, C](fab: F[A, B])(f: C => A): F[C, B] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
-
-    fab.provideSome(f)
-  }
-
-  final override def rmap[A, B, C](fab: F[A, B])(f: B => C): F[A, C] =
-    fab.map(f)(InteropTracer.newTrace(f))
-
-  final override def choice[A, B, C](f: F[A, C], g: F[B, C]): F[Either[A, B], C] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    ZIO.accessZIO(_.fold(f.provide(_), g.provide(_)))
-  }
-}
-
-private class ZioContravariant[E, T] extends Contravariant[ZIO[_, E, T]] {
-  type F[A] = ZIO[A, E, T]
-
-  final override def contramap[A, B](fa: F[A])(f: B => A): F[B] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
-
-    ZIO.accessZIO[B](b => fa.provide(f(b)))
-  }
 }
 
 private class ZioSemigroup[R, E, A](implicit semigroup: Semigroup[A]) extends Semigroup[ZIO[R, E, A]] {

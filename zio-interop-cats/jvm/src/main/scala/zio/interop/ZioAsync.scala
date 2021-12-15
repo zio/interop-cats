@@ -1,11 +1,11 @@
 package zio.interop
 
 import cats.effect.kernel.{ Async, Cont, Sync, Unique }
-import zio.{ Clock, Has, Promise, RIO, ZIO }
+import zio.{ Clock, Promise, RIO, ZIO }
 
 import scala.concurrent.{ ExecutionContext, Future }
 
-private class ZioAsync[R <: Has[Clock]] extends ZioTemporal[R, Throwable] with Async[RIO[R, _]] {
+private class ZioAsync[R <: Clock] extends ZioTemporal[R, Throwable] with Async[RIO[R, _]] {
 
   override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] =
     fa.onExecutionContext(ec)
