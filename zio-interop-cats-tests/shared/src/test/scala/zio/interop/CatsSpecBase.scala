@@ -83,7 +83,7 @@ private[zio] trait CatsSpecBase
     }
 
   implicit def runtime(implicit ticker: Ticker): Runtime[Any] =
-    Runtime(ZEnvironment.empty, platform)
+    Runtime(ZEnvironment(()), platform)
 
   implicit val arbitraryAny: Arbitrary[Any] =
     Arbitrary(Gen.const(()))
