@@ -380,7 +380,7 @@ private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Clock])
     with GenTemporal[IO[E, _], E] {
 
   private[this] val underlying: GenTemporal[ZIO[Clock, E, _], E] = new ZioTemporal[Clock, E]
-  private[this] val clock: ZEnvironment[Clock]                                 = runtime.environment
+  private[this] val clock: ZEnvironment[Clock]                   = runtime.environment
 
   override final def sleep(time: FiniteDuration): F[Unit] = {
     implicit def trace: ZTraceElement = CoreTracer.newTrace
@@ -401,12 +401,10 @@ private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Clock])
   }
 }
 
-private class ZioRuntimeAsync(implicit runtime: Runtime[Clock])
-    extends ZioRuntimeTemporal[Throwable]
-    with Async[Task] {
+private class ZioRuntimeAsync(implicit runtime: Runtime[Clock]) extends ZioRuntimeTemporal[Throwable] with Async[Task] {
 
   private[this] val underlying: Async[RIO[Clock, _]] = new ZioAsync[Clock]
-  private[this] val environment: ZEnvironment[Clock]              = runtime.environment
+  private[this] val environment: ZEnvironment[Clock] = runtime.environment
 
   override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] = {
     implicit def trace: ZTraceElement = CoreTracer.newTrace
