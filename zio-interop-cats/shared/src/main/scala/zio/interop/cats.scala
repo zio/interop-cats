@@ -16,7 +16,6 @@
 
 package zio.interop
 
-import cats.arrow.ArrowChoice
 import cats.effect.{ Concurrent, ContextShift, ExitCase }
 import cats.{ effect, _ }
 import zio._
@@ -69,7 +68,7 @@ abstract class CatsEffectInstances extends CatsInstances with CatsEffectInstance
   implicit final def zioContextShift[R, E]: ContextShift[ZIO[R, E, *]] =
     zioContextShift0.asInstanceOf[ContextShift[ZIO[R, E, *]]]
 
-  implicit final def zioTimer[R <: Has[Clock], E]: effect.Timer[ZIO[R, E, *]] =
+  implicit final def zioTimer[R <: Clock, E]: effect.Timer[ZIO[R, E, *]] =
     zioTimer0.asInstanceOf[effect.Timer[ZIO[R, E, *]]]
 
   implicit final def taskEffectInstance[R](implicit runtime: Runtime[R]): effect.ConcurrentEffect[RIO[R, *]] =
@@ -82,20 +81,20 @@ abstract class CatsEffectInstances extends CatsInstances with CatsEffectInstance
         fa.onExecutionContext(ec)(CoreTracer.newTrace)
     }
 
-  private[this] final val zioTimer0: effect.Timer[ZIO[Has[Clock], Any, *]] = new effect.Timer[ZIO[Has[Clock], Any, *]] {
-    override final def clock: effect.Clock[ZIO[Has[Clock], Any, *]] = zioCatsClock0
-    override final def sleep(duration: FiniteDuration): ZIO[Has[Clock], Any, Unit] =
+  private[this] final val zioTimer0: effect.Timer[ZIO[Clock, Any, *]] = new effect.Timer[ZIO[Clock, Any, *]] {
+    override final def clock: effect.Clock[ZIO[Clock, Any, *]] = zioCatsClock0
+    override final def sleep(duration: FiniteDuration): ZIO[Clock, Any, Unit] =
       zio.Clock.sleep(zio.Duration.fromNanos(duration.toNanos))(CoreTracer.newTrace)
   }
 
-  private[this] final val zioCatsClock0: effect.Clock[ZIO[Has[Clock], Any, *]] =
-    new effect.Clock[ZIO[Has[Clock], Any, *]] {
-      override final def monotonic(unit: TimeUnit): ZIO[Has[Clock], Any, Long] = {
+  private[this] final val zioCatsClock0: effect.Clock[ZIO[Clock, Any, *]] =
+    new effect.Clock[ZIO[Clock, Any, *]] {
+      override final def monotonic(unit: TimeUnit): ZIO[Clock, Any, Long] = {
         implicit def trace: ZTraceElement = CoreTracer.newTrace
 
         zio.Clock.nanoTime.map(unit.convert(_, NANOSECONDS))
       }
-      override final def realTime(unit: TimeUnit): ZIO[Has[Clock], Any, Long] =
+      override final def realTime(unit: TimeUnit): ZIO[Clock, Any, Long] =
         zio.Clock.currentTime(unit)(CoreTracer.newTrace)
     }
 
@@ -119,20 +118,10 @@ abstract class CatsInstances extends CatsInstances1 {
   implicit final def bifunctorInstance[R]: Bifunctor[ZIO[R, *, *]] =
     bifunctorInstance0.asInstanceOf[Bifunctor[ZIO[R, *, *]]]
 
-  implicit final def rioArrowInstance: ArrowChoice[RIO] =
-    zioArrowInstance0.asInstanceOf[ArrowChoice[RIO]]
-
-  implicit final def contravariantInstance[E, A]: Contravariant[ZIO[*, E, A]] =
-    contravariantInstance0.asInstanceOf[Contravariant[ZIO[*, E, A]]]
-
-  private[this] val bifunctorInstance0: Bifunctor[ZIO[Any, *, *]]           = new CatsBifunctor
-  private[this] val contravariantInstance0: Contravariant[ZIO[*, Any, Any]] = new CatsContravariant
+  private[this] val bifunctorInstance0: Bifunctor[ZIO[Any, *, *]] = new CatsBifunctor
 }
 
 sealed abstract class CatsInstances1 extends CatsInstances2 {
-
-  implicit final def urioArrowInstance: ArrowChoice[URIO] =
-    zioArrowInstance0.asInstanceOf[ArrowChoice[URIO]]
 
   implicit final def parallelInstance[R, E]: Parallel.Aux[ZIO[R, E, *], ParIO[R, E, *]] =
     parallelInstance0.asInstanceOf[Parallel.Aux[ZIO[R, E, *], ParIO[R, E, *]]]
@@ -151,10 +140,6 @@ sealed abstract class CatsInstances1 extends CatsInstances2 {
 }
 
 sealed abstract class CatsInstances2 {
-  protected[this] val zioArrowInstance0: ArrowChoice[ZIO[*, Any, *]] = new CatsArrow
-
-  implicit final def zioArrowInstance[E]: ArrowChoice[ZIO[*, E, *]] =
-    zioArrowInstance0.asInstanceOf[ArrowChoice[ZIO[*, E, *]]]
 
   implicit final def monadErrorInstance[R, E]: MonadError[ZIO[R, E, *], E] =
     monadErrorInstance0.asInstanceOf[MonadError[ZIO[R, E, *], E]]
@@ -440,62 +425,4 @@ private class CatsParApplicative[R, E] extends CommutativeApplicative[ParIO[R, E
 
   final override def unit: ParIO[R, E, Unit] =
     Par(ZIO.unit)
-}
-
-private class CatsArrow[E] extends ArrowChoice[ZIO[*, E, *]] {
-  final override def lift[A, B](f: A => B): ZIO[A, E, B] = ZIO.access(f)(InteropTracer.newTrace(f))
-  final override def compose[A, B, C](f: ZIO[B, E, C], g: ZIO[A, E, B]): ZIO[A, E, C] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    g.flatMap(f.provide(_))
-  }
-  final override def id[A]: ZIO[A, E, A] = ZIO.environment(CoreTracer.newTrace)
-  final override def dimap[A, B, C, D](fab: ZIO[A, E, B])(f: C => A)(g: B => D): ZIO[C, E, D] = {
-    implicit def tracer: ZTraceElement = InteropTracer.newTrace(f)
-
-    fab.provideSome(f).map(g)
-  }
-
-  final override def choose[A, B, C, D](f: ZIO[A, E, C])(g: ZIO[B, E, D]): ZIO[Either[A, B], E, Either[C, D]] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    ZIO.accessZIO[Either[A, B]](_.fold(f.provide(_).map(Left(_)), g.provide(_).map(Right(_))))
-  }
-
-  final override def first[A, B, C](fa: ZIO[A, E, B]): ZIO[(A, C), E, (B, C)] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    fa.provideSome[(A, C)](_._1) <*> ZIO.access[(A, C)](_._2)
-  }
-  final override def second[A, B, C](fa: ZIO[A, E, B]): ZIO[(C, A), E, (C, B)] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    ZIO.access[(C, A)](_._1) <*> fa.provideSome[(C, A)](_._2)
-  }
-  final override def split[A, B, C, D](f: ZIO[A, E, B], g: ZIO[C, E, D]): ZIO[(A, C), E, (B, D)] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    f.provideSome[(A, C)](_._1) <*> g.provideSome[(A, C)](_._2)
-  }
-  final override def merge[A, B, C](f: ZIO[A, E, B], g: ZIO[A, E, C]): ZIO[A, E, (B, C)] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    f.zip(g)
-  }
-  final override def lmap[A, B, C](fab: ZIO[A, E, B])(f: C => A): ZIO[C, E, B] =
-    fab.provideSome(f)(implicitly[NeedsEnv[A]], InteropTracer.newTrace(f))
-  final override def rmap[A, B, C](fab: ZIO[A, E, B])(f: B => C): ZIO[A, E, C] = fab.map(f)(InteropTracer.newTrace(f))
-  final override def choice[A, B, C](f: ZIO[A, E, C], g: ZIO[B, E, C]): ZIO[Either[A, B], E, C] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
-
-    ZIO.accessZIO(_.fold(f.provide(_), g.provide(_)))
-  }
-}
-
-final private class CatsContravariant[E, T] extends Contravariant[ZIO[*, E, T]] {
-  override def contramap[A, B](fa: ZIO[A, E, T])(f: B => A): ZIO[B, E, T] = {
-    implicit def tracer: ZTraceElement = InteropTracer.newTrace(f)
-
-    ZIO.accessZIO[B](b => fa.provide(f(b)))
-  }
 }

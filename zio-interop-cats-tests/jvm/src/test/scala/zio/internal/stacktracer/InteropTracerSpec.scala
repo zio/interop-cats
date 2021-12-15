@@ -25,5 +25,5 @@ object InteropTracerSpec extends DefaultRunnableSpec {
 
         assertTrue(result == "spec(InteropTracerSpec.scala:24:0)".asInstanceOf[ZTraceElement])
       }
-    ).@@(TestAspect.exceptDotty)
+    ).@@(TestAspect.exceptScala3)
 }

@@ -17,7 +17,6 @@
 package zio.stream.interop
 
 import cats._
-import cats.arrow._
 import zio._
 import zio.stream._
 import zio.internal.stacktracer.{ Tracer => CoreTracer }
@@ -38,8 +37,6 @@ sealed abstract class CatsInstances1 extends CatsInstances2 {
 
   implicit def zstreamBifunctorInstance[R]: Bifunctor[ZStream[R, *, *]] =
     new CatsBifunctor[R] {}
-
-  implicit def zstreamArrowInstance[E]: ArrowChoice[ZStream[*, E, *]] = new CatsArrow[E]
 }
 
 sealed abstract class CatsInstances2 extends CatsInstances3 {
@@ -111,66 +108,6 @@ private class CatsMonoidK[R, E] extends CatsSemigroupK[R, E] with MonoidK[ZStrea
 private trait CatsBifunctor[R] extends Bifunctor[ZStream[R, *, *]] {
   override final def bimap[A, B, C, D](fab: ZStream[R, A, B])(f: A => C, g: B => D): ZStream[R, C, D] =
     fab.mapBoth(f, g)(implicitly[CanFail[A]], InteropTracer.newTrace(f))
-}
-
-private class CatsArrow[E] extends ArrowChoice[ZStream[*, E, *]] {
-  final override def lift[A, B](f: A => B): ZStream[A, E, B] = {
-    implicit def tracer: ZTraceElement = InteropTracer.newTrace(f)
-
-    ZStream.fromZIO(ZIO.access(f))
-  }
-  final override def compose[A, B, C](f: ZStream[B, E, C], g: ZStream[A, E, B]): ZStream[A, E, C] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    g.flatMap(f.provide)
-  }
-  final override def id[A]: ZStream[A, E, A] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    ZStream.fromZIO(ZIO.environment)
-  }
-  final override def dimap[A, B, C, D](fab: ZStream[A, E, B])(f: C => A)(g: B => D): ZStream[C, E, D] = {
-    implicit def tracer: ZTraceElement = InteropTracer.newTrace(f)
-
-    fab.provideSome(f).map(g)
-  }
-
-  def choose[A, B, C, D](f: ZStream[A, E, C])(g: ZStream[B, E, D]): ZStream[Either[A, B], E, Either[C, D]] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    ZStream
-      .fromZIO(ZIO.environment[Either[A, B]])
-      .flatMap(_.fold(f.provide(_).map(Left(_)), g.provide(_).map(Right(_))))
-  }
-
-  final override def first[A, B, C](fa: ZStream[A, E, B]): ZStream[(A, C), E, (B, C)] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    ZStream.fromZIO(ZIO.environment[(A, C)]).flatMap { case (a, c) => fa.provide(a).map((_, c)) }
-  }
-  final override def second[A, B, C](fa: ZStream[A, E, B]): ZStream[(C, A), E, (C, B)] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    ZStream.fromZIO(ZIO.environment[(C, A)]).flatMap { case (c, a) => fa.provide(a).map((c, _)) }
-  }
-  final override def split[A, B, C, D](f: ZStream[A, E, B], g: ZStream[C, E, D]): ZStream[(A, C), E, (B, D)] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    ZStream.fromZIO(ZIO.environment[(A, C)]).flatMap { case (a, c) => f.provide(a).crossWith(g.provide(c))(_ -> _) }
-  }
-  final override def merge[A, B, C](f: ZStream[A, E, B], g: ZStream[A, E, C]): ZStream[A, E, (B, C)] =
-    f.crossWith(g)(_ -> _)(CoreTracer.newTrace)
-
-  final override def lmap[A, B, C](fab: ZStream[A, E, B])(f: C => A): ZStream[C, E, B] =
-    fab.provideSome(f)(implicitly[NeedsEnv[A]], InteropTracer.newTrace(f))
-  final override def rmap[A, B, C](fab: ZStream[A, E, B])(f: B => C): ZStream[A, E, C] =
-    fab.map(f)(InteropTracer.newTrace(f))
-
-  final override def choice[A, B, C](f: ZStream[A, E, C], g: ZStream[B, E, C]): ZStream[Either[A, B], E, C] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    ZStream.fromZIO(ZIO.environment[Either[A, B]]).flatMap(_.fold(f.provide, g.provide))
-  }
 }
 
 private class CatsParallel[R, E](final override val monad: Monad[ZStream[R, E, *]]) extends Parallel[ZStream[R, E, *]] {

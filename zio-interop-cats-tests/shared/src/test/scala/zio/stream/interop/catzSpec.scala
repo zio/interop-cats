@@ -35,10 +35,6 @@ class catzSpec extends catzSpecZStreamBase with GenStreamInteropCats {
       MonadTests[Stream[Nothing, *]].apply[Int, Int, Int]
     }
   )
-  checkAllAsync(
-    "ArrowChoice[ZStream]",
-    implicit tc => ArrowChoiceTests[ZStream[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
-  )
 
   object summoningInstancesTest {
     import cats._

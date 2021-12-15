@@ -18,32 +18,13 @@ package zio.interop
 
 import cats.mtl._
 import cats.Applicative
-import zio.{ CanFail, ZIO, ZTraceElement }
+import zio.{ CanFail, ZIO }
 import zio.internal.stacktracer.{ Tracer => CoreTracer }
 import zio.internal.stacktracer.InteropTracer
 
 abstract class CatsMtlPlatform extends CatsMtlInstances
 
 abstract class CatsMtlInstances {
-
-  implicit def zioLocal[R, E](implicit ev: Applicative[ZIO[R, E, *]]): Local[ZIO[R, E, *], R] =
-    new Local[ZIO[R, E, *], R] {
-      override def applicative: Applicative[ZIO[R, E, *]] = ev
-      override def ask[E2 >: R]: ZIO[R, E, E2]            = ZIO.environment(CoreTracer.newTrace)
-      override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] = {
-        implicit def tracer: ZTraceElement = InteropTracer.newTrace(f)
-
-        ZIO.accessZIO(fa provide f(_))
-      }
-    }
-
-  implicit def zioApplicativeAsk[R1, R <: R1, E](
-    implicit ev: Applicative[ZIO[R, E, *]]
-  ): Ask[ZIO[R, E, *], R1] =
-    new Ask[ZIO[R, E, *], R1] {
-      override def applicative: Applicative[ZIO[R, E, *]] = ev
-      override def ask[R2 >: R1]: ZIO[R, E, R2]           = ZIO.environment(CoreTracer.newTrace)
-    }
 
   implicit def zioApplicativeHandle[R, E](implicit ev: Applicative[ZIO[R, E, *]]): Handle[ZIO[R, E, *], E] =
     new Handle[ZIO[R, E, *], E] {

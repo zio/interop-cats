@@ -17,7 +17,7 @@
 package zio
 package interop
 
-import cats.arrow.{ ArrowChoice, FunctionK }
+import cats.arrow.FunctionK
 import cats.effect.{ Async, Effect, ExitCase, LiftIO, Resource, Sync, IO => CIO }
 import cats.{ ~>, Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
 import zio.ZManaged.ReleaseMap
@@ -76,8 +76,10 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
       .flatMap(
         releaseMap =>
           Resource.suspend(
-            managed.zio.provideSome[R]((_, releaseMap)).map { a =>
-              Resource.applyCase(ZIO.succeedNow((a._2, (_: ExitCase[Throwable]) => ZIO.unit)))
+            ZManaged.currentReleaseMap.locally(releaseMap) {
+              managed.zio.map { a =>
+                Resource.applyCase(ZIO.succeedNow((a._2, (_: ExitCase[Throwable]) => ZIO.unit)))
+              }
             }
           )
       )
@@ -117,12 +119,9 @@ trait CatsZManagedInstances extends CatsZManagedInstances1 {
       override def combine(x: ZManaged[R, E, A], y: ZManaged[R, E, A]): ZManaged[R, E, A] =
         x.zipWith(y)(ev.combine)(CoreTracer.newTrace)
     }
-
-  implicit def arrowChoiceRManagedInstances[E]: ArrowChoice[RManaged] =
-    CatsZManagedArrowChoice.asInstanceOf[ArrowChoice[RManaged]]
 }
 
-sealed trait CatsZManagedInstances1 extends CatsZManagedInstances2 {
+sealed trait CatsZManagedInstances1 {
 
   implicit def monadZManagedInstances[R, E]: Monad[ZManaged[R, E, *]] = new CatsZManagedMonad
 
@@ -135,14 +134,6 @@ sealed trait CatsZManagedInstances1 extends CatsZManagedInstances2 {
     override def bimap[A, B, C, D](fab: ZManaged[R, A, B])(f: A => C, g: B => D): ZManaged[R, C, D] =
       fab.mapBoth(f, g)(implicitly[CanFail[A]], InteropTracer.newTrace(f))
   }
-
-  implicit def arrowChoiceURManagedInstances[E]: ArrowChoice[URManaged] =
-    CatsZManagedArrowChoice.asInstanceOf[ArrowChoice[URManaged]]
-}
-
-sealed trait CatsZManagedInstances2 {
-  implicit def arrowChoiceZManagedInstances[E]: ArrowChoice[ZManaged[*, E, *]] =
-    CatsZManagedArrowChoice.asInstanceOf[ArrowChoice[ZManaged[*, E, *]]]
 }
 
 private class CatsZManagedMonad[R, E] extends Monad[ZManaged[R, E, *]] {
@@ -213,66 +204,5 @@ private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] w
         } yield b).zio
       }
     }
-  }
-}
-
-private object CatsZManagedArrowChoice extends ArrowChoice[ZManaged[*, Any, *]] {
-  final override def lift[A, B](f: A => B): ZManaged[A, Any, B] = ZManaged.access(f)(InteropTracer.newTrace(f))
-  final override def compose[A, B, C](f: ZManaged[B, Any, C], g: ZManaged[A, Any, B]): ZManaged[A, Any, C] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    g.flatMap(f.provide(_))
-  }
-
-  final override def id[A]: ZManaged[A, Any, A] = ZManaged.environment(CoreTracer.newTrace)
-  final override def dimap[A, B, C, D](fab: ZManaged[A, Any, B])(f: C => A)(g: B => D): ZManaged[C, Any, D] = {
-    implicit def tracer: ZTraceElement = InteropTracer.newTrace(f)
-
-    fab.provideSome(f).map(g)
-  }
-
-  final override def choose[A, B, C, D](f: ZManaged[A, Any, C])(
-    g: ZManaged[B, Any, D]
-  ): ZManaged[Either[A, B], Any, Either[C, D]] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    ZManaged.accessManaged[Either[A, B]](_.fold(f.provide(_).map(Left(_)), g.provide(_).map(Right(_))))
-  }
-
-  final override def first[A, B, C](fa: ZManaged[A, Any, B]): ZManaged[(A, C), Any, (B, C)] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    fa.provideSome[(A, C)](_._1) <*> ZManaged.access[(A, C)](_._2)
-  }
-  final override def second[A, B, C](fa: ZManaged[A, Any, B]): ZManaged[(C, A), Any, (C, B)] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    ZManaged.access[(C, A)](_._1) <*> fa.provideSome[(C, A)](_._2)
-  }
-  final override def split[A, B, C, D](
-    f: ZManaged[A, Any, B],
-    g: ZManaged[C, Any, D]
-  ): ZManaged[(A, C), Any, (B, D)] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    f.provideSome[(A, C)](_._1) <*> g.provideSome[(A, C)](_._2)
-  }
-
-  final override def merge[A, B, C](f: ZManaged[A, Any, B], g: ZManaged[A, Any, C]): ZManaged[A, Any, (B, C)] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    f.zip(g)
-  }
-  final override def lmap[A, B, C](fab: ZManaged[A, Any, B])(f: C => A): ZManaged[C, Any, B] = {
-    implicit def tracer: ZTraceElement = InteropTracer.newTrace(f)
-
-    fab.provideSome(f)
-  }
-  final override def rmap[A, B, C](fab: ZManaged[A, Any, B])(f: B => C): ZManaged[A, Any, C] =
-    fab.map(f)(InteropTracer.newTrace(f))
-  final override def choice[A, B, C](f: ZManaged[A, Any, C], g: ZManaged[B, Any, C]): ZManaged[Either[A, B], Any, C] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
-
-    ZManaged.accessManaged(_.fold(f.provide(_), g.provide(_)))
   }
 }
