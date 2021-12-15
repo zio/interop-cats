@@ -47,7 +47,7 @@ lazy val root = project
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
-val zioVersion                 = "1.0.12"
+val zioVersion                 = "1.0.13"
 val catsVersion                = "2.6.1"
 val catsEffectVersion          = "3.2.9"
 val catsMtlVersion             = "1.2.1"
