@@ -18,7 +18,6 @@ package zio
 package interop
 
 import cats.*
-import cats.arrow.ArrowChoice
 import cats.effect.*
 import cats.effect.std.Dispatcher
 import cats.kernel.{ CommutativeMonoid, CommutativeSemigroup }
@@ -94,8 +93,10 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
       )
       .flatMap { releaseMap =>
         Resource.suspend(
-          managed.zio.provideSome[R]((_, releaseMap)).map { case (_, a) =>
-            Resource.applyCase[F, A](ZIO.succeedNow((a, _ => ZIO.unit)))
+          ZManaged.currentReleaseMap.locally(releaseMap) {
+            managed.zio.map { case (_, a) =>
+              Resource.applyCase[F, A](ZIO.succeedNow((a, _ => ZIO.unit)))
+            }
           }
         )
       }
@@ -118,9 +119,6 @@ trait CatsZManagedInstances extends CatsZManagedInstances1 {
   implicit final def monadErrorZManagedInstances[R, E]: MonadError[ZManaged[R, E, _], E] =
     monadErrorInstance0.asInstanceOf[MonadError[ZManaged[R, E, _], E]]
 
-  implicit final def contravariantZManagedInstances[E, A]: Contravariant[ZManaged[_, E, A]] =
-    contravariantInstance0.asInstanceOf[Contravariant[ZManaged[_, E, A]]]
-
   implicit def monoidZManagedInstances[R, E, A: Monoid]: Monoid[ZManaged[R, E, A]] =
     new ZManagedMonoid
 
@@ -130,23 +128,17 @@ trait CatsZManagedInstances extends CatsZManagedInstances1 {
   implicit final def monoidKZManagedInstances[R, E: Monoid]: MonoidK[ZManaged[R, E, _]] =
     new ZManagedMonoidK
 
-  implicit final def arrowChoiceRManagedInstances: ArrowChoice[RManaged] =
-    arrowChoiceZManagedInstance0
-
   implicit final def parallelZManagedInstances[R, E]: Parallel.Aux[ZManaged[R, E, _], ParallelF[ZManaged[R, E, _], _]] =
     parallelInstance0.asInstanceOf[Parallel.Aux[ZManaged[R, E, _], ParallelF[ZManaged[R, E, _], _]]]
 
   private[this] val monadErrorInstance0: MonadError[TaskManaged, Throwable] =
     new ZManagedMonadError[Any, Throwable]
 
-  private[this] val contravariantInstance0: Contravariant[RManaged[_, Any]] =
-    new ZManagedContravariant
-
   private[this] lazy val parallelInstance0: Parallel.Aux[TaskManaged, ParallelF[TaskManaged, _]] =
     new ZManagedParallel
 }
 
-sealed trait CatsZManagedInstances1 extends CatsZManagedInstances2 {
+sealed trait CatsZManagedInstances1 {
 
   implicit def semigroupZManagedInstances[R, E, A: Semigroup]: Semigroup[ZManaged[R, E, A]] =
     new ZManagedSemigroup
@@ -161,22 +153,11 @@ sealed trait CatsZManagedInstances1 extends CatsZManagedInstances2 {
   implicit final def bifunctorZManagedInstances[R]: Bifunctor[ZManaged[R, _, _]] =
     bifunctorInstance0.asInstanceOf[Bifunctor[ZManaged[R, _, _]]]
 
-  implicit final def arrowChoiceURManagedInstances: ArrowChoice[URManaged] =
-    arrowChoiceZManagedInstance0.asInstanceOf[ArrowChoice[URManaged]]
-
   private[this] val semigroupKInstance0: SemigroupK[TaskManaged] =
     new ZManagedSemigroupK[Any, Throwable]
 
   private[this] val bifunctorInstance0: Bifunctor[Managed] =
     new ZManagedBifunctor[Any]
-}
-
-sealed trait CatsZManagedInstances2 {
-  implicit final def arrowChoiceZManagedInstances[E]: ArrowChoice[ZManaged[_, E, _]] =
-    arrowChoiceZManagedInstance0.asInstanceOf[ArrowChoice[ZManaged[_, E, _]]]
-
-  protected[this] final val arrowChoiceZManagedInstance0: ArrowChoice[RManaged] =
-    new ZManagedArrowChoice
 }
 
 private class ZManagedMonadError[R, E] extends MonadError[ZManaged[R, E, _], E] {
@@ -299,16 +280,6 @@ private class ZManagedBifunctor[R] extends Bifunctor[ZManaged[R, _, _]] {
     fab.mapBoth(f, g)(implicitly[CanFail[A]], InteropTracer.newTrace(f))
 }
 
-private class ZManagedContravariant[E, T] extends Contravariant[ZManaged[_, E, T]] {
-  type F[A] = ZManaged[A, E, T]
-
-  override final def contramap[A, B](fa: F[A])(f: B => A): F[B] = {
-    implicit val tracer: ZTraceElement = InteropTracer.newTrace(f)
-
-    ZManaged.accessManaged[B](b => fa.provide(f(b)))
-  }
-}
-
 private class ZManagedParallel[R, E](final override implicit val monad: Monad[ZManaged[R, E, _]])
     extends Parallel[ZManaged[R, E, _]] {
 
@@ -357,73 +328,6 @@ private class ZManagedParApplicative[R, E] extends CommutativeApplicative[Parall
 
   final override val unit: F[Unit] =
     ParallelF[G, Unit](ZManaged.unit)
-}
-
-private class ZManagedArrowChoice[E] extends ArrowChoice[ZManaged[_, E, _]] {
-  type F[A, B] = ZManaged[A, E, B]
-
-  final override def lift[A, B](f: A => B): F[A, B] =
-    ZManaged.access(f)(InteropTracer.newTrace(f))
-
-  final override def compose[A, B, C](f: F[B, C], g: F[A, B]): F[A, C] = {
-    implicit val tracer: ZTraceElement = CoreTracer.newTrace
-
-    g.flatMap(f.provide(_))
-  }
-
-  final override def id[A]: F[A, A] =
-    ZManaged.environment[A](CoreTracer.newTrace)
-
-  final override def dimap[A, B, C, D](fab: F[A, B])(f: C => A)(g: B => D): F[C, D] = {
-    implicit val tracer: ZTraceElement = InteropTracer.newTrace(f)
-
-    fab.provideSome(f).map(g)
-  }
-
-  final override def choose[A, B, C, D](f: F[A, C])(g: F[B, D]): F[Either[A, B], Either[C, D]] = {
-    implicit val tracer: ZTraceElement = CoreTracer.newTrace
-
-    ZManaged.accessManaged[Either[A, B]](_.fold(f.provide(_).map(Left(_)), g.provide(_).map(Right(_))))
-  }
-
-  final override def first[A, B, C](fa: F[A, B]): F[(A, C), (B, C)] = {
-    implicit val tracer: ZTraceElement = CoreTracer.newTrace
-
-    fa.provideSome[(A, C)](_._1) <*> ZManaged.access[(A, C)](_._2)
-  }
-
-  final override def second[A, B, C](fa: F[A, B]): F[(C, A), (C, B)] = {
-    implicit val tracer: ZTraceElement = CoreTracer.newTrace
-
-    ZManaged.access[(C, A)](_._1) <*> fa.provideSome[(C, A)](_._2)
-  }
-
-  final override def split[A, B, C, D](f: F[A, B], g: F[C, D]): F[(A, C), (B, D)] = {
-    implicit val tracer: ZTraceElement = CoreTracer.newTrace
-
-    f.provideSome[(A, C)](_._1) <*> g.provideSome[(A, C)](_._2)
-  }
-
-  final override def merge[A, B, C](f: F[A, B], g: F[A, C]): F[A, (B, C)] = {
-    implicit val tracer: ZTraceElement = CoreTracer.newTrace
-
-    f zip g
-  }
-
-  final override def lmap[A, B, C](fab: F[A, B])(f: C => A): F[C, B] = {
-    implicit val tracer: ZTraceElement = InteropTracer.newTrace(f)
-
-    fab.provideSome(f)
-  }
-
-  final override def rmap[A, B, C](fab: F[A, B])(f: B => C): F[A, C] =
-    fab.map(f)(InteropTracer.newTrace(f))
-
-  final override def choice[A, B, C](f: F[A, C], g: F[B, C]): F[Either[A, B], C] = {
-    implicit val tracer: ZTraceElement = CoreTracer.newTrace
-
-    ZManaged.accessManaged(_.fold(f.provide(_), g.provide(_)))
-  }
 }
 
 private class ZManagedLiftIO[R](implicit ev: LiftIO[RIO[R, _]]) extends LiftIO[RManaged[R, _]] {

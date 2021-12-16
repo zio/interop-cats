@@ -17,19 +17,19 @@
 package zio.interop.console
 
 import _root_.cats.Show
-import zio.{ Console, Has, ZIO, ZTraceElement }
+import zio.{ Console, ZIO, ZTraceElement }
 
 object cats {
 
   /**
    * Prints the string representation of an object to the console.
    */
-  def print[A](a: A)(implicit ev: Show[A], trace: ZTraceElement): ZIO[Has[Console], Nothing, Unit] =
+  def print[A](a: A)(implicit ev: Show[A], trace: ZTraceElement): ZIO[Console, Nothing, Unit] =
     zio.Console.print(ev.show(a)).orDie
 
   /**
    * Prints the string representation of an object to the console, including a newline character.
    */
-  def printLine[A](a: A)(implicit ev: Show[A], trace: ZTraceElement): ZIO[Has[Console], Nothing, Unit] =
+  def printLine[A](a: A)(implicit ev: Show[A], trace: ZTraceElement): ZIO[Console, Nothing, Unit] =
     zio.Console.printLine(ev.show(a)).orDie
 }

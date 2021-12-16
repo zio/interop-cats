@@ -11,7 +11,6 @@ import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio.*
-import zio.internal.tracing.{ Tracing, TracingConfig }
 
 import java.time.{ Instant, LocalDateTime, OffsetDateTime, ZoneOffset }
 import java.util.concurrent.TimeUnit
@@ -34,11 +33,10 @@ private[zio] trait CatsSpecBase
     RuntimeConfig
       .fromExecutor(Executor.fromExecutionContext(1024)(ticker.ctx))
       .copy(
-        tracing = Tracing(TracingConfig.disabled),
         blockingExecutor = Executor.fromExecutionContext(1024)(ticker.ctx)
       )
 
-  def environment(implicit ticker: Ticker): ZEnv = {
+  def environment(implicit ticker: Ticker): ZEnvironment[ZEnv] = {
 
     val testClock = new Clock {
 
@@ -64,9 +62,12 @@ private[zio] trait CatsSpecBase
         case infinite: Infinite     =>
           ZIO.dieMessage(s"Unexpected infinite duration $infinite passed to Ticker")
       }
+
+      def scheduler(implicit trace: ZTraceElement): UIO[Scheduler] =
+        ???
     }
 
-    ZEnv.Services.live ++ Has(testClock)
+    ZEnv.Services.live ++ ZEnvironment(testClock)
   }
 
   def unsafeRun[E, A](io: IO[E, A])(implicit ticker: Ticker): Exit[E, Option[A]] =
@@ -82,7 +83,7 @@ private[zio] trait CatsSpecBase
     }
 
   implicit def runtime(implicit ticker: Ticker): Runtime[Any] =
-    Runtime((), platform)
+    Runtime(ZEnvironment(()), platform)
 
   implicit val arbitraryAny: Arbitrary[Any] =
     Arbitrary(Gen.const(()))
@@ -90,7 +91,7 @@ private[zio] trait CatsSpecBase
   implicit val cogenForAny: Cogen[Any] =
     Cogen(_.hashCode.toLong)
 
-  implicit def arbitraryEnvironment(implicit ticker: Ticker): Arbitrary[ZEnv] =
+  implicit def arbitraryEnvironment(implicit ticker: Ticker): Arbitrary[ZEnvironment[ZEnv]] =
     Arbitrary(Gen.const(environment))
 
   implicit val eqForNothing: Eq[Nothing] =
@@ -117,29 +118,39 @@ private[zio] trait CatsSpecBase
     }
   }
 
-  implicit def eqForURIO[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[URIO[R, A]] =
+  implicit def eqForURIO[R: Arbitrary: Tag: IsNotIntersection, A: Eq](implicit ticker: Ticker): Eq[URIO[R, A]] =
     eqForZIO[R, Nothing, A]
 
   implicit def execRIO(rio: RIO[ZEnv, Boolean])(implicit ticker: Ticker): Prop =
-    rio.provide(environment).toEffect[CIO]
+    rio.provideEnvironment(environment).toEffect[CIO]
 
   implicit def orderForUIOofFiniteDuration(implicit ticker: Ticker): Order[UIO[FiniteDuration]] =
     Order.by(unsafeRun(_).toEither.toOption)
 
-  implicit def orderForRIOofFiniteDuration[R: Arbitrary](implicit ticker: Ticker): Order[RIO[R, FiniteDuration]] =
-    (x, y) => Arbitrary.arbitrary[R].sample.fold(0)(r => x.orDie.provide(r) compare y.orDie.provide(r))
+  implicit def orderForRIOofFiniteDuration[R: Arbitrary: Tag: IsNotIntersection](implicit
+    ticker: Ticker
+  ): Order[RIO[R, FiniteDuration]] =
+    (x, y) =>
+      Arbitrary
+        .arbitrary[ZEnvironment[R]]
+        .sample
+        .fold(0)(r => x.orDie.provideEnvironment(r) compare y.orDie.provideEnvironment(r))
 
   implicit def eqForUManaged[A: Eq](implicit ticker: Ticker): Eq[UManaged[A]] =
     zManagedEq[Any, Nothing, A]
 
-  implicit def eqForURManaged[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[URManaged[R, A]] =
+  implicit def eqForURManaged[R: Arbitrary: Tag: IsNotIntersection, A: Eq](implicit
+    ticker: Ticker
+  ): Eq[URManaged[R, A]] =
     zManagedEq[R, Nothing, A]
 
-  implicit def cogenZIO[R: Arbitrary, E: Cogen, A: Cogen](implicit ticker: Ticker): Cogen[ZIO[R, E, A]] =
+  implicit def cogenZIO[R: Arbitrary: Tag: IsNotIntersection, E: Cogen, A: Cogen](implicit
+    ticker: Ticker
+  ): Cogen[ZIO[R, E, A]] =
     Cogen[Outcome[Option, E, A]].contramap { (zio: ZIO[R, E, A]) =>
-      Arbitrary.arbitrary[R].sample match {
+      Arbitrary.arbitrary[ZEnvironment[R]].sample match {
         case Some(r) =>
-          val result = unsafeRun(zio.provide(r))
+          val result = unsafeRun(zio.provideEnvironment(r))
 
           result match {
             case Exit.Failure(cause) if cause.isInterrupted => Outcome.canceled[Option, E, A]
@@ -161,27 +172,35 @@ private[interop] sealed trait CatsSpecBaseLowPriority { this: CatsSpecBase =>
   implicit def eqForIO[E: Eq, A: Eq](implicit ticker: Ticker): Eq[IO[E, A]] =
     Eq.by(_.either)
 
-  implicit def eqForZIO[R: Arbitrary, E: Eq, A: Eq](implicit ticker: Ticker): Eq[ZIO[R, E, A]] =
-    (x, y) => Arbitrary.arbitrary[R].sample.exists(r => x.provide(r) eqv y.provide(r))
+  implicit def eqForZIO[R: Arbitrary: Tag: IsNotIntersection, E: Eq, A: Eq](implicit ticker: Ticker): Eq[ZIO[R, E, A]] =
+    (x, y) =>
+      Arbitrary.arbitrary[ZEnvironment[R]].sample.exists(r => x.provideEnvironment(r) eqv y.provideEnvironment(r))
 
-  implicit def eqForRIO[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[RIO[R, A]] =
+  implicit def eqForRIO[R: Arbitrary: Tag: IsNotIntersection, A: Eq](implicit ticker: Ticker): Eq[RIO[R, A]] =
     eqForZIO[R, Throwable, A]
 
   implicit def eqForTask[A: Eq](implicit ticker: Ticker): Eq[Task[A]] =
     eqForIO[Throwable, A]
 
-  def zManagedEq[R, E, A](implicit zio: Eq[ZIO[R, E, A]]): Eq[ZManaged[R, E, A]]               =
-    Eq.by(managed => ZManaged.ReleaseMap.make.flatMap(rm => managed.zio.provideSome[R](_ -> rm).map(_._2)))
+  def zManagedEq[R, E, A](implicit zio: Eq[ZIO[R, E, A]]): Eq[ZManaged[R, E, A]] =
+    Eq.by(managed =>
+      ZManaged.ReleaseMap.make.flatMap(rm => ZManaged.currentReleaseMap.locally(rm)(managed.zio.map(_._2)))
+    )
 
-  implicit def eqForRManaged[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[RManaged[R, A]] =
+  implicit def eqForRManaged[R: Arbitrary: Tag: IsNotIntersection, A: Eq](implicit ticker: Ticker): Eq[RManaged[R, A]] =
     zManagedEq[R, Throwable, A]
 
   implicit def eqForManaged[E: Eq, A: Eq](implicit ticker: Ticker): Eq[Managed[E, A]] =
     zManagedEq[Any, E, A]
 
-  implicit def eqForZManaged[R: Arbitrary, E: Eq, A: Eq](implicit ticker: Ticker): Eq[ZManaged[R, E, A]] =
+  implicit def eqForZManaged[R: Arbitrary: Tag: IsNotIntersection, E: Eq, A: Eq](implicit
+    ticker: Ticker
+  ): Eq[ZManaged[R, E, A]] =
     zManagedEq[R, E, A]
 
   implicit def eqForTaskManaged[A: Eq](implicit ticker: Ticker): Eq[TaskManaged[A]] =
     zManagedEq[Any, Throwable, A]
+
+  implicit def arbitraryZEnvironment[R: Arbitrary: Tag: IsNotIntersection]: Arbitrary[ZEnvironment[R]] =
+    Arbitrary(Arbitrary.arbitrary[R].map(ZEnvironment(_)))
 }
