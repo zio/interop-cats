@@ -118,7 +118,7 @@ private[zio] trait CatsSpecBase
     }
   }
 
-  implicit def eqForURIO[R: Arbitrary: Tag: IsNotIntersection, A: Eq](implicit ticker: Ticker): Eq[URIO[R, A]] =
+  implicit def eqForURIO[R: Arbitrary: Tag, A: Eq](implicit ticker: Ticker): Eq[URIO[R, A]] =
     eqForZIO[R, Nothing, A]
 
   implicit def execRIO(rio: RIO[ZEnv, Boolean])(implicit ticker: Ticker): Prop =
@@ -127,7 +127,7 @@ private[zio] trait CatsSpecBase
   implicit def orderForUIOofFiniteDuration(implicit ticker: Ticker): Order[UIO[FiniteDuration]] =
     Order.by(unsafeRun(_).toEither.toOption)
 
-  implicit def orderForRIOofFiniteDuration[R: Arbitrary: Tag: IsNotIntersection](implicit
+  implicit def orderForRIOofFiniteDuration[R: Arbitrary: Tag](implicit
     ticker: Ticker
   ): Order[RIO[R, FiniteDuration]] =
     (x, y) =>
@@ -139,12 +139,12 @@ private[zio] trait CatsSpecBase
   implicit def eqForUManaged[A: Eq](implicit ticker: Ticker): Eq[UManaged[A]] =
     zManagedEq[Any, Nothing, A]
 
-  implicit def eqForURManaged[R: Arbitrary: Tag: IsNotIntersection, A: Eq](implicit
+  implicit def eqForURManaged[R: Arbitrary: Tag, A: Eq](implicit
     ticker: Ticker
   ): Eq[URManaged[R, A]] =
     zManagedEq[R, Nothing, A]
 
-  implicit def cogenZIO[R: Arbitrary: Tag: IsNotIntersection, E: Cogen, A: Cogen](implicit
+  implicit def cogenZIO[R: Arbitrary: Tag, E: Cogen, A: Cogen](implicit
     ticker: Ticker
   ): Cogen[ZIO[R, E, A]] =
     Cogen[Outcome[Option, E, A]].contramap { (zio: ZIO[R, E, A]) =>
@@ -172,11 +172,11 @@ private[interop] sealed trait CatsSpecBaseLowPriority { this: CatsSpecBase =>
   implicit def eqForIO[E: Eq, A: Eq](implicit ticker: Ticker): Eq[IO[E, A]] =
     Eq.by(_.either)
 
-  implicit def eqForZIO[R: Arbitrary: Tag: IsNotIntersection, E: Eq, A: Eq](implicit ticker: Ticker): Eq[ZIO[R, E, A]] =
+  implicit def eqForZIO[R: Arbitrary: Tag, E: Eq, A: Eq](implicit ticker: Ticker): Eq[ZIO[R, E, A]] =
     (x, y) =>
       Arbitrary.arbitrary[ZEnvironment[R]].sample.exists(r => x.provideEnvironment(r) eqv y.provideEnvironment(r))
 
-  implicit def eqForRIO[R: Arbitrary: Tag: IsNotIntersection, A: Eq](implicit ticker: Ticker): Eq[RIO[R, A]] =
+  implicit def eqForRIO[R: Arbitrary: Tag, A: Eq](implicit ticker: Ticker): Eq[RIO[R, A]] =
     eqForZIO[R, Throwable, A]
 
   implicit def eqForTask[A: Eq](implicit ticker: Ticker): Eq[Task[A]] =
@@ -187,13 +187,13 @@ private[interop] sealed trait CatsSpecBaseLowPriority { this: CatsSpecBase =>
       ZManaged.ReleaseMap.make.flatMap(rm => ZManaged.currentReleaseMap.locally(rm)(managed.zio.map(_._2)))
     )
 
-  implicit def eqForRManaged[R: Arbitrary: Tag: IsNotIntersection, A: Eq](implicit ticker: Ticker): Eq[RManaged[R, A]] =
+  implicit def eqForRManaged[R: Arbitrary: Tag, A: Eq](implicit ticker: Ticker): Eq[RManaged[R, A]] =
     zManagedEq[R, Throwable, A]
 
   implicit def eqForManaged[E: Eq, A: Eq](implicit ticker: Ticker): Eq[Managed[E, A]] =
     zManagedEq[Any, E, A]
 
-  implicit def eqForZManaged[R: Arbitrary: Tag: IsNotIntersection, E: Eq, A: Eq](implicit
+  implicit def eqForZManaged[R: Arbitrary: Tag, E: Eq, A: Eq](implicit
     ticker: Ticker
   ): Eq[ZManaged[R, E, A]] =
     zManagedEq[R, E, A]
@@ -201,6 +201,6 @@ private[interop] sealed trait CatsSpecBaseLowPriority { this: CatsSpecBase =>
   implicit def eqForTaskManaged[A: Eq](implicit ticker: Ticker): Eq[TaskManaged[A]] =
     zManagedEq[Any, Throwable, A]
 
-  implicit def arbitraryZEnvironment[R: Arbitrary: Tag: IsNotIntersection]: Arbitrary[ZEnvironment[R]] =
+  implicit def arbitraryZEnvironment[R: Arbitrary: Tag]: Arbitrary[ZEnvironment[R]] =
     Arbitrary(Arbitrary.arbitrary[R].map(ZEnvironment(_)))
 }
