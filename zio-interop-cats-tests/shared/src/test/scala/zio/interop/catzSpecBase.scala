@@ -16,7 +16,6 @@ import zio.{
   Console,
   Executor,
   IO,
-  IsNotIntersection,
   Random,
   Runtime,
   RuntimeConfig,
@@ -69,7 +68,7 @@ private[zio] trait catzSpecBase
 
 private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
 
-  implicit def zioEq[R: Arbitrary: Tag: IsNotIntersection, E: Eq, A: Eq](
+  implicit def zioEq[R: Arbitrary: Tag, E: Eq, A: Eq](
     implicit rts: Runtime[Any],
     tc: TestContext
   ): Eq[ZIO[R, E, A]] = {
@@ -81,7 +80,7 @@ private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
   }
 
   // 'R =!= Any' evidence fixes the 'diverging implicit expansion for type Arbitrary' error reproducible on scala 2.12 and 2.11.
-  implicit def zmanagedEq[R: Tag: IsNotIntersection, E, A](
+  implicit def zmanagedEq[R: Tag, E, A](
     implicit
     @deprecated("unused", "unused") notAny: R =!= Any,
     arb: Arbitrary[R],
@@ -102,9 +101,9 @@ private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
     )
   }
 
-  implicit def zEnvironmentCogen[R: Cogen: Tag: IsNotIntersection]: Cogen[ZEnvironment[R]] =
+  implicit def zEnvironmentCogen[R: Cogen: Tag]: Cogen[ZEnvironment[R]] =
     Cogen[R].contramap(_.get)
 
-  implicit def zEnvironmentArbitrary[R: Arbitrary: Tag: IsNotIntersection]: Arbitrary[ZEnvironment[R]] =
+  implicit def zEnvironmentArbitrary[R: Arbitrary: Tag]: Arbitrary[ZEnvironment[R]] =
     Arbitrary(Arbitrary.arbitrary[R].map(ZEnvironment(_)))
 }

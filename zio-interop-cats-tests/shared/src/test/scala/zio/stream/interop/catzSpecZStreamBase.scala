@@ -7,7 +7,7 @@ import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.interop.catz.taskEffectInstance
 import zio.interop.catzSpecBase
 import zio.stream._
-import zio.{ Chunk, IsNotIntersection, Tag, ZEnvironment, ZIO }
+import zio.{ Chunk, Tag, ZEnvironment, ZIO }
 
 private[interop] trait catzSpecZStreamBase
     extends catzSpecBase
@@ -24,8 +24,7 @@ private[interop] trait catzSpecZStreamBase
   implicit def zstreamEqParIO[E: Eq, A: Eq](implicit tc: TestContext): Eq[ParStream[Any, E, A]] =
     Eq.by(Par.unwrap(_))
 
-  implicit def zstreamArbitrary[R: Cogen: Tag: IsNotIntersection, E: Arbitrary: Cogen, A: Arbitrary: Cogen]
-    : Arbitrary[ZStream[R, E, A]] =
+  implicit def zstreamArbitrary[R: Cogen: Tag, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZStream[R, E, A]] =
     Arbitrary(Arbitrary.arbitrary[ZEnvironment[R] => Stream[E, A]].map(ZStream.fromZIO(ZIO.environment[R]).flatMap(_)))
 
   implicit def streamArbitrary[E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[Stream[E, A]] =
@@ -37,7 +36,7 @@ private[interop] trait catzSpecZStreamBase
 
 private[interop] trait catzSpecZStreamBaseLowPriority { self: catzSpecZStreamBase =>
 
-  implicit def zstreamEq[R: Arbitrary: Tag: IsNotIntersection, E: Eq, A: Eq](
+  implicit def zstreamEq[R: Arbitrary: Tag, E: Eq, A: Eq](
     implicit tc: TestContext
   ): Eq[ZStream[R, E, A]] = {
     def run(r: R, zstream: ZStream[R, E, A]) =
