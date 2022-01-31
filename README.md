@@ -64,7 +64,7 @@ import cats.effect._
 import zio._
 import zio.interop.catz._
 
-ZIO.runtime[Has[Clock]].flatMap { implicit rts =>
+ZIO.runtime[Clock].flatMap { implicit rts =>
   val clock: Timer[Task] = rts.environment.get.toTimer
   val ce: ConcurrentEffect[Task] = implicitly
   

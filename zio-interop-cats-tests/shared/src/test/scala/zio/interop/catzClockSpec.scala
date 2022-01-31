@@ -4,7 +4,6 @@ import cats.effect.Timer
 import fs2.Stream
 import zio._
 import zio.interop.catz._
-import zio.test.environment._
 import zio.test.TestAspect._
 import zio.test._
 
@@ -15,7 +14,7 @@ object catzClockSpec extends DefaultRunnableSpec {
   def spec =
     suite("catzClockSpec") {
       test("Timer can be constructed from ZIO Clock") {
-        ZIO.environment[Has[Clock]].flatMap { clock =>
+        ZIO.environment[Clock].flatMap { clock =>
           implicit val timer: Timer[Task] =
             clock.get.toTimer
 

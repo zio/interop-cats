@@ -3,12 +3,11 @@ package zio.interop
 import cats.Eq
 import cats.effect.laws.util.{ TestContext, TestInstances }
 import cats.implicits._
-import org.scalacheck.Arbitrary
+import org.scalacheck.{ Arbitrary, Cogen }
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
-import zio.internal.tracing.{ Tracing, TracingConfig }
 import zio.interop.catz.taskEffectInstance
 import zio.{
   =!=,
@@ -21,8 +20,10 @@ import zio.{
   Runtime,
   RuntimeConfig,
   System,
+  Tag,
   Task,
   UIO,
+  ZEnvironment,
   ZIO,
   ZManaged
 }
@@ -36,11 +37,10 @@ private[zio] trait catzSpecBase
 
   type Env = Clock with Console with System with Random
 
-  implicit def rts(implicit tc: TestContext): Runtime[Unit] = Runtime(
-    (),
+  implicit def rts(implicit tc: TestContext): Runtime[Any] = Runtime(
+    ZEnvironment.empty,
     RuntimeConfig
       .fromExecutor(Executor.fromExecutionContext(Int.MaxValue)(tc))
-      .copy(tracing = Tracing(TracingConfig.disabled))
   )
 
   implicit val zioEqCauseNothing: Eq[Cause[Nothing]] = Eq.fromUniversalEquals
@@ -56,7 +56,9 @@ private[zio] trait catzSpecBase
 
   implicit def zioEqZManaged[E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[ZManaged[Any, E, A]] =
     Eq.by(
-      zm => ZManaged.ReleaseMap.make.flatMap(releaseMap => zm.zio.provideSome[Any]((_, releaseMap)).map(_._2).either)
+      zm =>
+        ZManaged.ReleaseMap.make
+          .flatMap(releaseMap => ZManaged.currentReleaseMap.locally(releaseMap)(zm.zio.map(_._2).either))
     )
 
   def checkAllAsync(name: String, f: TestContext => Laws#RuleSet): Unit =
@@ -66,13 +68,19 @@ private[zio] trait catzSpecBase
 
 private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
 
-  implicit def zioEq[R: Arbitrary, E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[ZIO[R, E, A]] = {
-    def run(r: R, zio: ZIO[R, E, A]) = taskEffectInstance.toIO(zio.provide(r).either)
-    Eq.instance((io1, io2) => Arbitrary.arbitrary[R].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2)))
+  implicit def zioEq[R: Arbitrary: Tag, E: Eq, A: Eq](
+    implicit rts: Runtime[Any],
+    tc: TestContext
+  ): Eq[ZIO[R, E, A]] = {
+    def run(r: ZEnvironment[R], zio: ZIO[R, E, A]) = taskEffectInstance.toIO(zio.provideEnvironment(r).either)
+    Eq.instance(
+      (io1, io2) =>
+        Arbitrary.arbitrary[ZEnvironment[R]].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2))
+    )
   }
 
   // 'R =!= Any' evidence fixes the 'diverging implicit expansion for type Arbitrary' error reproducible on scala 2.12 and 2.11.
-  implicit def zmanagedEq[R, E, A](
+  implicit def zmanagedEq[R: Tag, E, A](
     implicit
     @deprecated("unused", "unused") notAny: R =!= Any,
     arb: Arbitrary[R],
@@ -81,11 +89,21 @@ private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
     rts: Runtime[Any],
     tc: TestContext
   ): Eq[ZManaged[R, E, A]] = {
-    def run(r: R, zm: ZManaged[R, E, A]) =
+    def run(r: ZEnvironment[R], zm: ZManaged[R, E, A]) =
       taskEffectInstance.toIO(
-        ZManaged.ReleaseMap.make.flatMap(releaseMap => zm.zio.provide((r, releaseMap)).map(_._2).either)
+        ZManaged.ReleaseMap.make.flatMap(
+          releaseMap => ZManaged.currentReleaseMap.locally(releaseMap)(zm.zio.provideEnvironment(r).map(_._2).either)
+        )
       )
-    Eq.instance((io1, io2) => Arbitrary.arbitrary[R].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2)))
+    Eq.instance(
+      (io1, io2) =>
+        Arbitrary.arbitrary[ZEnvironment[R]].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2))
+    )
   }
 
+  implicit def zEnvironmentCogen[R: Cogen: Tag]: Cogen[ZEnvironment[R]] =
+    Cogen[R].contramap(_.get)
+
+  implicit def zEnvironmentArbitrary[R: Arbitrary: Tag]: Arbitrary[ZEnvironment[R]] =
+    Arbitrary(Arbitrary.arbitrary[R].map(ZEnvironment(_)))
 }

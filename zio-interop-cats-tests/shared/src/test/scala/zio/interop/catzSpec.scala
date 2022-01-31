@@ -1,7 +1,6 @@
 package zio.interop
 
 import cats.Monad
-import cats.arrow.ArrowChoice
 import cats.effect.concurrent.Deferred
 import cats.effect.laws._
 import cats.effect.laws.discipline.arbitrary._
@@ -35,20 +34,11 @@ class catzSpec extends catzSpecZIOBase {
     implicit def ioArbitrary[A: Arbitrary]: Arbitrary[UIO[A]] = Arbitrary(genUIO[A])
     MonadTests[UIO].apply[Int, Int, Int]
   })
-  checkAllAsync(
-    "ArrowChoice[ZIO]",
-    implicit tc => ArrowChoiceTests[ZIO[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
-  )
-  checkAllAsync("Contravariant[ZIO]", implicit tc => ContravariantTests[ZIO[*, Int, Int]].contravariant[Int, Int, Int])
 
   // ZManaged Tests
   checkAllAsync("Monad[ZManaged]", implicit tc => MonadTests[ZManaged[Any, Throwable, *]].apply[Int, Int, Int])
   checkAllAsync("Monad[ZManaged]", implicit tc => ExtraMonadTests[ZManaged[Any, Throwable, *]].monadExtras[Int])
   checkAllAsync("SemigroupK[ZManaged]", implicit tc => SemigroupKTests[ZManaged[Any, Throwable, *]].semigroupK[Int])
-  checkAllAsync(
-    "ArrowChoice[ZManaged]",
-    implicit tc => ArrowChoiceTests[ZManaged[*, Int, *]].arrowChoice[Int, Int, Int, Int, Int, Int]
-  )
   checkAllAsync(
     "MonadError[ZManaged]",
     implicit tc => MonadErrorTests[ZManaged[Any, Int, *], Int].monadError[Int, Int, Int]
@@ -81,11 +71,6 @@ class catzSpec extends catzSpecZIOBase {
 
     def concurrentEffect[R: Runtime] = ConcurrentEffect[RIO[R, *]]
     def effect[R: Runtime]           = Effect[RIO[R, *]]
-
-    // related to issue #173
-    def getArrow[F[-_, +_, +_], R, E, A](f: F[R, E, A])(implicit a: ArrowChoice[F[*, E, *]]): Any = (a, f)
-    getArrow(ZIO.environment[Int])
-    getArrow(ZManaged.environment[Int])
   }
 
   object summoningRuntimeInstancesTest {
@@ -124,9 +109,7 @@ class catzSpec extends catzSpecZIOBase {
   }
 
   object syntaxTest {
-    def rioDimap(rio: RIO[Int, String]): RIO[String, Int]      = rio.dimap[String, Int](_.length)(_.length)
     def rioBimap(rio: RIO[Int, String]): ZIO[Int, String, Int] = rio.mapBoth(_.getMessage, _.length)
-    def urioDimap(rio: URIO[Int, String]): URIO[String, Int]   = rio.dimap[String, Int](_.length)(_.length)
   }
 }
 
