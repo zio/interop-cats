@@ -5,7 +5,7 @@ import cats.syntax.all.*
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.interop.CatsSpecBase
 import zio.stream.*
-import zio.{ CanFail, Chunk, IsNotIntersection, Tag, ZEnvironment, ZIO }
+import zio.{ CanFail, Chunk, Tag, ZEnvironment, ZIO }
 
 private[interop] trait ZStreamSpecBase extends CatsSpecBase with ZStreamSpecBaseLowPriority with GenStreamInteropCats {
 
@@ -27,7 +27,7 @@ private[interop] trait ZStreamSpecBaseLowPriority { self: ZStreamSpecBase =>
   implicit def eqForStream[E: Eq, A: Eq](implicit ticker: Ticker): Eq[Stream[E, A]] =
     zStreamEq[Any, E, A]
 
-  implicit def eqForZStream[R: Arbitrary: Tag: IsNotIntersection, E: Eq, A: Eq](implicit
+  implicit def eqForZStream[R: Arbitrary: Tag, E: Eq, A: Eq](implicit
     ticker: Ticker
   ): Eq[ZStream[R, E, A]] =
     zStreamEq[R, E, A]
@@ -38,7 +38,7 @@ private[interop] trait ZStreamSpecBaseLowPriority { self: ZStreamSpecBase =>
   }
 
   implicit def arbitraryZStream[
-    R: Cogen: Tag: IsNotIntersection,
+    R: Cogen: Tag,
     E: CanFail: Arbitrary: Cogen,
     A: Arbitrary: Cogen
   ]: Arbitrary[ZStream[R, E, A]] = Arbitrary(
@@ -47,6 +47,6 @@ private[interop] trait ZStreamSpecBaseLowPriority { self: ZStreamSpecBase =>
       .map(ZStream.fromZIO(ZIO.environment[R]).flatMap)
   )
 
-  implicit def cogenZEnvironment[R: Cogen: Tag: IsNotIntersection]: Cogen[ZEnvironment[R]] =
+  implicit def cogenZEnvironment[R: Cogen: Tag]: Cogen[ZEnvironment[R]] =
     Cogen[R].contramap(_.get)
 }
