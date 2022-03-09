@@ -16,7 +16,6 @@ import zio.duration.*
 import zio.internal.{ Executor, Platform, Tracing }
 
 import java.time.{ DateTimeException, Instant, OffsetDateTime, ZoneOffset }
-import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration.Infinite
 import scala.concurrent.duration.{ FiniteDuration, TimeUnit }
@@ -73,7 +72,7 @@ private[zio] trait CatsSpecBase
     try {
       var exit: Exit[E, Option[A]] = Exit.succeed(Option.empty[A])
       runtime.unsafeRunAsync[E, Option[A]](io.asSome)(exit = _)
-      ticker.ctx.tickAll(FiniteDuration(1, TimeUnit.SECONDS))
+      ticker.ctx.tickAll()
       exit
     } catch {
       case error: Throwable =>

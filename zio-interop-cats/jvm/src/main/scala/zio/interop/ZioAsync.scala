@@ -36,7 +36,7 @@ private class ZioAsync[R <: Clock & Blocking] extends ZioTemporal[R, Throwable] 
   override final def blocking[A](thunk: => A): F[A] =
     effectBlocking(thunk)
 
-  override final def interruptible[A](many: Boolean)(thunk: => A): F[A] =
+  override final def interruptible[A](thunk: => A): F[A] =
     effectBlockingInterrupt(thunk)
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] =

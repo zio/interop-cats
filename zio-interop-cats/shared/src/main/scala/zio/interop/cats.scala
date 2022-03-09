@@ -377,8 +377,8 @@ private class ZioRuntimeAsync(implicit runtime: Runtime[Clock & CBlocking])
   override final def blocking[A](thunk: => A): F[A] =
     underlying.blocking(thunk).provide(environment)
 
-  override final def interruptible[A](many: Boolean)(thunk: => A): F[A] =
-    underlying.interruptible(many)(thunk).provide(environment)
+  override final def interruptible[A](thunk: => A): F[A] =
+    underlying.interruptible(thunk).provide(environment)
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] =
     underlying.async(k).provide(environment)
