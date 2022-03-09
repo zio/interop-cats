@@ -30,7 +30,6 @@ import zio.clock.{ currentTime, nanoTime, Clock }
 import zio.duration.Duration
 
 import java.util.concurrent.atomic.AtomicBoolean
-import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration.*
 
 object catz extends CatsEffectPlatform {
@@ -89,17 +88,17 @@ abstract class CatsEffectInstances extends CatsZioInstances {
   implicit final def concurrentInstance[R, E]: GenConcurrent[ZIO[R, E, _], E] =
     concurrentInstance0.asInstanceOf[GenConcurrent[ZIO[R, E, _], E]]
 
-  implicit final def asyncRuntimeInstance(implicit runtime: Runtime[Clock & CBlocking]): Async[Task] =
-    new ZioRuntimeAsync
+  implicit final def asyncRuntimeInstance[R](implicit runtime: Runtime[Clock & CBlocking]): Async[RIO[R, _]] =
+    new ZioRuntimeAsync(runtime.environment)
 
-  implicit final def temporalRuntimeInstance[E](implicit runtime: Runtime[Clock]): GenTemporal[IO[E, _], E] =
-    new ZioRuntimeTemporal[E]
+  implicit final def temporalRuntimeInstance[R, E](implicit runtime: Runtime[Clock]): GenTemporal[ZIO[R, E, _], E] =
+    new ZioRuntimeTemporal(runtime.environment)
 
   private[this] val asyncInstance0: Async[RIO[Clock & CBlocking, _]] =
-    new ZioAsync
+    new ZioAsync[Clock & CBlocking] with ZioBlockingEnvIdentity[Clock & CBlocking, Throwable]
 
   private[this] val temporalInstance0: Temporal[RIO[Clock, _]] =
-    new ZioTemporal
+    new ZioTemporal[Clock, Throwable] with ZioClockEnvIdentity[Clock, Throwable]
 
   private[this] val concurrentInstance0: Concurrent[Task] =
     new ZioConcurrent[Any, Throwable]
@@ -317,80 +316,51 @@ private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E
     ref.get
 }
 
-private class ZioTemporal[R <: Clock, E] extends ZioConcurrent[R, E] with GenTemporal[ZIO[R, E, _], E] {
+private abstract class ZioTemporal[R, E]
+    extends ZioConcurrent[R, E]
+    with GenTemporal[ZIO[R, E, _], E]
+    with ZioClockEnv[R, E] {
 
   override final def sleep(time: FiniteDuration): F[Unit] =
-    ZIO.sleep(Duration.fromScala(time))
+    withClock(ZIO.sleep(Duration.fromScala(time)))
 
   override final val monotonic: F[FiniteDuration] =
-    nanoTime.map(FiniteDuration(_, NANOSECONDS))
+    withClock(nanoTime.map(FiniteDuration(_, NANOSECONDS)))
 
   override final val realTime: F[FiniteDuration] =
-    currentTime(MILLISECONDS).map(FiniteDuration(_, MILLISECONDS))
+    withClock(currentTime(MILLISECONDS).map(FiniteDuration(_, MILLISECONDS)))
 }
 
-private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Clock])
-    extends ZioConcurrent[Any, E]
-    with GenTemporal[IO[E, _], E] {
+private class ZioRuntimeTemporal[R, E](environment: Clock) extends ZioTemporal[R, E] with ZioClockEnv[R, E] {
 
-  private[this] val underlying: GenTemporal[ZIO[Clock, E, _], E] = new ZioTemporal[Clock, E]
-  private[this] val clock: Clock                                 = runtime.environment
+  override protected[this] def withClock[A](fa: ZIO[Clock, E, A]): ZIO[R, E, A] = fa.provide(environment)
 
-  override final def sleep(time: FiniteDuration): F[Unit] =
-    underlying.sleep(time).provide(clock)
-
-  override final val monotonic: F[FiniteDuration] =
-    underlying.monotonic.provide(clock)
-
-  override final val realTime: F[FiniteDuration] =
-    underlying.realTime.provide(clock)
 }
 
-private class ZioRuntimeAsync(implicit runtime: Runtime[Clock & CBlocking])
-    extends ZioRuntimeTemporal[Throwable]
-    with Async[Task] {
+private class ZioRuntimeAsync[R](environment: Clock & CBlocking) extends ZioAsync[R] with ZioBlockingEnv[R, Throwable] {
 
-  private[this] val underlying: Async[RIO[Clock & CBlocking, _]] = new ZioAsync[Clock & CBlocking]
-  private[this] val environment: Clock & CBlocking               = runtime.environment
+  override protected[this] def withClock[A](fa: RIO[Clock, A]): RIO[R, A] = fa.provide(environment)
 
-  override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] =
-    underlying.evalOn(fa, ec).provide(environment)
+  override protected[this] def withBlocking[A](fa: RIO[CBlocking, A]): RIO[R, A] =
+    fa.provide(environment)(NeedsEnv.needsEnv)
+}
 
-  override final val executionContext: F[ExecutionContext] =
-    underlying.executionContext.provide(environment)
+private trait ZioClockEnv[R, E] extends Any {
+  protected[this] def withClock[A](fa: ZIO[Clock, E, A]): ZIO[R, E, A]
+}
 
-  override final val unique: F[Unique.Token] =
-    underlying.unique.provide(environment)
+private trait ZioBlockingEnv[R, E] extends ZioClockEnv[R, E] {
+  protected[this] def withBlocking[A](fa: ZIO[CBlocking, E, A]): ZIO[R, E, A]
+}
 
-  override final def cont[K, Q](body: Cont[F, K, Q]): F[Q] =
-    Async.defaultCont(body)(this)
+private trait ZioClockEnvIdentity[R <: Clock, E] extends ZioClockEnv[R, E] {
+  override protected[this] def withClock[A](fa: ZIO[Clock, E, A]): ZIO[R, E, A] = fa
+}
 
-  override final def suspend[A](hint: Sync.Type)(thunk: => A): F[A] =
-    underlying.suspend(hint)(thunk).provide(environment)
-
-  override final def delay[A](thunk: => A): F[A] =
-    underlying.delay(thunk).provide(environment)
-
-  override final def defer[A](thunk: => F[A]): F[A] =
-    underlying.defer(thunk).provide(environment)
-
-  override final def blocking[A](thunk: => A): F[A] =
-    underlying.blocking(thunk).provide(environment)
-
-  override final def interruptible[A](thunk: => A): F[A] =
-    underlying.interruptible(thunk).provide(environment)
-
-  override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] =
-    underlying.async(k).provide(environment)
-
-  override final def async_[A](k: (Either[Throwable, A] => Unit) => Unit): F[A] =
-    underlying.async_(k).provide(environment)
-
-  override final def fromFuture[A](fut: F[Future[A]]): F[A] =
-    underlying.fromFuture(fut).provide(environment)
-
-  override final def never[A]: F[A] =
-    ZIO.never
+private trait ZioBlockingEnvIdentity[R <: Clock & CBlocking, E]
+    extends ZioBlockingEnv[R, E]
+    with ZioClockEnvIdentity[R, E] {
+  override protected[this] def withBlocking[A](fa: ZIO[CBlocking, E, A]): ZIO[R, E, A] = fa
 }
 
 private class ZioMonadError[R, E] extends MonadError[ZIO[R, E, _], E] {

@@ -1,13 +1,15 @@
 package zio.interop
 
 import cats.effect.kernel.{ Async, Cont, Sync, Unique }
-import zio.blocking.{ effectBlocking, effectBlockingInterrupt, Blocking }
-import zio.clock.Clock
+import zio.blocking.{ effectBlocking, effectBlockingInterrupt }
 import zio.{ Promise, RIO, ZIO }
 
 import scala.concurrent.{ ExecutionContext, Future }
 
-private class ZioAsync[R <: Clock & Blocking] extends ZioTemporal[R, Throwable] with Async[RIO[R, _]] {
+private abstract class ZioAsync[R]
+    extends ZioTemporal[R, Throwable]
+    with Async[RIO[R, _]]
+    with ZioBlockingEnv[R, Throwable] {
 
   override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] =
     fa.on(ec)
@@ -22,9 +24,10 @@ private class ZioAsync[R <: Clock & Blocking] extends ZioTemporal[R, Throwable] 
     Async.defaultCont(body)(this)
 
   override final def suspend[A](hint: Sync.Type)(thunk: => A): F[A] = hint match {
-    case Sync.Type.Delay                                           => ZIO.effect(thunk)
-    case Sync.Type.Blocking                                        => effectBlocking(thunk)
-    case Sync.Type.InterruptibleOnce | Sync.Type.InterruptibleMany => effectBlockingInterrupt(thunk)
+    case Sync.Type.Delay             => ZIO.effect(thunk)
+    case Sync.Type.Blocking          => blocking(thunk)
+    case Sync.Type.InterruptibleOnce => interruptible(thunk)
+    case Sync.Type.InterruptibleMany => interruptibleMany(thunk)
   }
 
   override final def delay[A](thunk: => A): F[A] =
@@ -34,10 +37,10 @@ private class ZioAsync[R <: Clock & Blocking] extends ZioTemporal[R, Throwable] 
     ZIO.effectSuspend(thunk)
 
   override final def blocking[A](thunk: => A): F[A] =
-    effectBlocking(thunk)
+    withBlocking(effectBlocking(thunk))
 
   override final def interruptible[A](thunk: => A): F[A] =
-    effectBlockingInterrupt(thunk)
+    withBlocking(effectBlockingInterrupt(thunk))
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] =
     Promise.make[Nothing, Unit].flatMap { promise =>
