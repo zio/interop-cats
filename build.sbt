@@ -158,7 +158,7 @@ lazy val coreOnlyTest         = crossProject(JSPlatform, JVMPlatform)
   .settings(
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core"    % catsVersion,
-      "dev.zio"       %%% "zio-managed" % zioVersion,
+      "dev.zio"       %%% "zio-managed"  % zioVersion,
       "dev.zio"       %%% "zio-test-sbt" % zioVersion
     ).map(_ % Test)
   )
