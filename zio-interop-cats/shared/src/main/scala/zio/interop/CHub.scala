@@ -202,7 +202,7 @@ object CHub {
       def size(implicit trace: ZTraceElement): F[Int]                            =
         hub.size.toEffect[F]
       def subscribe(implicit trace: ZTraceElement): Resource[F, Dequeue[F, B]]   =
-        Resource.scoped(hub.subscribe.map(Dequeue[F, B](_)))
+        Resource.scoped[F, Any, Dequeue[F, B]](hub.subscribe.map(Dequeue[F, B](_)))
       def contramap[C](f: C => A): CHub[F, C, B]                                 =
         CHub(hub.contramap(f))
       def contramapM[C](f: C => F[A]): CHub[F, C, B]                             =
