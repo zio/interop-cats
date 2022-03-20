@@ -29,7 +29,7 @@ object BuildHelper {
     "-Yrangepos",
     "-Xsource:3",
     "-P:kind-projector:underscore-placeholders",
-    "-Xlint:_,-type-parameter-shadow",
+    "-Xlint:_,-type-parameter-shadow,-infer-any",
     "-Ywarn-numeric-widen",
     "-Ywarn-value-discard"
   )
@@ -71,7 +71,6 @@ object BuildHelper {
           "-Ypartial-unification",
           "-Yno-adapted-args",
           "-Ywarn-inaccessible",
-          "-Ywarn-infer-any",
           "-Ywarn-nullary-override",
           "-Ywarn-nullary-unit"
         ) ++ std2xOptions ++ optimizerOptions

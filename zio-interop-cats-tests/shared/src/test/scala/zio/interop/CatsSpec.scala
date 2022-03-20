@@ -6,6 +6,7 @@ import cats.effect.unsafe.IORuntime
 import cats.laws.discipline.*
 import zio.{ durationInt => _, _ }
 import zio.interop.catz.*
+import zio.managed.*
 
 import scala.concurrent.duration._
 

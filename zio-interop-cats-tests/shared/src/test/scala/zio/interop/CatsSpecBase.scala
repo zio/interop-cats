@@ -11,6 +11,7 @@ import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio.*
+import zio.managed.*
 
 import java.time.{ Instant, LocalDateTime, OffsetDateTime, ZoneOffset }
 import java.util.concurrent.TimeUnit
