@@ -21,11 +21,11 @@ import cats.*
 import cats.effect.*
 import cats.effect.std.Dispatcher
 import cats.kernel.{ CommutativeMonoid, CommutativeSemigroup }
-import zio.ZManaged.ReleaseMap
 import zio.ZTraceElement
 import zio.interop.catz.concurrentInstance
 import zio.internal.stacktracer.InteropTracer
 import zio.internal.stacktracer.{ Tracer => CoreTracer }
+import zio.managed.*
 
 trait CatsZManagedSyntax {
   import scala.language.implicitConversions
@@ -41,6 +41,8 @@ trait CatsZManagedSyntax {
   implicit final def zManagedSyntax[R, E, A](managed: ZManaged[R, E, A]): ZManagedSyntax[R, E, A] =
     new ZManagedSyntax(managed)
 
+  implicit final def scopedSyntax(resource: Resource.type): ScopedSyntax =
+    new ScopedSyntax(resource)
 }
 
 final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) extends AnyVal {
@@ -56,25 +58,34 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
    * Convert a cats Resource into a ZManaged.
    * Beware that unhandled error during release of the resource will result in the fiber dying.
    */
-  def toManagedZIO(implicit trace: ZTraceElement): ZManaged[R, E, A] = {
+  def toManagedZIO(implicit trace: ZTraceElement): ZManaged[R, E, A] =
+    ZManaged.scoped[R](toScopedZIO)
+
+  /**
+   * Convert a cats Resource into a scoped ZIO.
+   * Beware that unhandled error during release of the resource will result in the fiber dying.
+   */
+  def toScopedZIO(implicit trace: ZTraceElement): ZIO[R with Scope, E, A] = {
     type F[T] = ZIO[R, E, T]
     val F = MonadCancel[F, E]
 
-    def go[B](resource: Resource[F, B]): ZManaged[R, E, B] =
+    def go[B](resource: Resource[F, B]): ZIO[R with Scope, E, B] =
       resource match {
         case allocate: Resource.Allocate[F, b] =>
-          ZManaged.fromReservationZIO[R, E, B](F.uncancelable(allocate.resource).map { case (b, release) =>
-            Reservation(ZIO.succeedNow(b), error => release(toExitCase(error)).orDie)
-          })
+          ZIO.acquireReleaseExit {
+            F.uncancelable(allocate.resource)
+          } { case ((_, release), exit) =>
+            release(toExitCase(exit)).orDie
+          }.map(_._1)
 
         case bind: Resource.Bind[F, a, B] =>
           go(bind.source).flatMap(a => go(bind.fs(a)))
 
         case eval: Resource.Eval[F, b] =>
-          ZManaged.fromZIO(eval.fa)
+          eval.fa
 
         case pure: Resource.Pure[F, B] =>
-          ZManaged.succeedNow(pure.a)
+          ZIO.succeedNow(pure.a)
       }
 
     go(resource)
@@ -82,19 +93,38 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
 }
 
 final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) extends AnyVal {
-  def toResourceZIO(implicit trace: ZTraceElement): Resource[ZIO[R, E, _], A] = {
+  import zio.interop.catz.scopedSyntax
+
+  def toResourceZIO(implicit trace: ZTraceElement): Resource[ZIO[R, E, _], A] =
+    Resource.scopedZIO[R, E, A](scoped(managed))
+
+  def toResource[F[_]: Async](implicit R: Runtime[R], ev: E <:< Throwable, trace: ZTraceElement): Resource[F, A] =
+    Resource.scoped[F, R, A](scoped(managed).mapError(ev))
+
+  private def scoped[R, E, A](managed: ZManaged[R, E, A])(implicit trace: ZTraceElement): ZIO[R with Scope, E, A] =
+    for {
+      scope      <- ZIO.scope
+      releaseMap <- ZManaged.ReleaseMap.make
+      _          <- scope.addFinalizerExit(releaseMap.releaseAll(_, ExecutionStrategy.Sequential))
+      tuple      <- ZManaged.currentReleaseMap.locally(releaseMap)(managed.zio)
+      (_, a)      = tuple
+    } yield a
+}
+
+final class ScopedSyntax(private val self: Resource.type) extends AnyVal {
+  def scopedZIO[R, E, A](zio: ZIO[Scope with R, E, A])(implicit trace: ZTraceElement): Resource[ZIO[R, E, _], A] = {
     type F[T] = ZIO[R, E, T]
 
     Resource
-      .applyCase[F, ReleaseMap](
-        ZManaged.ReleaseMap.make.map { releaseMap =>
-          (releaseMap, exitCase => releaseMap.releaseAll(toExit(exitCase), ExecutionStrategy.Sequential).unit)
+      .applyCase[F, Scope.Closeable](
+        Scope.make.map { scope =>
+          (scope, exitCase => scope.close(toExit(exitCase)))
         }
       )
-      .flatMap { releaseMap =>
+      .flatMap { scope =>
         Resource.suspend(
-          ZManaged.currentReleaseMap.locally(releaseMap) {
-            managed.zio.map { case (_, a) =>
+          scope.extend[R] {
+            zio.map { case a =>
               Resource.applyCase[F, A](ZIO.succeedNow((a, _ => ZIO.unit)))
             }
           }
@@ -102,9 +132,11 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
       }
   }
 
-  def toResource[F[_]: Async](implicit R: Runtime[R], ev: E <:< Throwable, trace: ZTraceElement): Resource[F, A] =
-    toResourceZIO.mapK(new (ZIO[R, E, _] ~> F) {
-      override def apply[B](zio: ZIO[R, E, B]) = toEffect(zio.mapError(ev))
+  def scoped[F[_]: Async, R, A](
+    zio: ZIO[Scope with R, Throwable, A]
+  )(implicit runtime: Runtime[R], trace: ZTraceElement): Resource[F, A] =
+    scopedZIO[R, Throwable, A](zio).mapK(new (ZIO[R, Throwable, _] ~> F) {
+      override def apply[B](zio: ZIO[R, Throwable, B]) = toEffect(zio)
     })
 }
 

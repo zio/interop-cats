@@ -4,6 +4,7 @@ import cats.data.NonEmptyList
 import cats.{ Bifunctor, Monad, MonadError, SemigroupK }
 import zio.*
 import zio.interop.catz.core.*
+import zio.managed.*
 import zio.stream.interop.catz.core.*
 import zio.stream.{ Stream, ZStream }
 import zio.test.*

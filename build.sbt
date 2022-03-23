@@ -47,7 +47,7 @@ lazy val root = project
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
-val zioVersion                 = "2.0.0-RC2"
+val zioVersion                 = "2.0.0-RC3"
 val catsVersion                = "2.6.1"
 val catsEffectVersion          = "3.2.9"
 val catsMtlVersion             = "1.2.1"
@@ -63,6 +63,7 @@ lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
   .settings(
     libraryDependencies ++= {
       val optLibraries0 = List(
+        "dev.zio"       %%% "zio-managed"     % zioVersion,
         "dev.zio"       %%% "zio-streams"     % zioVersion,
         "dev.zio"       %%% "zio-stacktracer" % zioVersion,
         "org.typelevel" %%% "cats-effect-std" % catsEffectVersion,
@@ -88,6 +89,7 @@ lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
   .settings(
     libraryDependencies ++= {
       val optLibraries0 = List(
+        "dev.zio"       %%% "zio-managed"     % zioVersion,
         "dev.zio"       %%% "zio-streams"     % zioVersion,
         "org.typelevel" %%% "cats-effect-std" % catsEffectVersion,
         "org.typelevel" %%% "cats-mtl"        % catsMtlVersion,
@@ -122,6 +124,7 @@ lazy val zioTestInteropCats    = crossProject(JSPlatform, JVMPlatform)
   .settings(
     libraryDependencies ++= {
       val optLibraries0 = List(
+        "dev.zio"       %%% "zio-managed"     % zioVersion,
         "dev.zio"       %%% "zio-streams"     % zioVersion,
         "dev.zio"       %%% "zio-test"        % zioVersion,
         "org.typelevel" %%% "cats-effect-std" % catsEffectVersion,
@@ -155,6 +158,7 @@ lazy val coreOnlyTest         = crossProject(JSPlatform, JVMPlatform)
   .settings(
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core"    % catsVersion,
+      "dev.zio"       %%% "zio-managed"  % zioVersion,
       "dev.zio"       %%% "zio-test-sbt" % zioVersion
     ).map(_ % Test)
   )

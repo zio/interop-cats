@@ -18,7 +18,7 @@ package zio.interop
 
 import cats.effect.kernel.{ Async, Resource }
 import cats.effect.std.Dispatcher
-import zio.interop.catz.zManagedSyntax
+import zio.interop.catz.scopedSyntax
 import zio.{ Runtime, ZDequeue, ZEnqueue, ZHub, ZQueue, ZTraceElement }
 
 /**
@@ -202,7 +202,7 @@ object CHub {
       def size(implicit trace: ZTraceElement): F[Int]                            =
         hub.size.toEffect[F]
       def subscribe(implicit trace: ZTraceElement): Resource[F, Dequeue[F, B]]   =
-        hub.subscribe.map(Dequeue[F, B](_)).toResource[F]
+        Resource.scoped[F, Any, Dequeue[F, B]](hub.subscribe.map(Dequeue[F, B](_)))
       def contramap[C](f: C => A): CHub[F, C, B]                                 =
         CHub(hub.contramap(f))
       def contramapM[C](f: C => F[A]): CHub[F, C, B]                             =

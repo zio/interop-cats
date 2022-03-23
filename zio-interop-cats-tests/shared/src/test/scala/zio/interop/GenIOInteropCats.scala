@@ -2,6 +2,7 @@ package zio.interop
 
 import org.scalacheck.*
 import zio.*
+import zio.managed.*
 
 /**
  * Temporary fork of zio.GenIO that overrides `genParallel` with ZManaged-based code
@@ -19,7 +20,7 @@ trait GenIOInteropCats {
    * Given a generator for `A`, produces a generator for `IO[E, A]` using the `IO.async` constructor.
    */
   def genAsyncSuccess[E, A: Arbitrary]: Gen[IO[E, A]] =
-    Arbitrary.arbitrary[A].map(a => IO.async[E, A](k => k(IO.succeed(a))))
+    Arbitrary.arbitrary[A].map(a => IO.async[Any, E, A](k => k(IO.succeed(a))))
 
   /**
    * Randomly uses either `genSyncSuccess` or `genAsyncSuccess` with equal probability.
