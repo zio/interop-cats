@@ -1,14 +1,14 @@
 package zio.interop
 
 import fs2.Stream
-import zio.{ Chunk, Clock, RIO, Ref, Task }
+import zio.{ Chunk, Ref, Task }
 import zio.stream.ZStream
 import zio.test.Assertion.{ equalTo, fails }
 import zio.test.*
 import zio.interop.catz.*
 import zio.Random.nextIntBetween
 
-object fs2StreamSpec extends DefaultRunnableSpec {
+object fs2StreamSpec extends ZIOSpecDefault {
   import zio.stream.interop.fs2z.*
 
   val exception: Throwable = new Exception("Failed")
@@ -88,7 +88,7 @@ object fs2StreamSpec extends DefaultRunnableSpec {
         for {
           queueSize <- nextIntBetween(2, 128)
           result    <- assertEqual(
-                         fs2StreamFromChunk(chunk).covary[RIO[Clock, _]].toZStream(queueSize),
+                         fs2StreamFromChunk(chunk).covary[Task].toZStream(queueSize),
                          ZStream.fromChunk(chunk)
                        )
         } yield result

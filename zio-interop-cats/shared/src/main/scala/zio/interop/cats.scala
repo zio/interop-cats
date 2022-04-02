@@ -23,7 +23,7 @@ import cats.effect.{ IO as CIO, LiftIO }
 import cats.kernel.{ CommutativeMonoid, CommutativeSemigroup }
 import cats.effect
 import cats.*
-import zio.{ Clock, Fiber, ZEnvironment }
+import zio.{ Fiber, Ref as ZRef, ZEnvironment }
 import zio.*
 import zio.Clock.{ currentTime, nanoTime }
 import zio.Duration
@@ -44,14 +44,14 @@ object catz extends CatsEffectPlatform {
    * summon Cats Effect typeclasses without the ceremony of
    *
    * {{{
-   * ZIO.runtime[Clock with Blocking].flatMap { implicit runtime =>
+   * ZIO.runtime[Any].flatMap { implicit runtime =>
    *  implicit val asyncTask: Async[Task] = implicitly
    *  ...
    * }
    * }}}
    */
   object implicits {
-    implicit val rts: Runtime[Clock] = Runtime.default
+    implicit val rts: Runtime[Any] = Runtime.default
   }
 }
 
@@ -64,7 +64,7 @@ abstract class CatsEffectPlatform
     with CatsZManagedSyntax {
 
   trait CatsApp extends ZIOAppDefault {
-    implicit override val runtime: Runtime[ZEnv] = super.runtime
+    implicit override val runtime: Runtime[Any] = super.runtime
   }
 
   val console: interop.console.cats.type =
@@ -82,25 +82,25 @@ abstract class CatsEffectInstances extends CatsZioInstances {
   implicit final def liftIOInstance[R](implicit runtime: IORuntime): LiftIO[RIO[R, _]] =
     new ZioLiftIO
 
-  implicit final def asyncInstance[R <: Clock]: Async[RIO[R, _]] =
+  implicit final def asyncInstance[R]: Async[RIO[R, _]] =
     asyncInstance0.asInstanceOf[Async[RIO[R, _]]]
 
-  implicit final def temporalInstance[R <: Clock, E]: GenTemporal[ZIO[R, E, _], E] =
+  implicit final def temporalInstance[R, E]: GenTemporal[ZIO[R, E, _], E] =
     temporalInstance0.asInstanceOf[GenTemporal[ZIO[R, E, _], E]]
 
   implicit final def concurrentInstance[R, E]: GenConcurrent[ZIO[R, E, _], E] =
     concurrentInstance0.asInstanceOf[GenConcurrent[ZIO[R, E, _], E]]
 
-  implicit final def asyncRuntimeInstance[E](implicit runtime: Runtime[Clock]): Async[Task] =
+  implicit final def asyncRuntimeInstance[E](implicit runtime: Runtime[Any]): Async[Task] =
     new ZioRuntimeAsync
 
-  implicit final def temporalRuntimeInstance[E](implicit runtime: Runtime[Clock]): GenTemporal[IO[E, _], E] =
+  implicit final def temporalRuntimeInstance[E](implicit runtime: Runtime[Any]): GenTemporal[IO[E, _], E] =
     new ZioRuntimeTemporal[E]
 
-  private[this] val asyncInstance0: Async[RIO[Clock, _]] =
+  private[this] val asyncInstance0: Async[Task] =
     new ZioAsync
 
-  private[this] val temporalInstance0: Temporal[RIO[Clock, _]] =
+  private[this] val temporalInstance0: Temporal[Task] =
     new ZioTemporal
 
   private[this] val concurrentInstance0: Concurrent[Task] =
@@ -290,7 +290,7 @@ private final class ZioDeferred[R, E, A](promise: Promise[E, A]) extends Deferre
   }
 }
 
-private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E, _], A] {
+private final class ZioRef[R, E, A](ref: ZRef[A]) extends effect.Ref[ZIO[R, E, _], A] {
   type F[T] = ZIO[R, E, T]
 
   override def access: F[(A, A => F[Boolean])] = {
@@ -354,7 +354,7 @@ private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E
     ref.get(CoreTracer.newTrace)
 }
 
-private class ZioTemporal[R <: Clock, E] extends ZioConcurrent[R, E] with GenTemporal[ZIO[R, E, _], E] {
+private class ZioTemporal[R, E] extends ZioConcurrent[R, E] with GenTemporal[ZIO[R, E, _], E] {
 
   override final def sleep(time: FiniteDuration): F[Unit] = {
     implicit def trace: ZTraceElement = CoreTracer.newTrace
@@ -375,12 +375,12 @@ private class ZioTemporal[R <: Clock, E] extends ZioConcurrent[R, E] with GenTem
   }
 }
 
-private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Clock])
+private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Any])
     extends ZioConcurrent[Any, E]
     with GenTemporal[IO[E, _], E] {
 
-  private[this] val underlying: GenTemporal[ZIO[Clock, E, _], E] = new ZioTemporal[Clock, E]
-  private[this] val clock: ZEnvironment[Clock]                   = runtime.environment
+  private[this] val underlying: GenTemporal[ZIO[Any, E, _], E] = new ZioTemporal[Any, E]
+  private[this] val clock: ZEnvironment[Any]                   = runtime.environment
 
   override final def sleep(time: FiniteDuration): F[Unit] = {
     implicit def trace: ZTraceElement = CoreTracer.newTrace
@@ -401,10 +401,10 @@ private class ZioRuntimeTemporal[E](implicit runtime: Runtime[Clock])
   }
 }
 
-private class ZioRuntimeAsync(implicit runtime: Runtime[Clock]) extends ZioRuntimeTemporal[Throwable] with Async[Task] {
+private class ZioRuntimeAsync(implicit runtime: Runtime[Any]) extends ZioRuntimeTemporal[Throwable] with Async[Task] {
 
-  private[this] val underlying: Async[RIO[Clock, _]] = new ZioAsync[Clock]
-  private[this] val environment: ZEnvironment[Clock] = runtime.environment
+  private[this] val underlying: Async[RIO[Any, _]] = new ZioAsync[Any]
+  private[this] val environment: ZEnvironment[Any] = runtime.environment
 
   override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] = {
     implicit def trace: ZTraceElement = CoreTracer.newTrace

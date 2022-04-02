@@ -96,19 +96,10 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
   import zio.interop.catz.scopedSyntax
 
   def toResourceZIO(implicit trace: ZTraceElement): Resource[ZIO[R, E, _], A] =
-    Resource.scopedZIO[R, E, A](scoped(managed))
+    Resource.scopedZIO[R, E, A](managed.scoped)
 
   def toResource[F[_]: Async](implicit R: Runtime[R], ev: E <:< Throwable, trace: ZTraceElement): Resource[F, A] =
-    Resource.scoped[F, R, A](scoped(managed).mapError(ev))
-
-  private def scoped[R, E, A](managed: ZManaged[R, E, A])(implicit trace: ZTraceElement): ZIO[R with Scope, E, A] =
-    for {
-      scope      <- ZIO.scope
-      releaseMap <- ZManaged.ReleaseMap.make
-      _          <- scope.addFinalizerExit(releaseMap.releaseAll(_, ExecutionStrategy.Sequential))
-      tuple      <- ZManaged.currentReleaseMap.locally(releaseMap)(managed.zio)
-      (_, a)      = tuple
-    } yield a
+    Resource.scoped[F, R, A](managed.scoped.mapError(ev))
 }
 
 final class ScopedSyntax(private val self: Resource.type) extends AnyVal {

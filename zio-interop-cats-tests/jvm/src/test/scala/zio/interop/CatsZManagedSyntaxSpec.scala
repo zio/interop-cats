@@ -246,7 +246,7 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
             ZManaged.acquireReleaseWith(ZIO.succeed(effects += x).unit)(_ => ZIO.succeed(effects += x + 1))
 
-          val testCase = man(1).toResource[RIO[ZEnv, _]].use(_ => ZIO.unit)
+          val testCase = man(1).toResource[Task].use(_ => ZIO.unit)
           for {
             _       <- testCase
             effects <- ZIO.succeed(effects.toList)
@@ -262,7 +262,7 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
                 ZIO.unit
             }
 
-          val testCase = man(1).toResource[RIO[ZEnv, _]].use(_ => ZIO.fail(new RuntimeException()).unit)
+          val testCase = man(1).toResource[Task].use(_ => ZIO.fail(new RuntimeException()).unit)
           for {
             _       <- testCase.orElse(ZIO.unit)
             effects <- ZIO.succeed(effects.toList)
@@ -278,7 +278,7 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
                 ZIO.unit
             }
 
-          val testCase = man(1).toResource[RIO[ZEnv, _]].use(_ => ZIO.interrupt)
+          val testCase = man(1).toResource[Task].use(_ => ZIO.interrupt)
           for {
             _       <- testCase.orElse(ZIO.unit)
             effects <- ZIO.succeed(effects.toList)
