@@ -37,38 +37,39 @@ private[zio] trait CatsSpecBase
         blockingExecutor = Executor.fromExecutionContext(1024)(ticker.ctx)
       )
 
-  def environment(implicit ticker: Ticker): ZEnvironment[ZEnv] = {
+  val environment: ZEnvironment[Any] =
+    ZEnvironment(())
 
-    val testClock = new Clock {
+  def testClock(implicit ticker: Ticker) = new Clock {
 
-      def instant(implicit trace: ZTraceElement): UIO[Instant]                     =
-        ???
-      def localDateTime(implicit trace: ZTraceElement): UIO[LocalDateTime]         =
-        ???
-      def currentTime(unit: => TimeUnit)(implicit trace: ZTraceElement): UIO[Long] =
-        ZIO.succeed(ticker.ctx.now().toUnit(unit).toLong)
+    def instant(implicit trace: ZTraceElement): UIO[Instant]                     =
+      ???
+    def localDateTime(implicit trace: ZTraceElement): UIO[LocalDateTime]         =
+      ???
+    def currentTime(unit: => TimeUnit)(implicit trace: ZTraceElement): UIO[Long] =
+      ZIO.succeed(ticker.ctx.now().toUnit(unit).toLong)
 
-      def currentDateTime(implicit trace: ZTraceElement): UIO[OffsetDateTime] =
-        ZIO.succeed(OffsetDateTime.ofInstant(Instant.ofEpochMilli(ticker.ctx.now().toMillis), ZoneOffset.UTC))
+    def currentDateTime(implicit trace: ZTraceElement): UIO[OffsetDateTime] =
+      ZIO.succeed(OffsetDateTime.ofInstant(Instant.ofEpochMilli(ticker.ctx.now().toMillis), ZoneOffset.UTC))
 
-      def nanoTime(implicit trace: ZTraceElement): UIO[Long] =
-        ZIO.succeed(ticker.ctx.now().toNanos)
+    def javaClock(implicit trace: zio.ZTraceElement): zio.UIO[java.time.Clock] =
+      ???
 
-      def sleep(duration: => Duration)(implicit trace: ZTraceElement): UIO[Unit] = duration.asScala match {
-        case finite: FiniteDuration =>
-          ZIO.asyncInterrupt { cb =>
-            val cancel = ticker.ctx.schedule(finite, () => cb(UIO.unit))
-            Left(UIO.succeed(cancel()))
-          }
-        case infinite: Infinite     =>
-          ZIO.dieMessage(s"Unexpected infinite duration $infinite passed to Ticker")
-      }
+    def nanoTime(implicit trace: ZTraceElement): UIO[Long] =
+      ZIO.succeed(ticker.ctx.now().toNanos)
 
-      def scheduler(implicit trace: ZTraceElement): UIO[Scheduler] =
-        ???
+    def sleep(duration: => Duration)(implicit trace: ZTraceElement): UIO[Unit] = duration.asScala match {
+      case finite: FiniteDuration =>
+        ZIO.asyncInterrupt { cb =>
+          val cancel = ticker.ctx.schedule(finite, () => cb(UIO.unit))
+          Left(UIO.succeed(cancel()))
+        }
+      case infinite: Infinite     =>
+        ZIO.dieMessage(s"Unexpected infinite duration $infinite passed to Ticker")
     }
 
-    ZEnv.Services.live ++ ZEnvironment(testClock)
+    def scheduler(implicit trace: ZTraceElement): UIO[Scheduler] =
+      ???
   }
 
   def unsafeRun[E, A](io: IO[E, A])(implicit ticker: Ticker): Exit[E, Option[A]] =
@@ -84,15 +85,18 @@ private[zio] trait CatsSpecBase
     }
 
   implicit def runtime(implicit ticker: Ticker): Runtime[Any] =
-    Runtime(ZEnvironment(()), platform)
+    Runtime(environment, platform)
 
   implicit val arbitraryAny: Arbitrary[Any] =
     Arbitrary(Gen.const(()))
 
+  implicit def arbitraryChunk[A: Arbitrary]: Arbitrary[Chunk[A]] =
+    Arbitrary(Gen.listOf(Arbitrary.arbitrary[A]).map(Chunk.fromIterable))
+
   implicit val cogenForAny: Cogen[Any] =
     Cogen(_.hashCode.toLong)
 
-  implicit def arbitraryEnvironment(implicit ticker: Ticker): Arbitrary[ZEnvironment[ZEnv]] =
+  implicit val arbitraryEnvironment: Arbitrary[ZEnvironment[Any]] =
     Arbitrary(Gen.const(environment))
 
   implicit val eqForNothing: Eq[Nothing] =
@@ -122,8 +126,8 @@ private[zio] trait CatsSpecBase
   implicit def eqForURIO[R: Arbitrary: Tag, A: Eq](implicit ticker: Ticker): Eq[URIO[R, A]] =
     eqForZIO[R, Nothing, A]
 
-  implicit def execRIO(rio: RIO[ZEnv, Boolean])(implicit ticker: Ticker): Prop =
-    rio.provideEnvironment(environment).toEffect[CIO]
+  implicit def execTask(task: Task[Boolean])(implicit ticker: Ticker): Prop =
+    ZEnv.services.locallyWith(_.add(testClock))(task).toEffect[CIO]
 
   implicit def orderForUIOofFiniteDuration(implicit ticker: Ticker): Order[UIO[FiniteDuration]] =
     Order.by(unsafeRun(_).toEither.toOption)

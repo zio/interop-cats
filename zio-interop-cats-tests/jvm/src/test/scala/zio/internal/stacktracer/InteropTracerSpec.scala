@@ -3,7 +3,7 @@ package zio.internal.stacktracer
 import zio.test._
 import zio.ZTraceElement
 
-object InteropTracerSpec extends DefaultRunnableSpec {
+object InteropTracerSpec extends ZIOSpecDefault {
 
   private val myLambda: () => Any = () => ()
   override def spec               =

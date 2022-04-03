@@ -24,18 +24,6 @@ import scala.concurrent.Future
 
 package object interop {
 
-  type Queue[F[+_], A] = CQueue[F, A, A]
-  val Queue: CQueue.type = CQueue
-
-  /** A queue that can only be dequeued. */
-  type Dequeue[F[+_], +A] = CQueue[F, Nothing, A]
-
-  /** A queue that can only be enqueued. */
-  type Enqueue[F[+_], -A] = CQueue[F, A, Nothing]
-
-  type Hub[F[+_], A] = CHub[F, A, A]
-  val Hub: CHub.type = CHub
-
   @inline private[interop] def toOutcome[R, E, A](
     exit: Exit[E, A]
   )(implicit trace: ZTraceElement): Outcome[ZIO[R, E, _], E, A] =

@@ -9,7 +9,7 @@ import zio.stream.interop.catz.core.*
 import zio.stream.{ Stream, ZStream }
 import zio.test.*
 
-object CoreSummonSpec extends DefaultRunnableSpec {
+object CoreSummonSpec extends ZIOSpecDefault {
   override def spec =
     suite("summons from catz.core work with only a cats-core dependency")(
       test("ZIO instances") {

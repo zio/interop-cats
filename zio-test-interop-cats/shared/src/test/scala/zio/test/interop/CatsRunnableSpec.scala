@@ -4,15 +4,15 @@ import cats.effect.std.Dispatcher
 import cats.effect.unsafe.{ IORuntime, IORuntimeConfig, Scheduler }
 import cats.effect.IO as CIO
 import zio.*
-import zio.test.{ DefaultRunnableSpec, TestAspect }
+import zio.test.{ TestAspect, ZIOSpecDefault }
 
 import scala.util.Success
 
-abstract class CatsRunnableSpec extends DefaultRunnableSpec {
+abstract class CatsRunnableSpec extends ZIOSpecDefault {
   private[this] var openDispatcher: Dispatcher[CIO] = _
   private[this] var closeDispatcher: CIO[Unit]      = _
 
-  implicit val zioRuntime: Runtime[ZEnv] =
+  implicit val zioRuntime: Runtime[Any] =
     Runtime.default
 
   implicit val cioRuntime: IORuntime =
@@ -27,14 +27,17 @@ abstract class CatsRunnableSpec extends DefaultRunnableSpec {
       openDispatcher.unsafeToFutureCancelable(fa)
   }
 
-  override val aspects = List(
-    TestAspect.timeout(1.minute),
-    TestAspect.beforeAll(ZIO.fromFuture { implicit ec =>
+  runtime.unsafeRunToFuture {
+    ZIO.fromFuture { implicit ec =>
       Dispatcher[CIO].allocated.unsafeToFuture().andThen { case Success((dispatcher, close)) =>
         openDispatcher = dispatcher
         closeDispatcher = close
       }
-    }.orDie),
+    }.orDie
+  }
+
+  override val aspects = Chunk(
+    TestAspect.timeout(1.minute),
     TestAspect.afterAll(ZIO.fromFuture(_ => closeDispatcher.unsafeToFuture()).orDie)
   )
 }

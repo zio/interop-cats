@@ -14,26 +14,12 @@ class CatsSpec extends ZioSpecBase {
 
   // ZIO tests
   checkAllAsync(
-    "Async[RIO[Clock, _]]",
-    implicit tc => AsyncTests[RIO[Clock, _]].async[Int, Int, Int](100.millis)
-  )
-  checkAllAsync(
     "Async[Task]",
-    { implicit tc =>
-      implicit val runtime: Runtime[Clock] = Runtime(environment, platform)
-      AsyncTests[Task].async[Int, Int, Int](100.millis)
-    }
-  )
-  checkAllAsync(
-    "Temporal[RIO[Clock, _]]",
-    implicit tc => GenTemporalTests[RIO[Clock, _], Throwable].temporal[Int, Int, Int](100.millis)
+    implicit tc => AsyncTests[Task].async[Int, Int, Int](100.millis)
   )
   checkAllAsync(
     "Temporal[Task]",
-    { implicit tc =>
-      implicit val runtime: Runtime[Clock] = Runtime(environment, platform)
-      GenTemporalTests[Task, Throwable].temporal[Int, Int, Int](100.millis)
-    }
+    implicit tc => GenTemporalTests[Task, Throwable].temporal[Int, Int, Int](100.millis)
   )
   checkAllAsync("GenSpawn[IO[Int, _], Int]", implicit tc => GenSpawnTests[IO[Int, _], Int].spawn[Int, Int, Int])
   checkAllAsync("MonadError[IO[In t, _]]", implicit tc => MonadErrorTests[IO[Int, _], Int].monadError[Int, Int, Int])
