@@ -11,7 +11,7 @@ import zio.test.interop.catz.test._
 
 import scala.concurrent.ExecutionContext.global
 
-object Fs2ZioSpec extends DefaultRunnableSpec {
+object Fs2ZioSpec extends ZIOSpecDefault {
 
   def spec =
     suite("ZIO with Fs2")(

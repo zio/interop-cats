@@ -76,7 +76,7 @@ class TSemaphore[F[+_]] private (underlying: ZTSemaphore) {
    * See [[zio.stm.TSemaphore#withPermitsManaged]]
    */
   def withPermitsResource(n: Long)(implicit R: Runtime[Any], F: Effect[F], trace: ZTraceElement): Resource[F, Unit] =
-    underlying.withPermitsManaged(n).toResource[F]
+    underlying.withPermitsScoped(n).toResource[F]
 }
 
 object TSemaphore {

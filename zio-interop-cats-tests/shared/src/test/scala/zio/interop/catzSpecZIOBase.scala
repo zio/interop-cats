@@ -3,7 +3,7 @@ package zio.interop
 import cats.Eq
 import cats.effect.laws.util.TestContext
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
-import zio.{ IO, Runtime, Tag, ZEnvironment, ZIO, ZManaged }
+import zio.{ IO, Runtime, Tag, ZEnvironment, ZIO }
 
 private[interop] trait catzSpecZIOBase extends catzSpecBase with GenIOInteropCats {
 
@@ -19,6 +19,4 @@ private[interop] trait catzSpecZIOBase extends catzSpecBase with GenIOInteropCat
   implicit def ioParArbitrary[R, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ParIO[R, E, A]] =
     Arbitrary(Arbitrary.arbitrary[IO[E, A]].map(Par.apply))
 
-  implicit def zManagedArbitrary[R, E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZManaged[R, E, A]] =
-    Arbitrary(Arbitrary.arbitrary[IO[E, A]].map(ZManaged.fromZIO(_)))
 }

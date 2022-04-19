@@ -4,7 +4,7 @@ import cats.Monad
 import cats.effect.concurrent.Deferred
 import cats.effect.laws._
 import cats.effect.laws.discipline.arbitrary._
-import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests, SyncTests }
+import cats.effect.laws.discipline.{ ConcurrentEffectTests, ConcurrentTests, EffectTests }
 import cats.effect.{ Concurrent, ConcurrentEffect, ContextShift, Effect }
 import cats.implicits._
 import cats.laws._
@@ -35,16 +35,6 @@ class catzSpec extends catzSpecZIOBase {
     MonadTests[UIO].apply[Int, Int, Int]
   })
 
-  // ZManaged Tests
-  checkAllAsync("Monad[ZManaged]", implicit tc => MonadTests[ZManaged[Any, Throwable, *]].apply[Int, Int, Int])
-  checkAllAsync("Monad[ZManaged]", implicit tc => ExtraMonadTests[ZManaged[Any, Throwable, *]].monadExtras[Int])
-  checkAllAsync("SemigroupK[ZManaged]", implicit tc => SemigroupKTests[ZManaged[Any, Throwable, *]].semigroupK[Int])
-  checkAllAsync(
-    "MonadError[ZManaged]",
-    implicit tc => MonadErrorTests[ZManaged[Any, Int, *], Int].monadError[Int, Int, Int]
-  )
-  checkAllAsync("Sync[ZManaged]", implicit tc => SyncTests[ZManaged[Any, Throwable, *]].sync[Int, Int, Int])
-
   object summoningInstancesTest {
     import cats._
     import cats.effect._
@@ -61,13 +51,6 @@ class catzSpec extends catzSpecZIOBase {
     SemigroupK[RIO[String, *]]
     implicitly[Parallel[RIO[String, *]]]
     Apply[UIO]
-    LiftIO[ZManaged[String, Throwable, *]]
-    MonadError[ZManaged[String, Throwable, *], Throwable]
-    Monad[ZManaged[String, Throwable, *]]
-    Applicative[ZManaged[String, Throwable, *]]
-    Functor[ZManaged[String, Throwable, *]]
-    SemigroupK[ZManaged[String, Throwable, *]]
-    Sync[ZManaged[String, Throwable, *]]
 
     def concurrentEffect[R: Runtime] = ConcurrentEffect[RIO[R, *]]
     def effect[R: Runtime]           = Effect[RIO[R, *]]
@@ -101,10 +84,12 @@ class catzSpec extends catzSpecZIOBase {
   object concurrentEffectSyntaxTest {
     import cats.effect.syntax.all._
 
-    Task.concurrentEffectWith { implicit CE =>
-      Task(List(1, 2).parTraverseN(5L) { _ =>
-        Task(())
-      }).start
+    Task.concurrentEffectWith { implicit CE: ConcurrentEffect[Task] =>
+      Task
+        .attempt(List(1, 2).parTraverseN[Task, Unit](5L) { _ =>
+          Task.unit
+        })
+        .start
     }
   }
 

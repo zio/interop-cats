@@ -9,14 +9,14 @@ import zio.test._
 
 import scala.concurrent.duration.FiniteDuration
 
-object catzClockSpec extends DefaultRunnableSpec {
+object catzClockSpec extends ZIOSpecDefault {
 
   def spec =
     suite("catzClockSpec") {
       test("Timer can be constructed from ZIO Clock") {
-        ZIO.environment[Clock].flatMap { clock =>
+        ZIO.clockWith { clock =>
           implicit val timer: Timer[Task] =
-            clock.get.toTimer
+            clock.toTimer
 
           val stream: Stream[Task, Int] =
             Stream.eval(Task.attempt(1)).delayBy(FiniteDuration(10, TimeUnit.DAYS))

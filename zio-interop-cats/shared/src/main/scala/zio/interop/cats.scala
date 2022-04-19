@@ -34,18 +34,16 @@ object catz extends CatsEffectPlatform {
 
 abstract class CatsEffectPlatform
     extends CatsEffectInstances
-    with CatsEffectZManagedInstances
-    with CatsZManagedInstances
     with CatsChunkInstances
     with CatsNonEmptyChunkInstances
-    with CatsZManagedSyntax
+    with CatsScopedSyntax
     with CatsConcurrentEffectSyntax
     with CatsClockSyntax {
 
   val console: interop.console.cats.type = interop.console.cats
 
   trait CatsApp extends ZIOAppDefault {
-    override implicit val runtime: Runtime[ZEnv] = super.runtime
+    override implicit val runtime: Runtime[Any] = super.runtime
   }
 
   object implicits {
@@ -57,11 +55,7 @@ abstract class CatsEffectPlatform
 
 }
 
-abstract class CatsPlatform
-    extends CatsInstances
-    with CatsZManagedInstances
-    with CatsChunkInstances
-    with CatsNonEmptyChunkInstances
+abstract class CatsPlatform extends CatsInstances with CatsChunkInstances with CatsNonEmptyChunkInstances
 
 abstract class CatsEffectInstances extends CatsInstances with CatsEffectInstances1 {
 
@@ -241,12 +235,12 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     implicit def trace: ZTraceElement = CoreTracer.newTrace
 
     def run[C](fc: RIO[R, C]): ZIO[R, Throwable, C] =
-      fc.interruptible.overrideForkScope(ZScope.global)
+      fc.interruptible
 
     (run(fa) raceWith run(fb))(
       { case (l, f) => l.fold(f.interrupt *> ZIO.failCause(_), ZIO.succeedNow).map(lv => Left((lv, toFiber(f)))) },
       { case (r, f) => r.fold(f.interrupt *> ZIO.failCause(_), ZIO.succeedNow).map(rv => Right((toFiber(f), rv))) }
-    ).resetForkScope
+    )
   }
 
   override final def never[A]: RIO[R, A] =

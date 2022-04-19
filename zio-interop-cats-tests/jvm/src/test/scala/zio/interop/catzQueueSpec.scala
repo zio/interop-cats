@@ -1,6 +1,6 @@
 package zio.interop
 
-import cats.effect.{ Concurrent, ContextShift, Effect, IO => CIO }
+import cats.effect.{ Concurrent, ContextShift, IO => CIO }
 import cats.implicits._
 import zio.test.Assertion._
 import zio.test._
@@ -9,7 +9,7 @@ import zio.{ Runtime, RuntimeConfig, ZEnv }
 
 import scala.concurrent.ExecutionContext.global
 
-object catzQueueSpec extends DefaultRunnableSpec {
+object catzQueueSpec extends ZIOSpecDefault {
 
   def boundedQueueTest[F[+_]](implicit F: Concurrent[F], R: Runtime[ZEnv]): F[TestResult] =
     for {
@@ -42,26 +42,6 @@ object catzQueueSpec extends DefaultRunnableSpec {
       actual   <- q.takeAll
     } yield assert(actual)(equalTo(expected.toList))
 
-  def contramapQueueTest[F[+_]](implicit F: Concurrent[F], R: Runtime[ZEnv]): F[TestResult] =
-    for {
-      q        <- Queue.unbounded[F, String]
-      q1       = q.contramap((i: Int) => i.toString)
-      data     = Range.inclusive(0, 100)
-      _        <- q1.offerAll(data)
-      actual   <- q1.takeAll
-      expected = data.map(_.toString)
-    } yield assert(actual)(equalTo(expected.toList))
-
-  def mapMQueueTest[F[+_]](implicit F: Effect[F], R: Runtime[ZEnv]): F[TestResult] =
-    for {
-      q        <- Queue.unbounded[F, Int]
-      q1       = q.mapM(i => F.pure(i.toString))
-      data     = Range.inclusive(0, 100)
-      _        <- q1.offerAll(data)
-      actual   <- q1.takeAll
-      expected = data.map(_.toString)
-    } yield assert(actual)(equalTo(expected.toList))
-
   def spec = suite("catzQueueSpec")(
     testF("can use a bounded queue from Cats Effect IO") {
       implicit val r: Runtime[ZEnv]     = Runtime.unsafeFromLayer(ZEnv.live, RuntimeConfig.default)
@@ -82,16 +62,6 @@ object catzQueueSpec extends DefaultRunnableSpec {
       implicit val r: Runtime[ZEnv]     = Runtime.unsafeFromLayer(ZEnv.live, RuntimeConfig.default)
       implicit val c: ContextShift[CIO] = CIO.contextShift(global)
       unboundedQueueTest[CIO]
-    },
-    testF("can contramap a queue from Cats Effect IO") {
-      implicit val r: Runtime[ZEnv]     = Runtime.unsafeFromLayer(ZEnv.live, RuntimeConfig.default)
-      implicit val c: ContextShift[CIO] = CIO.contextShift(global)
-      contramapQueueTest[CIO]
-    },
-    testF("can mapM a queue from Cats Effect IO") {
-      implicit val r: Runtime[ZEnv]     = Runtime.unsafeFromLayer(ZEnv.live, RuntimeConfig.default)
-      implicit val c: ContextShift[CIO] = CIO.contextShift(global)
-      mapMQueueTest[CIO]
     }
   )
 }

@@ -10,7 +10,6 @@ import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio.interop.catz.taskEffectInstance
 import zio.{
-  =!=,
   Cause,
   Clock,
   Console,
@@ -24,8 +23,7 @@ import zio.{
   Task,
   UIO,
   ZEnvironment,
-  ZIO,
-  ZManaged
+  ZIO
 }
 
 private[zio] trait catzSpecBase
@@ -54,13 +52,6 @@ private[zio] trait catzSpecBase
   implicit def zioEqUIO[A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[UIO[A]] =
     Eq.by(uio => taskEffectInstance.toIO(uio.sandbox.either))
 
-  implicit def zioEqZManaged[E: Eq, A: Eq](implicit rts: Runtime[Any], tc: TestContext): Eq[ZManaged[Any, E, A]] =
-    Eq.by(
-      zm =>
-        ZManaged.ReleaseMap.make
-          .flatMap(releaseMap => ZManaged.currentReleaseMap.locally(releaseMap)(zm.zio.map(_._2).either))
-    )
-
   def checkAllAsync(name: String, f: TestContext => Laws#RuleSet): Unit =
     checkAll(name, f(TestContext()))
 
@@ -73,28 +64,6 @@ private[interop] sealed trait catzSpecBaseLowPriority { this: catzSpecBase =>
     tc: TestContext
   ): Eq[ZIO[R, E, A]] = {
     def run(r: ZEnvironment[R], zio: ZIO[R, E, A]) = taskEffectInstance.toIO(zio.provideEnvironment(r).either)
-    Eq.instance(
-      (io1, io2) =>
-        Arbitrary.arbitrary[ZEnvironment[R]].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2))
-    )
-  }
-
-  // 'R =!= Any' evidence fixes the 'diverging implicit expansion for type Arbitrary' error reproducible on scala 2.12 and 2.11.
-  implicit def zmanagedEq[R: Tag, E, A](
-    implicit
-    @deprecated("unused", "unused") notAny: R =!= Any,
-    arb: Arbitrary[R],
-    eqE: Eq[E],
-    eqA: Eq[A],
-    rts: Runtime[Any],
-    tc: TestContext
-  ): Eq[ZManaged[R, E, A]] = {
-    def run(r: ZEnvironment[R], zm: ZManaged[R, E, A]) =
-      taskEffectInstance.toIO(
-        ZManaged.ReleaseMap.make.flatMap(
-          releaseMap => ZManaged.currentReleaseMap.locally(releaseMap)(zm.zio.provideEnvironment(r).map(_._2).either)
-        )
-      )
     Eq.instance(
       (io1, io2) =>
         Arbitrary.arbitrary[ZEnvironment[R]].sample.fold(false)(r => catsSyntaxEq(run(r, io1)) eqv run(r, io2))

@@ -1,7 +1,8 @@
 package zio.interop
 
 import org.scalacheck._
-import zio.{ IO, Promise, ZIO, ZManaged }
+import zio.{ IO, Promise, ZIO }
+import zio.Scope
 
 /**
  * Temporary fork of zio.GenIO that overrides `genParallel` with ZManaged-based code
@@ -19,7 +20,7 @@ trait GenIOInteropCats {
    * Given a generator for `A`, produces a generator for `IO[E, A]` using the `IO.async` constructor.
    */
   def genAsyncSuccess[E, A: Arbitrary]: Gen[IO[E, A]] =
-    Arbitrary.arbitrary[A].map(a => IO.async[E, A](k => k(IO.succeed(a))))
+    Arbitrary.arbitrary[A].map(a => IO.async[Any, E, A](k => k(IO.succeed(a))))
 
   /**
    * Randomly uses either `genSyncSuccess` or `genAsyncSuccess` with equal probability.
@@ -35,7 +36,7 @@ trait GenIOInteropCats {
    * Given a generator for `E`, produces a generator for `IO[E, A]` using the `IO.async` constructor.
    */
   def genAsyncFailure[E: Arbitrary, A]: Gen[IO[E, A]] =
-    Arbitrary.arbitrary[E].map(err => IO.async[E, A](k => k(IO.fail(err))))
+    Arbitrary.arbitrary[E].map(err => IO.async[Any, E, A](k => k(IO.fail(err))))
 
   /**
    * Randomly uses either `genSyncFailure` or `genAsyncFailure` with equal probability.
@@ -121,10 +122,7 @@ trait GenIOInteropCats {
       // this should work, but generates more random failures on CI
 //      io.interruptible.zipPar(parIo.interruptible).map(_._1)
       Promise.make[Nothing, Unit].flatMap { p =>
-        ZManaged
-          .fromZIO(parIo *> p.succeed(()))
-          .fork
-          .useDiscard(p.await *> io)
+        Scope.make.flatMap(_.use((parIo *> p.succeed(())).forkScoped *> p.await *> io))
       }
     }
 

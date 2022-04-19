@@ -156,5 +156,5 @@ trait CatsTestFunctions {
     test(label)(fromEffect(assertion))
 
   private def fromEffect[F[_], A](eff: F[A])(implicit F: Effect[F], trace: ZTraceElement): Task[A] =
-    Task.runtime.flatMap(taskEffectInstance(_).liftIO(F.toIO(eff)))
+    Task.runtime[Any].flatMap(taskEffectInstance(_).liftIO(F.toIO(eff)))
 }
