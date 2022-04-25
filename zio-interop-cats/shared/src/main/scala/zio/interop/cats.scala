@@ -455,11 +455,11 @@ private class ZioRuntimeAsync(implicit runtime: Runtime[Any]) extends ZioRuntime
     underlying.blocking(thunk).provideEnvironment(environment)
   }
 
-  override final def interruptible[A](many: Boolean)(thunk: => A): F[A] = {
+  override final def interruptible[A](thunk: => A): F[A] = {
     val byName: () => A               = () => thunk
     implicit def trace: ZTraceElement = InteropTracer.newTrace(byName)
 
-    underlying.interruptible(many)(thunk).provideEnvironment(environment)
+    underlying.interruptible(thunk).provideEnvironment(environment)
   }
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] = {
