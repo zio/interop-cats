@@ -67,7 +67,7 @@ final class ZScopedSyntax[R, R2 >: R with Scope, E, A](private val scoped: ZIO[R
       .flatMap(
         closeable =>
           Resource.suspend(
-            closeable.use[R] {
+            closeable.extend[R] {
               scoped.map { a =>
                 Resource.applyCase(ZIO.succeedNow((a, (_: ExitCase[Throwable]) => ZIO.unit)))
               }

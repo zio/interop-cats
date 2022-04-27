@@ -4,13 +4,12 @@ import cats.effect.{ ExitCase, Resource, IO => CIO }
 import zio.interop.catz._
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Exit, Runtime, Scope, Task, ZIO }
+import zio.{ Exit, Scope, Task, ZIO }
 
 import scala.collection.mutable
 
 object CatsScopedSyntaxSpec extends ZIOSpecDefault {
 
-  val runtime                               = Runtime.default
   def unsafeRun[R, E, A](p: ZIO[Any, E, A]) = runtime.unsafeRun(p)
 
   def spec =
