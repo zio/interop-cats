@@ -54,7 +54,7 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
               .resource
               .drain
               .toScopedZIO
-              .fork
+              .forkScoped
         } yield ZStream.fromQueue(queue).flattenTake
       }
       .flatten
@@ -74,7 +74,7 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
             .resource
             .drain
             .toScopedZIO
-            .fork
+            .forkScoped
         } yield ZStream.fromQueue(queue).flattenTake
       }
       .flatten
