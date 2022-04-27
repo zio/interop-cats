@@ -84,10 +84,10 @@ class catzSpec extends catzSpecZIOBase {
   object concurrentEffectSyntaxTest {
     import cats.effect.syntax.all._
 
-    Task.concurrentEffectWith { implicit CE: ConcurrentEffect[Task] =>
-      Task
+    ZIO.concurrentEffectWith { implicit CE: ConcurrentEffect[Task] =>
+      ZIO
         .attempt(List(1, 2).parTraverseN[Task, Unit](5L) { _ =>
-          Task.unit
+          ZIO.unit
         })
         .start
     }

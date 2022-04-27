@@ -17,60 +17,60 @@
 package zio.interop
 
 import cats.effect.LiftIO
-import zio.{ Queue => ZioQueue, Runtime, UIO, ZEnv, ZTraceElement }
+import zio.{ Queue => ZioQueue, Runtime, UIO, ZEnv, Trace }
 
 sealed trait Dequeue[F[+_], +A] {
 
   /**
    * @see [[ZQueue.awaitShutdown]]
    */
-  def awaitShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Unit]
+  def awaitShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Unit]
 
   /**
    * @see [[ZQueue.capacity]]
    */
   def capacity: Int
 
-  def isEmpty(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean]
+  def isEmpty(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean]
 
-  def isFull(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean]
+  def isFull(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean]
 
   /**
    * @see [[ZQueue.isShutdown]]
    */
-  def isShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean]
+  def isShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean]
 
   /**
    * @see [[ZQueue.poll]]
    */
-  def poll(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Option[A]]
+  def poll(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Option[A]]
 
   /**
    * @see [[ZQueue.shutdown]]
    */
-  def shutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Unit]
+  def shutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Unit]
 
   /**
    * @see [[ZQueue.size]]
    */
-  def size(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Int]
+  def size(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Int]
 
   /**
    * @see [[ZQueue.take]]
    */
-  def take(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[A]
+  def take(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[A]
 
   /**
    * @see [[ZQueue.takeAll]]
    */
-  def takeAll(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[List[A]]
+  def takeAll(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[List[A]]
 
-  def takeN(n: Int)(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[List[A]]
+  def takeN(n: Int)(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[List[A]]
 
   /**
    * @see [[ZQueue.takeUpTo]]
    */
-  def takeUpTo(max: Int)(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[List[A]]
+  def takeUpTo(max: Int)(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[List[A]]
 
 }
 
@@ -79,41 +79,41 @@ sealed trait Enqueue[F[+_], -A] {
   /**
    * @see [[ZQueue.awaitShutdown]]
    */
-  def awaitShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Unit]
+  def awaitShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Unit]
 
   /**
    * @see [[ZQueue.capacity]]
    */
   def capacity: Int
 
-  def isEmpty(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean]
+  def isEmpty(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean]
 
-  def isFull(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean]
+  def isFull(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean]
 
   /**
    * @see [[ZQueue.isShutdown]]
    */
-  def isShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean]
+  def isShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean]
 
   /**
    * @see [[ZQueue.offer]]
    */
-  def offer(a: A)(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean]
+  def offer(a: A)(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean]
 
   /**
    * @see [[ZQueue.offerAll]]
    */
-  def offerAll(as: Iterable[A])(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean]
+  def offerAll(as: Iterable[A])(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean]
 
   /**
    * @see [[ZQueue.shutdown]]
    */
-  def shutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Unit]
+  def shutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Unit]
 
   /**
    * @see [[ZQueue.size]]
    */
-  def size(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Int]
+  def size(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Int]
 
 }
 
@@ -128,7 +128,7 @@ final class Queue[F[+_], A] private[interop] (
   /**
    * @see [[ZQueue.awaitShutdown]]
    */
-  override def awaitShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Unit] =
+  override def awaitShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Unit] =
     toEffect(underlying.awaitShutdown)
 
   /**
@@ -136,65 +136,65 @@ final class Queue[F[+_], A] private[interop] (
    */
   override def capacity: Int = underlying.capacity
 
-  override def isEmpty(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean] =
+  override def isEmpty(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean] =
     toEffect(underlying.isEmpty)
 
-  override def isFull(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean] =
+  override def isFull(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean] =
     toEffect(underlying.isFull)
 
   /**
    * @see [[ZQueue.isShutdown]]
    */
-  override def isShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean] =
+  override def isShutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean] =
     toEffect(underlying.isShutdown)
 
   /**
    * @see [[ZQueue.offer]]
    */
-  override def offer(a: A)(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean] =
+  override def offer(a: A)(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean] =
     toEffect(underlying.offer(a))
 
   /**
    * @see [[ZQueue.offerAll]]
    */
-  override def offerAll(as: Iterable[A])(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Boolean] =
+  override def offerAll(as: Iterable[A])(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean] =
     toEffect(underlying.offerAll(as))
 
   /**
    * @see [[ZQueue.shutdown]]
    */
-  override def shutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Unit] =
+  override def shutdown(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Unit] =
     toEffect(underlying.shutdown)
 
   /**
    * @see [[ZQueue.size]]
    */
-  override def size(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Int] = toEffect(underlying.size)
+  override def size(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Int] = toEffect(underlying.size)
 
   /**
    * @see [[ZQueue.take]]
    */
-  override def take(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[A] = toEffect(underlying.take)
+  override def take(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[A] = toEffect(underlying.take)
 
   /**
    * @see [[ZQueue.takeAll]]
    */
-  override def takeAll(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[List[A]] =
+  override def takeAll(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[List[A]] =
     toEffect(underlying.takeAll.map(_.toList))
 
-  override def takeN(n: Int)(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[List[A]] =
+  override def takeN(n: Int)(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[List[A]] =
     toEffect(underlying.takeN(n).map(_.toList))
 
   /**
    * @see [[ZQueue.takeUpTo]]
    */
-  override def takeUpTo(max: Int)(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[List[A]] =
+  override def takeUpTo(max: Int)(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[List[A]] =
     toEffect(underlying.takeUpTo(max).map(_.toList))
 
   /**
    * @see [[ZQueue.poll]]
    */
-  override def poll(implicit R: Runtime[Any], F: LiftIO[F], trace: ZTraceElement): F[Option[A]] =
+  override def poll(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Option[A]] =
     toEffect(underlying.poll)
 
 }
@@ -206,7 +206,7 @@ object Queue {
    */
   final def bounded[F[+_], A](
     capacity: Int
-  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: ZTraceElement): F[Queue[F, A]] =
+  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
     create(ZioQueue.bounded[A](capacity))
 
   /**
@@ -214,7 +214,7 @@ object Queue {
    */
   final def dropping[F[+_], A](
     capacity: Int
-  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: ZTraceElement): F[Queue[F, A]] =
+  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
     create(ZioQueue.dropping[A](capacity))
 
   /**
@@ -222,18 +222,18 @@ object Queue {
    */
   final def sliding[F[+_], A](
     capacity: Int
-  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: ZTraceElement): F[Queue[F, A]] =
+  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
     create(ZioQueue.sliding[A](capacity))
 
   /**
    * @see ZioQueue.unbounded
    */
-  final def unbounded[F[+_], A](implicit R: Runtime[ZEnv], F: LiftIO[F], trace: ZTraceElement): F[Queue[F, A]] =
+  final def unbounded[F[+_], A](implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
     create(ZioQueue.unbounded[A])
 
   private final def create[F[+_], A](
     in: UIO[ZioQueue[A]]
-  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: ZTraceElement): F[Queue[F, A]] =
+  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
     toEffect(in.map(new Queue[F, A](_)))
 
 }

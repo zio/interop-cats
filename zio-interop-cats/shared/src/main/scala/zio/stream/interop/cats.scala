@@ -136,25 +136,25 @@ private class CatsParApplicative[R, E] extends CommutativeApplicative[ParStream[
   final override def map2[A, B, Z](fa: ParStream[R, E, A], fb: ParStream[R, E, B])(
     f: (A, B) => Z
   ): ParStream[R, E, Z] = {
-    implicit def tracer: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def tracer: Trace = InteropTracer.newTrace(f)
 
     Par(Par.unwrap(fa).zipWith(Par.unwrap(fb))(f))
   }
 
   final override def ap[A, B](ff: ParStream[R, E, A => B])(fa: ParStream[R, E, A]): ParStream[R, E, B] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
+    implicit def tracer: Trace = CoreTracer.newTrace
 
     Par(Par.unwrap(ff).zipWith(Par.unwrap(fa))(_(_)))
   }
 
   final override def product[A, B](fa: ParStream[R, E, A], fb: ParStream[R, E, B]): ParStream[R, E, (A, B)] = {
-    implicit def tracer: ZTraceElement = CoreTracer.newTrace
+    implicit def tracer: Trace = CoreTracer.newTrace
 
     Par(Par.unwrap(fa).zip(Par.unwrap(fb)))
   }
 
   final override def map[A, B](fa: ParStream[R, E, A])(f: A => B): ParStream[R, E, B] = {
-    implicit def tracer: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def tracer: Trace = InteropTracer.newTrace(f)
 
     Par(Par.unwrap(fa).map(f))
   }

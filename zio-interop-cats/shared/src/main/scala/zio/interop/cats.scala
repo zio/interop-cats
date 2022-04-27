@@ -84,7 +84,7 @@ abstract class CatsEffectInstances extends CatsInstances with CatsEffectInstance
   private[this] final val zioCatsClock0: effect.Clock[ZIO[Clock, Any, *]] =
     new effect.Clock[ZIO[Clock, Any, *]] {
       override final def monotonic(unit: TimeUnit): ZIO[Clock, Any, Long] = {
-        implicit def trace: ZTraceElement = CoreTracer.newTrace
+        implicit def trace: Trace = CoreTracer.newTrace
 
         zio.Clock.nanoTime.map(unit.convert(_, NANOSECONDS))
       }
@@ -162,7 +162,7 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
   override final def runAsync[A](fa: RIO[R, A])(
     cb: Either[Throwable, A] => effect.IO[Unit]
   ): effect.SyncIO[Unit] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(cb)
+    implicit def trace: Trace = InteropTracer.newTrace(cb)
 
     effect.SyncIO {
       rts.unsafeRunAsyncWith(fa.exit) { exit =>
@@ -174,7 +174,7 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
   override final def runCancelable[A](fa: RIO[R, A])(
     cb: Either[Throwable, A] => effect.IO[Unit]
   ): effect.SyncIO[effect.CancelToken[RIO[R, *]]] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(cb)
+    implicit def trace: Trace = InteropTracer.newTrace(cb)
 
     effect.SyncIO {
       rts.unsafeRun {
@@ -205,7 +205,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
 
   private[this] final def toFiber[A](f: Fiber[Throwable, A]): effect.Fiber[RIO[R, *], A] =
     new effect.Fiber[RIO[R, *], A] {
-      implicit def trace: ZTraceElement       = CoreTracer.newTrace
+      implicit def trace: Trace               = CoreTracer.newTrace
       override final val cancel: RIO[R, Unit] = f.interrupt.unit
       override final val join: RIO[R, A]      = f.join
     }
@@ -214,7 +214,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     Concurrent.liftIO(ioa)(this)
 
   override final def cancelable[A](k: (Either[Throwable, A] => Unit) => effect.CancelToken[RIO[R, *]]): RIO[R, A] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(k)
+    implicit def trace: Trace = InteropTracer.newTrace(k)
 
     ZIO.asyncInterrupt { kk =>
       val token = k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow))
@@ -223,7 +223,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
   }
 
   override final def start[A](fa: RIO[R, A]): RIO[R, effect.Fiber[RIO[R, *], A]] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     fa.interruptible.forkDaemon.map(toFiber)
   }
@@ -232,7 +232,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     fa: RIO[R, A],
     fb: RIO[R, B]
   ): RIO[R, Either[(A, effect.Fiber[RIO[R, *], B]), (effect.Fiber[RIO[R, *], A], B)]] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     def run[C](fc: RIO[R, C]): ZIO[R, Throwable, C] =
       fc.interruptible
@@ -247,13 +247,13 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     ZIO.never(CoreTracer.newTrace)
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => Unit): RIO[R, A] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(k)
+    implicit def trace: Trace = InteropTracer.newTrace(k)
 
     ZIO.async(kk => k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow)))
   }
 
   override final def asyncF[A](k: (Either[Throwable, A] => Unit) => RIO[R, Unit]): RIO[R, A] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(k)
+    implicit def trace: Trace = InteropTracer.newTrace(k)
 
     ZIO.asyncZIO(kk => k(kk apply _.fold(ZIO.fail(_), ZIO.succeedNow)).orDie)
   }
@@ -269,7 +269,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
   }
 
   override final def bracket[A, B](acquire: RIO[R, A])(use: A => RIO[R, B])(release: A => RIO[R, Unit]): RIO[R, B] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(use)
+    implicit def trace: Trace = InteropTracer.newTrace(use)
 
     ZIO.acquireReleaseWith(acquire, release(_: A).orDie, use)
   }
@@ -277,7 +277,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
   override final def bracketCase[A, B](acquire: RIO[R, A])(use: A => RIO[R, B])(
     release: (A, ExitCase[Throwable]) => RIO[R, Unit]
   ): RIO[R, B] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(release)
+    implicit def trace: Trace = InteropTracer.newTrace(release)
 
     ZIO.acquireReleaseExitWith(acquire, (a: A, exit: Exit[Throwable, B]) => release(a, exitToExitCase(exit)).orDie, use)
   }
@@ -286,13 +286,13 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
     fa.uninterruptible(CoreTracer.newTrace)
 
   override final def guarantee[A](fa: RIO[R, A])(finalizer: RIO[R, Unit]): RIO[R, A] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     fa.ensuring(finalizer.orDie)
   }
 
   override final def continual[A, B](fa: RIO[R, A])(f: Either[Throwable, A] => RIO[R, B]): RIO[R, B] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     ZIO.uninterruptibleMask(_(fa).either.flatMap(f))
   }
@@ -311,27 +311,27 @@ private class CatsMonadError[R, E] extends MonadError[ZIO[R, E, *], E] with Stac
     fa.zipWith(fb)(f)(InteropTracer.newTrace(f))
   override final def as[A, B](fa: ZIO[R, E, A], b: B): ZIO[R, E, B] = fa.as(b)(CoreTracer.newTrace)
   override final def whenA[A](cond: Boolean)(f: => ZIO[R, E, A]): ZIO[R, E, Unit] = {
-    val byName: () => ZIO[R, E, A]     = () => f
-    implicit def tracer: ZTraceElement = InteropTracer.newTrace(byName)
+    val byName: () => ZIO[R, E, A] = () => f
+    implicit def tracer: Trace     = InteropTracer.newTrace(byName)
 
     ZIO.suspendSucceed(f).when(cond).unit
   }
   override final def unit: ZIO[R, E, Unit] = ZIO.unit
 
   override final def handleErrorWith[A](fa: ZIO[R, E, A])(f: E => ZIO[R, E, A]): ZIO[R, E, A] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     fa.catchAll(f)
   }
   override final def recoverWith[A](fa: ZIO[R, E, A])(pf: PartialFunction[E, ZIO[R, E, A]]): ZIO[R, E, A] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(pf)
+    implicit def trace: Trace = InteropTracer.newTrace(pf)
 
     fa.catchSome(pf)
   }
   override final def raiseError[A](e: E): ZIO[R, E, A] = ZIO.fail(e)(CoreTracer.newTrace)
 
   override final def attempt[A](fa: ZIO[R, E, A]): ZIO[R, E, Either[E, A]] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
     fa.either
   }
 }
@@ -339,7 +339,7 @@ private class CatsMonadError[R, E] extends MonadError[ZIO[R, E, *], E] with Stac
 /** lossy, throws away errors using the "first success" interpretation of SemigroupK */
 private class CatsSemigroupKLossy[R, E] extends SemigroupK[ZIO[R, E, *]] {
   override final def combineK[A](a: ZIO[R, E, A], b: ZIO[R, E, A]): ZIO[R, E, A] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     a.catchAll { e1 =>
       b.catchAll { _ =>
@@ -351,7 +351,7 @@ private class CatsSemigroupKLossy[R, E] extends SemigroupK[ZIO[R, E, *]] {
 
 private class CatsSemigroupK[R, E: Semigroup] extends SemigroupK[ZIO[R, E, *]] {
   override final def combineK[A](a: ZIO[R, E, A], b: ZIO[R, E, A]): ZIO[R, E, A] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     a.catchAll { e1 =>
       b.catchAll { e2 =>
@@ -367,7 +367,7 @@ private class CatsMonoidK[R, E: Monoid] extends CatsSemigroupK[R, E] with Monoid
 
 private class CatsBifunctor[R] extends Bifunctor[ZIO[R, *, *]] {
   override final def bimap[A, B, C, D](fab: ZIO[R, A, B])(f: A => C, g: B => D): ZIO[R, C, D] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     fab.mapBoth(f, g)
   }
@@ -397,19 +397,19 @@ private class CatsParApplicative[R, E] extends CommutativeApplicative[ParIO[R, E
     Par(ZIO.succeedNow(x))
 
   final override def map2[A, B, Z](fa: ParIO[R, E, A], fb: ParIO[R, E, B])(f: (A, B) => Z): ParIO[R, E, Z] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     Par(Par.unwrap(fa).interruptible.zipWithPar(Par.unwrap(fb).interruptible)(f))
   }
 
   final override def ap[A, B](ff: ParIO[R, E, A => B])(fa: ParIO[R, E, A]): ParIO[R, E, B] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     Par(Par.unwrap(ff).interruptible.zipWithPar(Par.unwrap(fa).interruptible)(_(_)))
   }
 
   final override def product[A, B](fa: ParIO[R, E, A], fb: ParIO[R, E, B]): ParIO[R, E, (A, B)] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     Par(Par.unwrap(fa).interruptible.zipPar(Par.unwrap(fb).interruptible))
   }

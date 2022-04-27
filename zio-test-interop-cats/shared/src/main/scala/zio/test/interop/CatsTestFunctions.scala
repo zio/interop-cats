@@ -19,7 +19,7 @@ package zio.test.interop
 import cats.effect.Effect
 import zio.interop.catz.taskEffectInstance
 import zio.test._
-import zio.{ RIO, Task, ZTraceElement }
+import zio.{ RIO, Task, Trace, ZIO }
 
 trait CatsTestFunctions {
 
@@ -29,8 +29,8 @@ trait CatsTestFunctions {
   final def assertF[F[_], R, A](
     value: F[A],
     assertion: Assertion[A]
-  )(implicit F: Effect[F], trace: ZTraceElement): RIO[R, TestResult] =
-    assertM(fromEffect(value))(assertion)
+  )(implicit F: Effect[F], trace: Trace): RIO[R, TestResult] =
+    assertZIO(fromEffect(value))(assertion)
 
   /**
    * Checks the effectual test passes for "sufficient" numbers of samples from
@@ -38,7 +38,7 @@ trait CatsTestFunctions {
    */
   final def checkF[F[_], R <: TestConfig, A](
     rv: Gen[R, A]
-  )(test: A => F[TestResult])(implicit F: Effect[F], trace: ZTraceElement): RIO[R, TestResult] =
+  )(test: A => F[TestResult])(implicit F: Effect[F], trace: Trace): RIO[R, TestResult] =
     check(rv)(a => fromEffect(test(a)))
 
   /**
@@ -46,7 +46,7 @@ trait CatsTestFunctions {
    */
   final def checkF[F[_], R <: TestConfig, A, B](rv1: Gen[R, A], rv2: Gen[R, B])(
     test: (A, B) => F[TestResult]
-  )(implicit F: Effect[F], trace: ZTraceElement): RIO[R, TestResult] =
+  )(implicit F: Effect[F], trace: Trace): RIO[R, TestResult] =
     check(rv1, rv2)((a, b) => fromEffect(test(a, b)))
 
   /**
@@ -54,7 +54,7 @@ trait CatsTestFunctions {
    */
   final def checkF[F[_], R <: TestConfig, A, B, C](rv1: Gen[R, A], rv2: Gen[R, B], rv3: Gen[R, C])(
     test: (A, B, C) => F[TestResult]
-  )(implicit F: Effect[F], trace: ZTraceElement): RIO[R, TestResult] =
+  )(implicit F: Effect[F], trace: Trace): RIO[R, TestResult] =
     check(rv1, rv2, rv3)((a, b, c) => fromEffect(test(a, b, c)))
 
   /**
@@ -67,7 +67,7 @@ trait CatsTestFunctions {
     rv4: Gen[R, D]
   )(
     test: (A, B, C, D) => F[TestResult]
-  )(implicit F: Effect[F], trace: ZTraceElement): RIO[R, TestResult] =
+  )(implicit F: Effect[F], trace: Trace): RIO[R, TestResult] =
     check(rv1, rv2, rv3, rv4)((a, b, c, d) => fromEffect(test(a, b, c, d)))
 
   /**
@@ -77,7 +77,7 @@ trait CatsTestFunctions {
    */
   final def checkAllF[F[_], R <: TestConfig, A](
     rv: Gen[R, A]
-  )(test: A => F[TestResult])(implicit F: Effect[F], trace: ZTraceElement): RIO[R, TestResult] =
+  )(test: A => F[TestResult])(implicit F: Effect[F], trace: Trace): RIO[R, TestResult] =
     checkAll(rv)(a => fromEffect(test(a)))
 
   /**
@@ -85,7 +85,7 @@ trait CatsTestFunctions {
    */
   final def checkAllF[F[_], R <: TestConfig, A, B](rv1: Gen[R, A], rv2: Gen[R, B])(
     test: (A, B) => F[TestResult]
-  )(implicit F: Effect[F], trace: ZTraceElement): RIO[R, TestResult] =
+  )(implicit F: Effect[F], trace: Trace): RIO[R, TestResult] =
     checkAll(rv1, rv2)((a, b) => fromEffect(test(a, b)))
 
   /**
@@ -93,7 +93,7 @@ trait CatsTestFunctions {
    */
   final def checkAllF[F[_], R <: TestConfig, A, B, C](rv1: Gen[R, A], rv2: Gen[R, B], rv3: Gen[R, C])(
     test: (A, B, C) => F[TestResult]
-  )(implicit F: Effect[F], trace: ZTraceElement): RIO[R, TestResult] =
+  )(implicit F: Effect[F], trace: Trace): RIO[R, TestResult] =
     checkAll(rv1, rv2, rv3)((a, b, c) => fromEffect(test(a, b, c)))
 
   /**
@@ -106,7 +106,7 @@ trait CatsTestFunctions {
     rv4: Gen[R, D]
   )(
     test: (A, B, C, D) => F[TestResult]
-  )(implicit F: Effect[F], trace: ZTraceElement): RIO[R, TestResult] =
+  )(implicit F: Effect[F], trace: Trace): RIO[R, TestResult] =
     checkAll(rv1, rv2, rv3, rv4)((a, b, c, d) => fromEffect(test(a, b, c, d)))
 
   /**
@@ -115,7 +115,7 @@ trait CatsTestFunctions {
    */
   final def checkSomeF[F[_], R <: TestConfig, A](
     rv: Gen[R, A]
-  )(n: Int)(test: A => F[TestResult])(implicit F: Effect[F], trace: ZTraceElement): RIO[R, TestResult] =
+  )(n: Int)(test: A => F[TestResult])(implicit F: Effect[F], trace: Trace): RIO[R, TestResult] =
     checkN(n)(rv)(a => fromEffect(test(a)))
 
   /**
@@ -123,7 +123,7 @@ trait CatsTestFunctions {
    */
   final def checkSomeF[F[_], R <: TestConfig, A, B](rv1: Gen[R, A], rv2: Gen[R, B])(
     n: Int
-  )(test: (A, B) => F[TestResult])(implicit F: Effect[F], trace: ZTraceElement): RIO[R, TestResult] =
+  )(test: (A, B) => F[TestResult])(implicit F: Effect[F], trace: Trace): RIO[R, TestResult] =
     checkN(n)(rv1, rv2)((a, b) => fromEffect(test(a, b)))
 
   /**
@@ -131,7 +131,7 @@ trait CatsTestFunctions {
    */
   final def checkSomeF[F[_], R <: TestConfig, A, B, C](rv1: Gen[R, A], rv2: Gen[R, B], rv3: Gen[R, C])(
     n: Int
-  )(test: (A, B, C) => F[TestResult])(implicit F: Effect[F], trace: ZTraceElement): RIO[R, TestResult] =
+  )(test: (A, B, C) => F[TestResult])(implicit F: Effect[F], trace: Trace): RIO[R, TestResult] =
     checkN(n)(rv1, rv2, rv3)((a, b, c) => fromEffect(test(a, b, c)))
 
   /**
@@ -144,7 +144,7 @@ trait CatsTestFunctions {
     rv4: Gen[R, D]
   )(
     n: Int
-  )(test: (A, B, C, D) => F[TestResult])(implicit F: Effect[F], trace: ZTraceElement): RIO[R, TestResult] =
+  )(test: (A, B, C, D) => F[TestResult])(implicit F: Effect[F], trace: Trace): RIO[R, TestResult] =
     checkN(n)(rv1, rv2, rv3, rv4)((a, b, c, d) => fromEffect(test(a, b, c, d)))
 
   /**
@@ -152,9 +152,9 @@ trait CatsTestFunctions {
    */
   final def testF[F[_]](
     label: String
-  )(assertion: F[TestResult])(implicit F: Effect[F], trace: ZTraceElement): ZSpec[Any, Throwable] =
+  )(assertion: F[TestResult])(implicit F: Effect[F], trace: Trace): Spec[Any, Throwable] =
     test(label)(fromEffect(assertion))
 
-  private def fromEffect[F[_], A](eff: F[A])(implicit F: Effect[F], trace: ZTraceElement): Task[A] =
-    Task.runtime[Any].flatMap(taskEffectInstance(_).liftIO(F.toIO(eff)))
+  private def fromEffect[F[_], A](eff: F[A])(implicit F: Effect[F], trace: Trace): Task[A] =
+    ZIO.runtime[Any].flatMap(taskEffectInstance(_).liftIO(F.toIO(eff)))
 }

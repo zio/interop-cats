@@ -131,10 +131,10 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
         test("calls finalizers correctly when use is interrupted") {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
-            Resource.makeCase(Task.succeed { effects += x }.unit) {
+            Resource.makeCase(ZIO.succeed { effects += x }.unit) {
               case (_, ExitCase.Canceled) =>
-                Task.succeed { effects += x + 1 }.unit
-              case _ => Task.unit
+                ZIO.succeed { effects += x + 1 }.unit
+              case _ => ZIO.unit
             }
 
           val testCase = {
@@ -150,11 +150,11 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
         test("calls finalizers correctly when use has failed") {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
-            Resource.makeCase(Task.succeed { effects += x }.unit) {
+            Resource.makeCase(ZIO.succeed { effects += x }.unit) {
               case (_, ExitCase.Error(_)) =>
-                Task.succeed { effects += x + 1 }.unit
+                ZIO.succeed { effects += x + 1 }.unit
               case _ =>
-                Task.unit
+                ZIO.unit
             }
 
           val testCase = {
@@ -170,11 +170,11 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
         test("calls finalizers correctly when use has died") {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
-            Resource.makeCase(Task.succeed { effects += x }.unit) {
+            Resource.makeCase(ZIO.succeed { effects += x }.unit) {
               case (_, ExitCase.Error(_)) =>
-                Task.succeed { effects += x + 1 }.unit
+                ZIO.succeed { effects += x + 1 }.unit
               case _ =>
-                Task.unit
+                ZIO.unit
             }
 
           val testCase = {
@@ -190,8 +190,8 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
         test("calls finalizers should not run if exception is thrown in acquisition") {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
-            Resource.make(Task.succeed(effects += x) *> Task.succeed(throw new RuntimeException()).unit)(
-              _ => Task.succeed { effects += x + 1 }.unit
+            Resource.make(ZIO.succeed(effects += x) *> ZIO.succeed(throw new RuntimeException()).unit)(
+              _ => ZIO.succeed { effects += x + 1 }.unit
             )
 
           val testCase = {
@@ -207,7 +207,7 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
         test("calls finalizers correctly when using the resource") {
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
-            Resource.make(Task.succeed { effects += x }.unit)(_ => Task.succeed { effects += x }.unit)
+            Resource.make(ZIO.succeed { effects += x }.unit)(_ => ZIO.succeed { effects += x }.unit)
 
           val testCase = {
             val scoped: ZIO[Scope, Throwable, Unit] = res(1).toScopedZIO
@@ -223,7 +223,7 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
 
           val effects = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
-            Resource.make(Task.succeed { effects += x }.unit)(_ => Task.succeed { effects += x }.unit)
+            Resource.make(ZIO.succeed { effects += x }.unit)(_ => ZIO.succeed { effects += x }.unit)
 
           def scope(x: Int): ZIO[Scope, Throwable, Unit] =
             ZIO.succeed(effects += x).acquireRelease(ZIO.succeed(effects += x))(ZIO.unit)

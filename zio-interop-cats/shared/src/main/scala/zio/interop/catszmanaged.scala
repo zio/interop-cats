@@ -41,7 +41,7 @@ final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) 
    * Convert a cats Resource into a ZIO with a Scope.
    * Beware that unhandled error during release of the resource will result in the fiber dying.
    */
-  def toScoped[R: Tag](implicit L: LiftIO[ZIO[R, Throwable, *]], F: Effect[F]): ZIO[R with Scope, Throwable, A] = {
+  def toScoped[R](implicit L: LiftIO[ZIO[R, Throwable, *]], F: Effect[F]): ZIO[R with Scope, Throwable, A] = {
     import catz.core._
 
     new ZIOResourceSyntax[R, Throwable, A](
@@ -57,7 +57,7 @@ final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) 
 
 final class ZScopedSyntax[R, R2 >: R with Scope, E, A](private val scoped: ZIO[R2, E, A]) extends AnyVal {
 
-  def toResourceZIO(implicit trace: ZTraceElement): Resource[ZIO[R, E, *], A] =
+  def toResourceZIO(implicit trace: Trace): Resource[ZIO[R, E, *], A] =
     Resource
       .applyCase[ZIO[R, E, *], Scope.Closeable](
         Scope.makeWith(ExecutionStrategy.Sequential).map { closeable =>
@@ -75,7 +75,7 @@ final class ZScopedSyntax[R, R2 >: R with Scope, E, A](private val scoped: ZIO[R
           )
       )
 
-  def toResource[F[_]](implicit F: Async[F], ev: Effect[ZIO[R, E, *]], trace: ZTraceElement): Resource[F, A] =
+  def toResource[F[_]](implicit F: Async[F], ev: Effect[ZIO[R, E, *]], trace: Trace): Resource[F, A] =
     toResourceZIO.mapK(new FunctionK[ZIO[R, E, *], F] {
       def apply[A](fa: ZIO[R, E, A]): F[A] =
         F liftIO ev.toIO(fa)

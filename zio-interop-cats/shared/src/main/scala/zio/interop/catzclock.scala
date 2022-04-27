@@ -36,20 +36,20 @@ final class ClockSyntax(private val zioClock: Clock) extends AnyVal {
     new Timer[ZIO[R, E, *]] {
       override final val clock: CatsClock[ZIO[R, E, *]] = new CatsClock[ZIO[R, E, *]] {
         override final def monotonic(unit: TimeUnit): ZIO[R, E, Long] = {
-          implicit def tracer: ZTraceElement = CoreTracer.newTrace
+          implicit def tracer: Trace = CoreTracer.newTrace
 
           zioClock.nanoTime.map(unit.convert(_, NANOSECONDS))
         }
 
         override final def realTime(unit: TimeUnit): ZIO[R, E, Long] = {
-          implicit def tracer: ZTraceElement = CoreTracer.newTrace
+          implicit def tracer: Trace = CoreTracer.newTrace
 
           zioClock.currentTime(unit)
         }
       }
 
       override final def sleep(duration: FiniteDuration): ZIO[R, E, Unit] = {
-        implicit def tracer: ZTraceElement = CoreTracer.newTrace
+        implicit def tracer: Trace = CoreTracer.newTrace
 
         zioClock.sleep(zio.Duration.fromNanos(duration.toNanos))
       }

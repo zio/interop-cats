@@ -19,7 +19,7 @@ object catzClockSpec extends ZIOSpecDefault {
             clock.toTimer
 
           val stream: Stream[Task, Int] =
-            Stream.eval(Task.attempt(1)).delayBy(FiniteDuration(10, TimeUnit.DAYS))
+            Stream.eval(ZIO.attempt(1)).delayBy(FiniteDuration(10, TimeUnit.DAYS))
 
           for {
             fiber <- stream.compile.drain.fork

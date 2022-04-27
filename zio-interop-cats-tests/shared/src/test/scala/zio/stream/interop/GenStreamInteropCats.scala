@@ -8,12 +8,12 @@ trait GenStreamInteropCats {
   /**
    * Given a generator for `List[A]`, produces a generator for `Stream[E, A]` using the `Stream.fromIterable` constructor.
    */
-  def genSuccess[E, A: Arbitrary]: Gen[Stream[E, A]] = Arbitrary.arbitrary[A].map(Stream.succeed(_))
+  def genSuccess[E, A: Arbitrary]: Gen[Stream[E, A]] = Arbitrary.arbitrary[A].map(ZStream.succeed(_))
 
   /**
    * Given a generator for `E`, produces a generator for `Stream[E, A]` using the `Stream.fail` constructor.
    */
-  def genFailure[E: Arbitrary, A]: Gen[Stream[E, A]] = Arbitrary.arbitrary[E].map(Stream.fail[E](_))
+  def genFailure[E: Arbitrary, A]: Gen[Stream[E, A]] = Arbitrary.arbitrary[E].map(ZStream.fail[E](_))
 
   /**
    * Randomly uses either `genSuccess` or `genFailure` with equal probability.
@@ -80,6 +80,6 @@ trait GenStreamInteropCats {
     gen.map(nextIO => stream.flatMap(_ => nextIO))
 
   private def genOfIdentityFlatMaps[E, A](stream: Stream[E, A]): Gen[Stream[E, A]] =
-    Gen.const(stream.flatMap(a => Stream.succeed(a)))
+    Gen.const(stream.flatMap(a => ZStream.succeed(a)))
 
 }

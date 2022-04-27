@@ -1,7 +1,7 @@
 package zio.internal.stacktracer
 
 import zio.test._
-import zio.ZTraceElement
+import zio.Trace
 
 object InteropTracerSpec extends ZIOSpecDefault {
 
@@ -12,18 +12,18 @@ object InteropTracerSpec extends ZIOSpecDefault {
 
         val result = InteropTracer.newTrace(myLambda)
 
-        assertTrue(result == "myLambda(InteropTracerSpec.scala:8:0)".asInstanceOf[ZTraceElement])
+        assertTrue(result == "myLambda(InteropTracerSpec.scala:8:0)".asInstanceOf[Trace])
       },
       test("tracing 'by name' parameter") {
 
-        def check[A](f: => A): ZTraceElement = {
+        def check[A](f: => A): Trace = {
           val byName: () => A = () => f
           InteropTracer.newTrace(byName)
         }
 
         val result = check(42)
 
-        assertTrue(result == "spec(InteropTracerSpec.scala:24:0)".asInstanceOf[ZTraceElement])
+        assertTrue(result == "spec(InteropTracerSpec.scala:24:0)".asInstanceOf[Trace])
       }
     ).@@(TestAspect.exceptScala3)
 }

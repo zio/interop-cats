@@ -1,7 +1,7 @@
 package zio.interop
 
 import fs2.Stream
-import zio.{ Chunk, Ref, Task }
+import zio.{ Chunk, Ref, Task, ZIO }
 import zio.stream.ZStream
 import zio.test.Assertion.{ equalTo, fails }
 import zio.test._
@@ -42,9 +42,9 @@ object fs2StreamSpec extends ZIOSpecDefault {
         assertEqual(ZStream.fromChunk(chunk).toFs2Stream, fs2StreamFromChunk(chunk))
       }),
       test("error propagation") {
-        Task.concurrentEffectWith { implicit CE: ConcurrentEffect[Task] =>
+        ZIO.concurrentEffectWith { implicit CE: ConcurrentEffect[Task] =>
           val result = ZStream.fail(exception).toFs2Stream.compile.drain.exit
-          assertM(result)(fails(equalTo(exception)))
+          assertZIO(result)(fails(equalTo(exception)))
         }
       }
     ),
@@ -59,9 +59,9 @@ object fs2StreamSpec extends ZIOSpecDefault {
         assertEqual(fs2StreamFromChunk(chunk).toZStream(), ZStream.fromChunk(chunk))
       }),
       test("error propagation") {
-        Task.concurrentEffectWith { implicit CE: ConcurrentEffect[Task] =>
+        ZIO.concurrentEffectWith { implicit CE: ConcurrentEffect[Task] =>
           val result = Stream.raiseError[Task](exception).toZStream().runDrain.exit
-          assertM(result)(fails(equalTo(exception)))
+          assertZIO(result)(fails(equalTo(exception)))
         }
       },
       test("releases all resources by the time the failover stream has started") {

@@ -22,7 +22,8 @@ inThisBuild(
     pgpSecretRing := file("/tmp/secret.asc"),
     scmInfo := Some(
       ScmInfo(url("https://github.com/zio/interop-cats/"), "scm:git:git@github.com:zio/interop-cats.git")
-    )
+    ),
+    resolvers += Resolver.sonatypeRepo("snapshots")
   )
 )
 
@@ -47,7 +48,7 @@ lazy val root = project
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
-val zioVersion = "2.0.0-RC5"
+val zioVersion = "2.0.0-RC5+111-09afa84c-SNAPSHOT"
 
 lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-interop-cats"))
@@ -90,6 +91,8 @@ lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
     )
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
+  // ClassLoaderLayeringStrategy.Flat required for SBT to load the test framework for Scala 3
+  .settings(Test / classLoaderLayeringStrategy := ClassLoaderLayeringStrategy.Flat)
 
 lazy val zioInteropCatsTestsJVM = zioInteropCatsTests.jvm.settings(dottySettings)
 
@@ -107,6 +110,8 @@ lazy val zioTestInteropCats = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings)
   .settings(libraryDependencies += "dev.zio" %%% "zio-test" % zioVersion)
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
+  // ClassLoaderLayeringStrategy.Flat required for SBT to load the test framework for Scala 3
+  .settings(Test / classLoaderLayeringStrategy := ClassLoaderLayeringStrategy.Flat)
 
 lazy val zioTestInteropCatsJVM = zioTestInteropCats.jvm.settings(dottySettings)
 
@@ -124,6 +129,8 @@ lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
     )
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
+  // ClassLoaderLayeringStrategy.Flat required for SBT to load the test framework for Scala 3
+  .settings(Test / classLoaderLayeringStrategy := ClassLoaderLayeringStrategy.Flat)
 
 lazy val coreOnlyTestJVM = coreOnlyTest.jvm.settings(dottySettings)
 

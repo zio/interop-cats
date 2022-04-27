@@ -28,14 +28,14 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
    * Convert a cats Resource into a ZManaged.
    * Beware that unhandled error during release of the resource will result in the fiber dying.
    */
-  def toScopedZIO(implicit trace: ZTraceElement, tagged: Tag[R]): ZIO[R with Scope, E, A] = {
+  def toScopedZIO(implicit trace: Trace): ZIO[R with Scope, E, A] = {
     def go[A1](res: Resource[ZIO[R, E, *], A1]): ZIO[R with Scope, E, A1] =
       res match {
         case Allocate(resource) =>
           ZIO.scopeWith { scope =>
-            ZIO.serviceWithZIO[R] { rService =>
+            ZIO.environmentWithZIO[R] { env =>
               resource.flatMap(
-                (a, r) => scope.addFinalizerExit(e => r(exitToExitCase(e)).provideService(rService).orDie).as(a)
+                (a, r) => scope.addFinalizerExit(e => r(exitToExitCase(e)).provideEnvironment(env).orDie).as(a)
               )
             }
           }

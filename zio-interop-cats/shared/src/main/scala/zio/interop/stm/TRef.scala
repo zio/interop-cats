@@ -17,7 +17,7 @@
 package zio.interop.stm
 
 import cats.effect.Async
-import zio.{ Runtime, ZTraceElement }
+import zio.{ Runtime, Trace }
 import zio.stm.{ TRef => ZTRef }
 
 class TRef[F[+_], A] private (val underlying: ZTRef[A]) extends AnyVal {
@@ -67,6 +67,6 @@ object TRef {
   final def make[F[+_], A](a: => A): STM[F, TRef[F, A]] =
     new STM(ZTRef.make(a).map(new TRef(_)))
 
-  final def makeCommit[F[+_], A](a: => A)(implicit R: Runtime[Any], A: Async[F], trace: ZTraceElement): F[TRef[F, A]] =
+  final def makeCommit[F[+_], A](a: => A)(implicit R: Runtime[Any], A: Async[F], trace: Trace): F[TRef[F, A]] =
     STM.atomically(make(a))
 }
