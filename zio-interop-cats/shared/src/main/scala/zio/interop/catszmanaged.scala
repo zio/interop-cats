@@ -44,7 +44,7 @@ final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) 
   def toScoped[R: Tag](implicit L: LiftIO[ZIO[R, Throwable, *]], F: Effect[F]): ZIO[R with Scope, Throwable, A] = {
     import catz.core._
 
-    new ZIOResourceSyntax(
+    new ZIOResourceSyntax[R, Throwable, A](
       resource.mapK(
         new ~>[F, ZIO[R, Throwable, *]] {
           def apply[A](fa: F[A]): ZIO[R, Throwable, A] =

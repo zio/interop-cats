@@ -21,7 +21,6 @@ import cats.arrow.{ ArrowChoice, FunctionK }
 import cats.effect.Resource.{ Allocate, Bind, Suspend }
 import cats.effect.{ Async, Effect, ExitCase, LiftIO, Resource, Sync, IO => CIO }
 import cats.{ ~>, Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
-import zio.ZManaged.ReleaseMap
 
 final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resource[ZIO[R, E, *], A]) extends AnyVal {
 
@@ -29,17 +28,21 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
    * Convert a cats Resource into a ZManaged.
    * Beware that unhandled error during release of the resource will result in the fiber dying.
    */
-  def toManagedZIO(implicit trace: ZTraceElement): ZManaged[R, E, A] = {
-    def go[A1](res: Resource[ZIO[R, E, *], A1]): ZManaged[R, E, A1] =
+  def toScopedZIO(implicit trace: ZTraceElement, tagged: Tag[R]): ZIO[R with Scope, E, A] = {
+    def go[A1](res: Resource[ZIO[R, E, *], A1]): ZIO[R with Scope, E, A1] =
       res match {
         case Allocate(resource) =>
-          ZManaged.fromReservationZIO(resource.map {
-            case (a, r) => Reservation(ZIO.succeedNow(a), e => r(exitToExitCase(e)).orDie)
-          })
+          ZIO.scopeWith { scope =>
+            ZIO.serviceWithZIO[R] { rService =>
+              resource.flatMap(
+                (a, r) => scope.addFinalizerExit(e => r(exitToExitCase(e)).provideService(rService).orDie).as(a)
+              )
+            }
+          }
         case Bind(source, fs) =>
           go(source).flatMap(s => go(fs(s)))
         case Suspend(resource) =>
-          ZManaged.unwrap(resource.map(go))
+          resource.flatMap(go)
       }
 
     go(resource)
