@@ -37,8 +37,14 @@ sealed abstract class Hub[F[+_], A] extends Serializable {
    */
   def capacity: Int
 
+  /**
+   * Checks if this hub is empty.
+   */
   def isEmpty(implicit trace: Trace): F[Boolean]
 
+  /**
+   * Checks if this hub is full.
+   */
   def isFull(implicit trace: Trace): F[Boolean]
 
   /**
