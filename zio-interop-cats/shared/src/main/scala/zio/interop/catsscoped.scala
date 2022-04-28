@@ -20,6 +20,8 @@ package interop
 import cats.arrow.FunctionK
 import cats.effect.{ Async, Effect, ExitCase, LiftIO, Resource }
 import cats.~>
+import zio.interop.CatsResourceObjectSyntax.FromScopedZIOPartiallyApplied
+import zio.interop.CatsResourceObjectSyntax.FromScopedPartiallyApplied
 
 trait CatsScopedSyntax {
   import scala.language.implicitConversions
@@ -30,8 +32,8 @@ trait CatsScopedSyntax {
   implicit final def zioResourceSyntax[R, E <: Throwable, A](r: Resource[ZIO[R, E, *], A]): ZIOResourceSyntax[R, E, A] =
     new ZIOResourceSyntax(r)
 
-  implicit final def zScopedSyntax[R, R2 >: R with Scope, E, A](scoped: ZIO[R2, E, A]): ZScopedSyntax[R, R2, E, A] =
-    new ZScopedSyntax[R, R2, E, A](scoped)
+  implicit final def catsIOResourceObjectSyntax(unused: Resource.type): CatsResourceObjectSyntax =
+    new CatsResourceObjectSyntax(unused)
 
 }
 
@@ -55,30 +57,48 @@ final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) 
   }
 }
 
-final class ZScopedSyntax[R, R2 >: R with Scope, E, A](private val scoped: ZIO[R2, E, A]) extends AnyVal {
+final class CatsResourceObjectSyntax(private val resource: Resource.type) extends AnyVal {
 
-  def toResourceZIO(implicit trace: Trace): Resource[ZIO[R, E, *], A] =
-    Resource
-      .applyCase[ZIO[R, E, *], Scope.Closeable](
-        Scope.makeWith(ExecutionStrategy.Sequential).map { closeable =>
-          (closeable, (exitCase: ExitCase[Throwable]) => closeable.close(exitCaseToExit(exitCase)))
-        }
-      )
-      .flatMap(
-        closeable =>
-          Resource.suspend(
-            closeable.extend[R] {
-              scoped.map { a =>
-                Resource.applyCase(ZIO.succeedNow((a, (_: ExitCase[Throwable]) => ZIO.unit)))
+  def fromZIOScopedZIO[R]: CatsResourceObjectSyntax.FromScopedZIOPartiallyApplied[R] =
+    new FromScopedZIOPartiallyApplied[R]
+
+  def fromZIOScoped[F[_], R]: CatsResourceObjectSyntax.FromScopedPartiallyApplied[F, R] =
+    new FromScopedPartiallyApplied[F, R]
+
+}
+
+object CatsResourceObjectSyntax {
+
+  final class FromScopedZIOPartiallyApplied[R](private val dummy: Boolean = true) extends AnyVal {
+    def apply[E, A](scoped: ZIO[R with Scope, E, A])(implicit trace: Trace): Resource[ZIO[R, E, *], A] =
+      Resource
+        .applyCase[ZIO[R, E, *], Scope.Closeable](
+          Scope.makeWith(ExecutionStrategy.Sequential).map { closeable =>
+            (closeable, (exitCase: ExitCase[Throwable]) => closeable.close(exitCaseToExit(exitCase)))
+          }
+        )
+        .flatMap(
+          closeable =>
+            Resource.suspend(
+              closeable.extend[R] {
+                scoped.map { a =>
+                  Resource.applyCase(ZIO.succeedNow((a, (_: ExitCase[Throwable]) => ZIO.unit)))
+                }
               }
-            }
-          )
-      )
+            )
+        )
+  }
 
-  def toResource[F[_]](implicit F: Async[F], ev: Effect[ZIO[R, E, *]], trace: Trace): Resource[F, A] =
-    toResourceZIO.mapK(new FunctionK[ZIO[R, E, *], F] {
-      def apply[A](fa: ZIO[R, E, A]): F[A] =
-        F liftIO ev.toIO(fa)
-    })
+  final class FromScopedPartiallyApplied[F[_], R](private val dummy: Boolean = true) extends AnyVal {
+    def apply[E, A](
+      scoped: ZIO[R with Scope, E, A]
+    )(implicit F: Async[F], ev: Effect[ZIO[R, E, *]], trace: Trace): Resource[F, A] =
+      new CatsResourceObjectSyntax(Resource)
+        .fromZIOScopedZIO[R](scoped)
+        .mapK(new FunctionK[ZIO[R, E, *], F] {
+          def apply[A](fa: ZIO[R, E, A]): F[A] =
+            F liftIO ev.toIO(fa)
+        })
+  }
 
 }

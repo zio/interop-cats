@@ -246,9 +246,7 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
           def scope(x: Int): ZIO[Scope, Throwable, Unit] =
             ZIO.acquireRelease(ZIO.succeed(effects += x).unit)(_ => ZIO.succeed(effects += x + 1))
 
-          val testCase = ZIO.runtime[Any].flatMap { implicit r =>
-            scope(1).toResource.use(_ => ZIO.unit)
-          }
+          val testCase = Resource.fromZIOScopedZIO[Any](scope(1)).use(_ => ZIO.unit)
           for {
             _       <- testCase
             effects <- ZIO.succeed(effects.toList)
@@ -264,9 +262,8 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
                 ZIO.unit
             }
 
-          val testCase = ZIO.runtime[Any].flatMap { implicit r =>
-            scope(1).toResource.use(_ => ZIO.fail(new RuntimeException()).unit)
-          }
+          val testCase =
+            Resource.fromZIOScopedZIO(scope(1)).use(_ => ZIO.fail(new RuntimeException()).unit)
           for {
             _       <- testCase.orElse(ZIO.unit)
             effects <- ZIO.succeed(effects.toList)
@@ -282,9 +279,7 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
                 ZIO.unit
             }
 
-          val testCase = ZIO.runtime[Any].flatMap { implicit r =>
-            scope(1).toResource.use(_ => ZIO.interrupt)
-          }
+          val testCase = Resource.fromZIOScopedZIO(scope(1)).use(_ => ZIO.interrupt)
           for {
             _       <- testCase.orElse(ZIO.unit)
             effects <- ZIO.succeed(effects.toList)

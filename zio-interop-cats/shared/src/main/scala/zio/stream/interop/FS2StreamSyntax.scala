@@ -6,6 +6,7 @@ import zio.interop.catz._
 import zio.stream.{ Take, ZStream }
 
 import scala.language.implicitConversions
+import cats.effect.Resource
 
 trait FS2StreamSyntax {
 
@@ -21,7 +22,7 @@ class ZStreamSyntax[R, E, A](private val stream: ZStream[R, E, A]) extends AnyVa
   /** Convert a [[zio.stream.ZStream]] into an [[fs2.Stream]]. */
   def toFs2Stream(implicit trace: Trace): fs2.Stream[ZIO[R, E, *], A] =
     fs2.Stream
-      .resource(zScopedSyntax[R, R with Scope, Nothing, ZIO[R, Option[E], Chunk[A]]](stream.toPull).toResourceZIO)
+      .resource(Resource.fromZIOScopedZIO[R](stream.toPull))
       .flatMap { pull =>
         fs2.Stream.repeatEval(pull.unsome).unNoneTerminate.flatMap { chunk =>
           fs2.Stream.chunk(fs2.Chunk.indexedSeq(chunk))
