@@ -107,7 +107,7 @@ sealed trait Enqueue[F[+_], -A] {
   def isEmpty(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean]
 
   /**
-   * @see [[zio.Enqueue.isFulll]]
+   * @see [[zio.Enqueue.isFull]]
    */
   def isFull(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean]
 
