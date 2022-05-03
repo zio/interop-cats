@@ -15,11 +15,11 @@
  */
 package zio.internal.stacktracer
 
-import zio.ZTraceElement
+import zio.Trace
 
 import scala.annotation.nowarn
 
 object InteropTracer {
   @nowarn("cat=unused")
-  final def newTrace(f: Any): ZTraceElement = "noop".asInstanceOf[ZTraceElement]
+  final def newTrace(f: Any): Trace = "noop".asInstanceOf[Trace]
 }

@@ -18,7 +18,7 @@ abstract class CatsRunnableSpec extends ZIOSpecDefault {
   implicit val cioRuntime: IORuntime =
     Scheduler.createDefaultScheduler() match {
       case (scheduler, shutdown) =>
-        val ec = zioRuntime.runtimeConfig.executor.asExecutionContext
+        val ec = zioRuntime.executor.asExecutionContext
         IORuntime(ec, ec, scheduler, shutdown, IORuntimeConfig())
     }
 

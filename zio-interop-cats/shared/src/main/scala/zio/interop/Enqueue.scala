@@ -17,7 +17,7 @@
 package zio.interop
 
 import cats.effect.kernel.Async
-import zio.{ Enqueue as ZEnqueue, Runtime, ZTraceElement }
+import zio.{ Enqueue as ZEnqueue, Runtime, Trace }
 
 /**
  * A queue that can only be enqueued.
@@ -27,7 +27,7 @@ trait Enqueue[F[+_], -A] extends Serializable {
   /**
    * @see [[Enqueue.awaitShutdown]]
    */
-  def awaitShutdown(implicit trace: ZTraceElement): F[Unit]
+  def awaitShutdown(implicit trace: Trace): F[Unit]
 
   /**
    * @see [[Enqueue.capacity]]
@@ -37,37 +37,37 @@ trait Enqueue[F[+_], -A] extends Serializable {
   /**
    * @see [[Enqueue.isEmpty]]
    */
-  def isEmpty(implicit trace: ZTraceElement): F[Boolean]
+  def isEmpty(implicit trace: Trace): F[Boolean]
 
   /**
    * @see [[Enqueue.isFull]]
    */
-  def isFull(implicit trace: ZTraceElement): F[Boolean]
+  def isFull(implicit trace: Trace): F[Boolean]
 
   /**
    * @see [[Enqueue.isShutdown]]
    */
-  def isShutdown(implicit trace: ZTraceElement): F[Boolean]
+  def isShutdown(implicit trace: Trace): F[Boolean]
 
   /**
    * @see [[Enqueue.offer]]
    */
-  def offer(a: A)(implicit trace: ZTraceElement): F[Boolean]
+  def offer(a: A)(implicit trace: Trace): F[Boolean]
 
   /**
    * @see [[Enqueue.offerAll]]
    */
-  def offerAll(as: Iterable[A])(implicit trace: ZTraceElement): F[Boolean]
+  def offerAll(as: Iterable[A])(implicit trace: Trace): F[Boolean]
 
   /**
    * @see [[Enqueue.shutdown]]
    */
-  def shutdown(implicit trace: ZTraceElement): F[Unit]
+  def shutdown(implicit trace: Trace): F[Unit]
 
   /**
    * @see [[Enqueue.size]]
    */
-  def size(implicit trace: ZTraceElement): F[Int]
+  def size(implicit trace: Trace): F[Int]
 }
 
 object Enqueue {
@@ -76,23 +76,23 @@ object Enqueue {
     underlying: ZEnqueue[A]
   )(implicit runtime: Runtime[Any]): Enqueue[F, A] =
     new Enqueue[F, A] {
-      def awaitShutdown(implicit trace: ZTraceElement): F[Unit]                =
+      def awaitShutdown(implicit trace: Trace): F[Unit]                =
         underlying.awaitShutdown.toEffect[F]
-      def capacity: Int                                                        =
+      def capacity: Int                                                =
         underlying.capacity
-      def isEmpty(implicit trace: ZTraceElement): F[Boolean]                   =
+      def isEmpty(implicit trace: Trace): F[Boolean]                   =
         underlying.isEmpty.toEffect[F]
-      def isFull(implicit trace: ZTraceElement): F[Boolean]                    =
+      def isFull(implicit trace: Trace): F[Boolean]                    =
         underlying.isFull.toEffect[F]
-      def isShutdown(implicit trace: ZTraceElement): F[Boolean]                =
+      def isShutdown(implicit trace: Trace): F[Boolean]                =
         underlying.isShutdown.toEffect[F]
-      def offer(a: A)(implicit trace: ZTraceElement): F[Boolean]               =
+      def offer(a: A)(implicit trace: Trace): F[Boolean]               =
         underlying.offer(a).toEffect[F]
-      def offerAll(as: Iterable[A])(implicit trace: ZTraceElement): F[Boolean] =
+      def offerAll(as: Iterable[A])(implicit trace: Trace): F[Boolean] =
         underlying.offerAll(as).toEffect[F]
-      def shutdown(implicit trace: ZTraceElement): F[Unit]                     =
+      def shutdown(implicit trace: Trace): F[Unit]                     =
         underlying.shutdown.toEffect[F]
-      def size(implicit trace: ZTraceElement): F[Int]                          =
+      def size(implicit trace: Trace): F[Int]                          =
         underlying.size.toEffect[F]
     }
 }

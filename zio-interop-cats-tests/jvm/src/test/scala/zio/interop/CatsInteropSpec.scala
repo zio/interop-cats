@@ -4,14 +4,14 @@ import cats.effect.{ IO as CIO, LiftIO }
 import cats.effect.kernel.{ Concurrent, Resource }
 import zio.interop.catz.*
 import zio.test.*
-import zio.{ Promise, Task }
+import zio.{ Promise, Task, ZIO }
 
 object CatsInteropSpec extends CatsRunnableSpec {
   def spec = suite("Cats interop")(
     test("cats fiber wrapped in Resource can be canceled") {
       for {
         promise <- Promise.make[Nothing, Int]
-        resource = Resource.make(Concurrent[Task].start(promise.succeed(1) *> Task.never))(_.cancel)
+        resource = Resource.make(Concurrent[Task].start(promise.succeed(1) *> ZIO.never))(_.cancel)
         _       <- resource.use(_ => promise.await)
       } yield assertCompletes
     },

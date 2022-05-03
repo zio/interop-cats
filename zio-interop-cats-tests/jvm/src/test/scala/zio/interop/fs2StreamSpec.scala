@@ -41,7 +41,7 @@ object fs2StreamSpec extends ZIOSpecDefault {
       }),
       test("error propagation") {
         val result = ZStream.fail(exception).toFs2Stream.compile.drain.exit
-        assertM(result)(fails(equalTo(exception)))
+        assertZIO(result)(fails(equalTo(exception)))
       }
     ),
     suite("test toZStream conversion")(
@@ -56,7 +56,7 @@ object fs2StreamSpec extends ZIOSpecDefault {
       }),
       test("error propagation") {
         val result = Stream.raiseError[Task](exception).toZStream().runDrain.exit
-        assertM(result)(fails(equalTo(exception)))
+        assertZIO(result)(fails(equalTo(exception)))
       },
       test("releases all resources by the time the failover stream has started") {
         for {

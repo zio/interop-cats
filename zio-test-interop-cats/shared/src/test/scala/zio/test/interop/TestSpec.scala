@@ -9,7 +9,7 @@ import zio.test.*
 import zio.test.interop.catz.test.*
 
 object TestSpec extends CatsRunnableSpec {
-  override def spec: ZSpec[TestEnvironment, Any] =
+  override def spec: Spec[TestEnvironment, Any] =
     suite("TestSpec")(
       testF("arbitrary effects can be tested") {
         for {

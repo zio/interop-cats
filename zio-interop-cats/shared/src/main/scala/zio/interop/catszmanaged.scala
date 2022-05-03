@@ -21,7 +21,7 @@ import cats.*
 import cats.effect.*
 import cats.effect.std.Dispatcher
 import cats.kernel.{ CommutativeMonoid, CommutativeSemigroup }
-import zio.ZTraceElement
+import zio.Trace
 import zio.interop.catz.concurrentInstance
 import zio.internal.stacktracer.InteropTracer
 import zio.internal.stacktracer.{ Tracer => CoreTracer }
@@ -46,7 +46,7 @@ trait CatsZManagedSyntax {
 }
 
 final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) extends AnyVal {
-  def toManaged(implicit F: MonadCancel[F, ?], D: Dispatcher[F], trace: ZTraceElement): TaskManaged[A] =
+  def toManaged(implicit F: MonadCancel[F, ?], D: Dispatcher[F], trace: Trace): TaskManaged[A] =
     new ZIOResourceSyntax(resource.mapK(new (F ~> Task) {
       override def apply[B](fb: F[B]) = fromEffect(fb)
     })).toManagedZIO
@@ -58,14 +58,14 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
    * Convert a cats Resource into a ZManaged.
    * Beware that unhandled error during release of the resource will result in the fiber dying.
    */
-  def toManagedZIO(implicit trace: ZTraceElement): ZManaged[R, E, A] =
+  def toManagedZIO(implicit trace: Trace): ZManaged[R, E, A] =
     ZManaged.scoped[R](toScopedZIO)
 
   /**
    * Convert a cats Resource into a scoped ZIO.
    * Beware that unhandled error during release of the resource will result in the fiber dying.
    */
-  def toScopedZIO(implicit trace: ZTraceElement): ZIO[R with Scope, E, A] = {
+  def toScopedZIO(implicit trace: Trace): ZIO[R with Scope, E, A] = {
     type F[T] = ZIO[R, E, T]
     val F = MonadCancel[F, E]
 
@@ -95,15 +95,15 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
 final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) extends AnyVal {
   import zio.interop.catz.scopedSyntax
 
-  def toResourceZIO(implicit trace: ZTraceElement): Resource[ZIO[R, E, _], A] =
+  def toResourceZIO(implicit trace: Trace): Resource[ZIO[R, E, _], A] =
     Resource.scopedZIO[R, E, A](managed.scoped)
 
-  def toResource[F[_]: Async](implicit R: Runtime[R], ev: E <:< Throwable, trace: ZTraceElement): Resource[F, A] =
+  def toResource[F[_]: Async](implicit R: Runtime[R], ev: E <:< Throwable, trace: Trace): Resource[F, A] =
     Resource.scoped[F, R, A](managed.scoped.mapError(ev))
 }
 
 final class ScopedSyntax(private val self: Resource.type) extends AnyVal {
-  def scopedZIO[R, E, A](zio: ZIO[Scope with R, E, A])(implicit trace: ZTraceElement): Resource[ZIO[R, E, _], A] = {
+  def scopedZIO[R, E, A](zio: ZIO[Scope with R, E, A])(implicit trace: Trace): Resource[ZIO[R, E, _], A] = {
     type F[T] = ZIO[R, E, T]
 
     Resource
@@ -125,7 +125,7 @@ final class ScopedSyntax(private val self: Resource.type) extends AnyVal {
 
   def scoped[F[_]: Async, R, A](
     zio: ZIO[Scope with R, Throwable, A]
-  )(implicit runtime: Runtime[R], trace: ZTraceElement): Resource[F, A] =
+  )(implicit runtime: Runtime[R], trace: Trace): Resource[F, A] =
     scopedZIO[R, Throwable, A](zio).mapK(new (ZIO[R, Throwable, _] ~> F) {
       override def apply[B](zio: ZIO[R, Throwable, B]) = toEffect(zio)
     })
@@ -208,7 +208,7 @@ private class ZManagedMonadError[R, E] extends MonadError[ZManaged[R, E, _], E] 
     fa.as(b)(CoreTracer.newTrace)
 
   override final def whenA[A](cond: Boolean)(f: => F[A]): F[Unit] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     ZManaged.when(cond)(f).unit
   }
@@ -232,7 +232,7 @@ private class ZManagedMonadError[R, E] extends MonadError[ZManaged[R, E, _], E] 
     fa.mapError(pf.orElse { case error => error })(implicitly[CanFail[E]], CoreTracer.newTrace)
 
   override final def tailRecM[A, B](a: A)(f: A => ZManaged[R, E, Either[A, B]]): ZManaged[R, E, B] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     ZManaged.suspend(f(a)).flatMap {
       case Left(a)  => tailRecM(a)(f)
@@ -270,7 +270,7 @@ private class ZManagedMonoidK[R, E](implicit monoid: Monoid[E]) extends MonoidK[
     ZManaged.fail(monoid.empty)(CoreTracer.newTrace)
 
   override final def combineK[A](a: F[A], b: F[A]): F[A] = {
-    implicit val tracer: ZTraceElement = CoreTracer.newTrace
+    implicit val tracer: Trace = CoreTracer.newTrace
 
     a.catchAll(e1 => b.catchAll(e2 => ZManaged.fail(monoid.combine(e1, e2))))
   }
@@ -282,7 +282,7 @@ private class ZManagedParSemigroup[R, E, A](implicit semigroup: CommutativeSemig
   type T = ParallelF[ZManaged[R, E, _], A]
 
   override final def combine(x: T, y: T): T = {
-    implicit val tracer: ZTraceElement = CoreTracer.newTrace
+    implicit val tracer: Trace = CoreTracer.newTrace
 
     ParallelF(ParallelF.value(x).zipWithPar(ParallelF.value(y))(semigroup.combine))
   }
@@ -329,7 +329,7 @@ private class ZManagedParApplicative[R, E] extends CommutativeApplicative[Parall
     ParallelF[G, A](ZManaged.succeedNow(x))
 
   final override def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z] = {
-    implicit val tracer: ZTraceElement = InteropTracer.newTrace(f)
+    implicit val tracer: Trace = InteropTracer.newTrace(f)
 
     ParallelF(ParallelF.value(fa).zipWithPar(ParallelF.value(fb))(f))
   }
@@ -338,13 +338,13 @@ private class ZManagedParApplicative[R, E] extends CommutativeApplicative[Parall
     map2(ff, fa)(_ apply _)
 
   final override def product[A, B](fa: F[A], fb: F[B]): F[(A, B)] = {
-    implicit val tracer: ZTraceElement = CoreTracer.newTrace
+    implicit val tracer: Trace = CoreTracer.newTrace
 
     ParallelF(ParallelF.value(fa).zipPar(ParallelF.value(fb)))
   }
 
   final override def map[A, B](fa: F[A])(f: A => B): F[B] = {
-    implicit val tracer: ZTraceElement = InteropTracer.newTrace(f)
+    implicit val tracer: Trace = InteropTracer.newTrace(f)
 
     ParallelF(ParallelF.value(fa).map(f))
   }
