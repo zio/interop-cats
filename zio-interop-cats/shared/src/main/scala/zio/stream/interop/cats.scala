@@ -61,7 +61,7 @@ private class ZStreamAlternative[R, E]
 private class ZStreamMonadError[R, E] extends MonadError[ZStream[R, E, _], E] with StackSafeMonad[ZStream[R, E, _]] {
 
   override final def handleErrorWith[A](fa: ZStream[R, E, A])(f: E => ZStream[R, E, A]): ZStream[R, E, A] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     fa.catchAll(f)
   }
@@ -69,35 +69,35 @@ private class ZStreamMonadError[R, E] extends MonadError[ZStream[R, E, _], E] wi
   override final def raiseError[A](e: E): ZStream[R, E, A] = ZStream.fail(e)(CoreTracer.newTrace)
 
   override def attempt[A](fa: ZStream[R, E, A]): ZStream[R, E, Either[E, A]] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     fa.either
   }
 
   override final def flatMap[A, B](fa: ZStream[R, E, A])(f: A => ZStream[R, E, B]): ZStream[R, E, B] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     fa.flatMap(f)
   }
   override final def pure[A](a: A): ZStream[R, E, A] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     ZStream.succeed(a)
   }
   override final def map[A, B](fa: ZStream[R, E, A])(f: A => B): ZStream[R, E, B] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     fa.map(f)
   }
 
   override final def widen[A, B >: A](fa: ZStream[R, E, A]): ZStream[R, E, B] = fa
   override final def map2[A, B, Z](fa: ZStream[R, E, A], fb: ZStream[R, E, B])(f: (A, B) => Z): ZStream[R, E, Z] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     fa.crossWith(fb)(f)
   }
   override final def as[A, B](fa: ZStream[R, E, A], b: B): ZStream[R, E, B] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     fa.as(b)
   }
@@ -107,19 +107,19 @@ private trait ZStreamApplicative[R, E] extends Applicative[ZStream[R, E, _]] {
   type F[A] = ZStream[R, E, A]
 
   override final def pure[A](a: A): F[A] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     ZStream.succeed(a)
   }
 
   override final def map[A, B](fa: F[A])(f: A => B): F[B] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     fa.map(f)
   }
 
   override final def ap[A, B](ff: F[A => B])(fa: F[A]): F[B] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     ff.crossWith(fa)(_.apply(_))
   }
@@ -128,7 +128,7 @@ private trait ZStreamApplicative[R, E] extends Applicative[ZStream[R, E, _]] {
     ZStream.unit
 
   override final def whenA[A](cond: Boolean)(f: => F[A]): F[Unit] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     if (cond) f.as(()) else ZStream.unit
   }
@@ -138,13 +138,13 @@ private class ZStreamMonoidK[R, E] extends MonoidK[ZStream[R, E, _]] {
   type F[A] = ZStream[R, E, A]
 
   override final def empty[A]: F[A] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     ZStream.empty
   }
 
   override final def combineK[A](a: F[A], b: F[A]): F[A] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     a ++ b
   }
@@ -154,7 +154,7 @@ private trait ZStreamBifunctor[R] extends Bifunctor[ZStream[R, _, _]] {
   type F[A, B] = ZStream[R, A, B]
 
   override final def bimap[A, B, C, D](fab: F[A, B])(f: A => C, g: B => D): F[C, D] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     fab.mapBoth(f, g)
   }
@@ -185,25 +185,25 @@ private class ZStreamParApplicative[R, E] extends CommutativeApplicative[Paralle
     ParallelF[G, A](ZStream.succeed(x)(CoreTracer.newTrace))
 
   final override def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     ParallelF(ParallelF.value(fa).zipWith(ParallelF.value(fb))(f))
   }
 
   final override def ap[A, B](ff: F[A => B])(fa: F[A]): F[B] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     ParallelF(ParallelF.value(ff).zipWith(ParallelF.value(fa))(_.apply(_)))
   }
 
   final override def product[A, B](fa: F[A], fb: F[B]): F[(A, B)] = {
-    implicit def trace: ZTraceElement = CoreTracer.newTrace
+    implicit def trace: Trace = CoreTracer.newTrace
 
     ParallelF(ParallelF.value(fa).zip(ParallelF.value(fb)))
   }
 
   final override def map[A, B](fa: F[A])(f: A => B): F[B] = {
-    implicit def trace: ZTraceElement = InteropTracer.newTrace(f)
+    implicit def trace: Trace = InteropTracer.newTrace(f)
 
     ParallelF(ParallelF.value(fa).map(f))
   }

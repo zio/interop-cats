@@ -44,7 +44,7 @@ object Fs2ZioSpec extends CatsRunnableSpec {
       fail     <- Promise.make[Nothing, Unit]
       _        <- Stream
                     .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
-                    .evalMap[Task, Unit](_ => fail.await *> IO.fail(new Exception()))
+                    .evalMap[Task, Unit](_ => fail.await *> ZIO.fail(new Exception()))
                     .compile[Task, Task, Unit]
                     .drain
                     .fork
@@ -60,7 +60,7 @@ object Fs2ZioSpec extends CatsRunnableSpec {
       terminate <- Promise.make[Nothing, Unit]
       _         <- Stream
                      .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
-                     .evalMap[Task, Unit](_ => terminate.await *> IO.die(new Exception()))
+                     .evalMap[Task, Unit](_ => terminate.await *> ZIO.die(new Exception()))
                      .compile[Task, Task, Unit]
                      .drain
                      .fork
@@ -74,8 +74,8 @@ object Fs2ZioSpec extends CatsRunnableSpec {
       started  <- Promise.make[Nothing, Unit]
       released <- Promise.make[Nothing, Unit]
       f        <- Stream
-                    .bracket(IO.unit)(_ => released.succeed(()).unit)
-                    .evalMap[Task, Unit](_ => started.succeed(()) *> IO.never)
+                    .bracket(ZIO.unit)(_ => released.succeed(()).unit)
+                    .evalMap[Task, Unit](_ => started.succeed(()) *> ZIO.never)
                     .compile[Task, Task, Unit]
                     .drain
                     .fork

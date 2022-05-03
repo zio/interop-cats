@@ -27,7 +27,7 @@ trait CatsTestFunctions {
    * Checks the assertion holds for the given effectfully-computed value.
    */
   final def assertF[F[_]: Dispatcher, R, A](value: F[A], assertion: Assertion[A]): RIO[R, TestResult] =
-    assertM(fromEffect(value))(assertion)
+    assertZIO(fromEffect(value))(assertion)
 
   /**
    * Checks the effectual test passes for "sufficient" numbers of samples from
@@ -150,6 +150,6 @@ trait CatsTestFunctions {
   /**
    * Builds a spec with a single effectful test.
    */
-  final def testF[F[_]: Dispatcher](label: String)(assertion: F[TestResult]): ZSpec[Any, Throwable] =
+  final def testF[F[_]: Dispatcher](label: String)(assertion: F[TestResult]): Spec[Any, Throwable] =
     test(label)(fromEffect(assertion))
 }

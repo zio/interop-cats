@@ -17,7 +17,7 @@
 package zio.interop
 
 import cats.effect.kernel.Async
-import zio.{ Dequeue as ZDequeue, Runtime, ZTraceElement }
+import zio.{ Dequeue as ZDequeue, Runtime, Trace }
 
 /**
  * A queue that can only be dequeued.
@@ -27,7 +27,7 @@ trait Dequeue[F[+_], +A] extends Serializable {
   /**
    * @see [[Dequeue.awaitShutdown]]
    */
-  def awaitShutdown(implicit trace: ZTraceElement): F[Unit]
+  def awaitShutdown(implicit trace: Trace): F[Unit]
 
   /**
    * @see [[Dequeue.capacity]]
@@ -37,57 +37,57 @@ trait Dequeue[F[+_], +A] extends Serializable {
   /**
    * @see [[Dequeue.isEmpty]]
    */
-  def isEmpty(implicit trace: ZTraceElement): F[Boolean]
+  def isEmpty(implicit trace: Trace): F[Boolean]
 
   /**
    * @see [[Dequeue.isFull]]
    */
-  def isFull(implicit trace: ZTraceElement): F[Boolean]
+  def isFull(implicit trace: Trace): F[Boolean]
 
   /**
    * @see [[Dequeue.isShutdown]]
    */
-  def isShutdown(implicit trace: ZTraceElement): F[Boolean]
+  def isShutdown(implicit trace: Trace): F[Boolean]
 
   /**
    * @see [[Dequeue.poll]]
    */
-  def poll(implicit trace: ZTraceElement): F[Option[A]]
+  def poll(implicit trace: Trace): F[Option[A]]
 
   /**
    * @see [[Dequeue.shutdown]]
    */
-  def shutdown(implicit trace: ZTraceElement): F[Unit]
+  def shutdown(implicit trace: Trace): F[Unit]
 
   /**
    * @see [[Dequeue.size]]
    */
-  def size(implicit trace: ZTraceElement): F[Int]
+  def size(implicit trace: Trace): F[Int]
 
   /**
    * @see [[Dequeue.take]]
    */
-  def take(implicit trace: ZTraceElement): F[A]
+  def take(implicit trace: Trace): F[A]
 
   /**
    * @see [[Dequeue.takeAll]]
    */
-  def takeAll(implicit trace: ZTraceElement): F[List[A]]
+  def takeAll(implicit trace: Trace): F[List[A]]
 
   /**
    * @see [[Dequeue.takeBetween]]
    */
-  def takeBetween(min: Int, max: Int)(implicit trace: ZTraceElement): F[List[A]]
+  def takeBetween(min: Int, max: Int)(implicit trace: Trace): F[List[A]]
 
   /**
    * @see [[Dequeue.takeN]]
    */
-  def takeN(n: Int)(implicit trace: ZTraceElement): F[List[A]]
+  def takeN(n: Int)(implicit trace: Trace): F[List[A]]
 
   /**
    * @see [[Dequeue.takeUpTo]]
    */
-  def takeUpTo(max: Int)(implicit trace: ZTraceElement): F[List[A]]
+  def takeUpTo(max: Int)(implicit trace: Trace): F[List[A]]
 }
 
 object Dequeue {
@@ -96,31 +96,31 @@ object Dequeue {
     underlying: ZDequeue[A]
   )(implicit runtime: Runtime[Any]): Dequeue[F, A] =
     new Dequeue[F, A] {
-      def awaitShutdown(implicit trace: ZTraceElement): F[Unit]                      =
+      def awaitShutdown(implicit trace: Trace): F[Unit]                      =
         underlying.awaitShutdown.toEffect[F]
-      def capacity: Int                                                              =
+      def capacity: Int                                                      =
         underlying.capacity
-      def isEmpty(implicit trace: ZTraceElement): F[Boolean]                         =
+      def isEmpty(implicit trace: Trace): F[Boolean]                         =
         underlying.isEmpty.toEffect[F]
-      def isFull(implicit trace: ZTraceElement): F[Boolean]                          =
+      def isFull(implicit trace: Trace): F[Boolean]                          =
         underlying.isFull.toEffect[F]
-      def isShutdown(implicit trace: ZTraceElement): F[Boolean]                      =
+      def isShutdown(implicit trace: Trace): F[Boolean]                      =
         underlying.isShutdown.toEffect[F]
-      def poll(implicit trace: ZTraceElement): F[Option[A]]                          =
+      def poll(implicit trace: Trace): F[Option[A]]                          =
         underlying.poll.toEffect[F]
-      def shutdown(implicit trace: ZTraceElement): F[Unit]                           =
+      def shutdown(implicit trace: Trace): F[Unit]                           =
         underlying.shutdown.toEffect[F]
-      def size(implicit trace: ZTraceElement): F[Int]                                =
+      def size(implicit trace: Trace): F[Int]                                =
         underlying.size.toEffect[F]
-      def take(implicit trace: ZTraceElement): F[A]                                  =
+      def take(implicit trace: Trace): F[A]                                  =
         underlying.take.toEffect[F]
-      def takeAll(implicit trace: ZTraceElement): F[List[A]]                         =
+      def takeAll(implicit trace: Trace): F[List[A]]                         =
         underlying.takeAll.map(_.toList).toEffect[F]
-      def takeBetween(min: Int, max: Int)(implicit trace: ZTraceElement): F[List[A]] =
+      def takeBetween(min: Int, max: Int)(implicit trace: Trace): F[List[A]] =
         underlying.takeBetween(min, max).map(_.toList).toEffect[F]
-      def takeN(n: Int)(implicit trace: ZTraceElement): F[List[A]]                   =
+      def takeN(n: Int)(implicit trace: Trace): F[List[A]]                   =
         underlying.takeN(n).map(_.toList).toEffect[F]
-      def takeUpTo(max: Int)(implicit trace: ZTraceElement): F[List[A]]              =
+      def takeUpTo(max: Int)(implicit trace: Trace): F[List[A]]              =
         underlying.takeUpTo(max).map(_.toList).toEffect[F]
     }
 }

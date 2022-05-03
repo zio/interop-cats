@@ -30,45 +30,38 @@ private[zio] trait CatsSpecBase
   def checkAllAsync(name: String, f: Ticker => Laws#RuleSet): Unit =
     checkAll(name, f(Ticker()))
 
-  def platform(implicit ticker: Ticker): RuntimeConfig =
-    RuntimeConfig
-      .fromExecutor(Executor.fromExecutionContext(1024)(ticker.ctx))
-      .copy(
-        blockingExecutor = Executor.fromExecutionContext(1024)(ticker.ctx)
-      )
-
   val environment: ZEnvironment[Any] =
     ZEnvironment(())
 
   def testClock(implicit ticker: Ticker) = new Clock {
 
-    def instant(implicit trace: ZTraceElement): UIO[Instant]                     =
+    def instant(implicit trace: Trace): UIO[Instant]                     =
       ???
-    def localDateTime(implicit trace: ZTraceElement): UIO[LocalDateTime]         =
+    def localDateTime(implicit trace: Trace): UIO[LocalDateTime]         =
       ???
-    def currentTime(unit: => TimeUnit)(implicit trace: ZTraceElement): UIO[Long] =
+    def currentTime(unit: => TimeUnit)(implicit trace: Trace): UIO[Long] =
       ZIO.succeed(ticker.ctx.now().toUnit(unit).toLong)
 
-    def currentDateTime(implicit trace: ZTraceElement): UIO[OffsetDateTime] =
+    def currentDateTime(implicit trace: Trace): UIO[OffsetDateTime] =
       ZIO.succeed(OffsetDateTime.ofInstant(Instant.ofEpochMilli(ticker.ctx.now().toMillis), ZoneOffset.UTC))
 
-    def javaClock(implicit trace: zio.ZTraceElement): zio.UIO[java.time.Clock] =
+    def javaClock(implicit trace: zio.Trace): zio.UIO[java.time.Clock] =
       ???
 
-    def nanoTime(implicit trace: ZTraceElement): UIO[Long] =
+    def nanoTime(implicit trace: Trace): UIO[Long] =
       ZIO.succeed(ticker.ctx.now().toNanos)
 
-    def sleep(duration: => Duration)(implicit trace: ZTraceElement): UIO[Unit] = duration.asScala match {
+    def sleep(duration: => Duration)(implicit trace: Trace): UIO[Unit] = duration.asScala match {
       case finite: FiniteDuration =>
         ZIO.asyncInterrupt { cb =>
-          val cancel = ticker.ctx.schedule(finite, () => cb(UIO.unit))
-          Left(UIO.succeed(cancel()))
+          val cancel = ticker.ctx.schedule(finite, () => cb(ZIO.unit))
+          Left(ZIO.succeed(cancel()))
         }
       case infinite: Infinite     =>
         ZIO.dieMessage(s"Unexpected infinite duration $infinite passed to Ticker")
     }
 
-    def scheduler(implicit trace: ZTraceElement): UIO[Scheduler] =
+    def scheduler(implicit trace: Trace): UIO[Scheduler] =
       ???
   }
 
@@ -84,8 +77,18 @@ private[zio] trait CatsSpecBase
         throw error
     }
 
-  implicit def runtime(implicit ticker: Ticker): Runtime[Any] =
-    Runtime(environment, platform)
+  implicit def runtime(implicit ticker: Ticker): Runtime[Any] = {
+    val executor         = Executor.fromExecutionContext(1024)(ticker.ctx)
+    val blockingExecutor = Executor.fromExecutionContext(1024)(ticker.ctx)
+    val fiberId          = FiberId.unsafeMake(Trace.empty)
+    val fiberRefs        = FiberRefs(
+      Map(
+        FiberRef.currentExecutor         -> ::(fiberId -> executor, Nil),
+        FiberRef.currentBlockingExecutor -> ::(fiberId -> blockingExecutor, Nil)
+      )
+    )
+    Runtime(ZEnvironment.empty, fiberRefs)
+  }
 
   implicit val arbitraryAny: Arbitrary[Any] =
     Arbitrary(Gen.const(()))

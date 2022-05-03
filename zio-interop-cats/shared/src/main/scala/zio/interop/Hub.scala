@@ -18,7 +18,7 @@ package zio.interop
 
 import cats.effect.kernel.{ Async, Resource }
 import zio.interop.catz.scopedSyntax
-import zio.{ Hub as ZHub, Runtime, ZTraceElement }
+import zio.{ Hub as ZHub, Runtime, Trace }
 
 /**
  * A `Hub[F, A]` is an asynchronous message hub. Publishers can publish
@@ -30,26 +30,26 @@ abstract class Hub[F[+_], A] extends Enqueue[F, A] with Serializable {
   /**
    * Checks whether the hub is shut down.
    */
-  def isShutdown(implicit trace: ZTraceElement): F[Boolean]
+  def isShutdown(implicit trace: Trace): F[Boolean]
 
   /**
    * Publishes a message to the hub, returning whether the message was
    * published to the hub.
    */
-  def publish(a: A)(implicit trace: ZTraceElement): F[Boolean]
+  def publish(a: A)(implicit trace: Trace): F[Boolean]
 
   /**
    * Publishes all of the specified messages to the hub, returning whether
    * they were published to the hub.
    */
-  def publishAll(as: Iterable[A])(implicit trace: ZTraceElement): F[Boolean]
+  def publishAll(as: Iterable[A])(implicit trace: Trace): F[Boolean]
 
   /**
    * Subscribes to receive messages from the hub. The resulting subscription
    * can be evaluated multiple times within the scope of the resource to take a
    * message from the hub each time.
    */
-  def subscribe(implicit trace: ZTraceElement): Resource[F, Dequeue[F, A]]
+  def subscribe(implicit trace: Trace): Resource[F, Dequeue[F, A]]
 }
 
 object Hub {
@@ -63,7 +63,7 @@ object Hub {
    */
   def bounded[F[+_]: Async, A](
     requestedCapacity: Int
-  )(implicit runtime: Runtime[Any], trace: ZTraceElement): F[Hub[F, A]] =
+  )(implicit runtime: Runtime[Any], trace: Trace): F[Hub[F, A]] =
     ZHub.bounded[A](requestedCapacity).map(Hub(_)).toEffect[F]
 
   /**
@@ -74,7 +74,7 @@ object Hub {
    */
   def dropping[F[+_]: Async, A](
     requestedCapacity: Int
-  )(implicit runtime: Runtime[Any], trace: ZTraceElement): F[Hub[F, A]] =
+  )(implicit runtime: Runtime[Any], trace: Trace): F[Hub[F, A]] =
     ZHub.dropping[A](requestedCapacity).map(Hub(_)).toEffect[F]
 
   /**
@@ -85,42 +85,42 @@ object Hub {
    */
   def sliding[F[+_]: Async, A](
     requestedCapacity: Int
-  )(implicit runtime: Runtime[Any], trace: ZTraceElement): F[Hub[F, A]] =
+  )(implicit runtime: Runtime[Any], trace: Trace): F[Hub[F, A]] =
     ZHub.sliding[A](requestedCapacity).map(Hub(_)).toEffect[F]
 
   /**
    * Creates an unbounded hub.
    */
-  def unbounded[F[+_]: Async, A](implicit runtime: Runtime[Any], trace: ZTraceElement): F[Hub[F, A]] =
+  def unbounded[F[+_]: Async, A](implicit runtime: Runtime[Any], trace: Trace): F[Hub[F, A]] =
     ZHub.unbounded[A].map(Hub(_)).toEffect[F]
 
   private def apply[F[+_]: Async, A](
     hub: ZHub[A]
   )(implicit runtime: Runtime[Any]): Hub[F, A] =
     new Hub[F, A] { self =>
-      def awaitShutdown(implicit trace: ZTraceElement): F[Unit]                  =
+      def awaitShutdown(implicit trace: Trace): F[Unit]                  =
         hub.awaitShutdown.toEffect[F]
-      def capacity: Int                                                          =
+      def capacity: Int                                                  =
         hub.capacity
-      def isEmpty(implicit trace: ZTraceElement): F[Boolean]                     =
+      def isEmpty(implicit trace: Trace): F[Boolean]                     =
         hub.isEmpty.toEffect[F]
-      def isFull(implicit trace: ZTraceElement): F[Boolean]                      =
+      def isFull(implicit trace: Trace): F[Boolean]                      =
         hub.isFull.toEffect[F]
-      def isShutdown(implicit trace: ZTraceElement): F[Boolean]                  =
+      def isShutdown(implicit trace: Trace): F[Boolean]                  =
         hub.isShutdown.toEffect[F]
-      def publish(a: A)(implicit trace: ZTraceElement): F[Boolean]               =
+      def publish(a: A)(implicit trace: Trace): F[Boolean]               =
         hub.publish(a).toEffect[F]
-      def publishAll(as: Iterable[A])(implicit trace: ZTraceElement): F[Boolean] =
+      def publishAll(as: Iterable[A])(implicit trace: Trace): F[Boolean] =
         hub.publishAll(as).toEffect[F]
-      def shutdown(implicit trace: ZTraceElement): F[Unit]                       =
+      def shutdown(implicit trace: Trace): F[Unit]                       =
         hub.shutdown.toEffect[F]
-      def size(implicit trace: ZTraceElement): F[Int]                            =
+      def size(implicit trace: Trace): F[Int]                            =
         hub.size.toEffect[F]
-      def subscribe(implicit trace: ZTraceElement): Resource[F, Dequeue[F, A]]   =
+      def subscribe(implicit trace: Trace): Resource[F, Dequeue[F, A]]   =
         Resource.scoped[F, Any, Dequeue[F, A]](hub.subscribe.map(Dequeue[F, A](_)))
-      def offer(a: A)(implicit trace: ZTraceElement): F[Boolean]                 =
+      def offer(a: A)(implicit trace: Trace): F[Boolean]                 =
         publish(a)
-      def offerAll(as: Iterable[A])(implicit trace: ZTraceElement): F[Boolean]   =
+      def offerAll(as: Iterable[A])(implicit trace: Trace): F[Boolean]   =
         publishAll(as)
     }
 }

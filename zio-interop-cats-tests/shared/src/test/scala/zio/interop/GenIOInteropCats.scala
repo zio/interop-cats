@@ -14,13 +14,13 @@ trait GenIOInteropCats {
   /**
    * Given a generator for `A`, produces a generator for `IO[E, A]` using the `IO.point` constructor.
    */
-  def genSyncSuccess[E, A: Arbitrary]: Gen[IO[E, A]] = Arbitrary.arbitrary[A].map(IO.succeed[A](_))
+  def genSyncSuccess[E, A: Arbitrary]: Gen[IO[E, A]] = Arbitrary.arbitrary[A].map(ZIO.succeed[A](_))
 
   /**
    * Given a generator for `A`, produces a generator for `IO[E, A]` using the `IO.async` constructor.
    */
   def genAsyncSuccess[E, A: Arbitrary]: Gen[IO[E, A]] =
-    Arbitrary.arbitrary[A].map(a => IO.async[Any, E, A](k => k(IO.succeed(a))))
+    Arbitrary.arbitrary[A].map(a => ZIO.async[Any, E, A](k => k(ZIO.succeed(a))))
 
   /**
    * Randomly uses either `genSyncSuccess` or `genAsyncSuccess` with equal probability.
@@ -95,7 +95,7 @@ trait GenIOInteropCats {
     gen.map(nextIO => io.flatMap(_ => nextIO))
 
   private def genOfIdentityFlatMaps[E, A](io: IO[E, A]): Gen[IO[E, A]] =
-    Gen.const(io.flatMap(a => IO.succeed(a)))
+    Gen.const(io.flatMap(a => ZIO.succeed(a)))
 
   private def genOfRace[E, A](io: IO[E, A]): Gen[IO[E, A]] =
     Gen.const(io.raceFirst(ZIO.never.interruptible))
