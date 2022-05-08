@@ -5,7 +5,7 @@ import cats.implicits._
 import zio.test.Assertion._
 import zio.test._
 import zio.test.interop.catz.test._
-import zio.{ Runtime, RuntimeConfig, ZEnv }
+import zio.{ Runtime, ZEnv }
 
 import scala.concurrent.ExecutionContext.global
 
@@ -44,22 +44,22 @@ object catzQueueSpec extends ZIOSpecDefault {
 
   def spec = suite("catzQueueSpec")(
     testF("can use a bounded queue from Cats Effect IO") {
-      implicit val r: Runtime[ZEnv]     = Runtime.unsafeFromLayer(ZEnv.live, RuntimeConfig.default)
+      implicit val r: Runtime[ZEnv]     = Runtime.unsafeFromLayer(ZEnv.live)
       implicit val c: ContextShift[CIO] = CIO.contextShift(global)
       boundedQueueTest[CIO]
     },
     testF("can use a dropping queue from Cats Effect IO") {
-      implicit val r: Runtime[ZEnv]     = Runtime.unsafeFromLayer(ZEnv.live, RuntimeConfig.default)
+      implicit val r: Runtime[ZEnv]     = Runtime.unsafeFromLayer(ZEnv.live)
       implicit val c: ContextShift[CIO] = CIO.contextShift(global)
       droppingQueueTest[CIO]
     },
     testF("can use a sliding queue from Cats Effect IO") {
-      implicit val r: Runtime[ZEnv]     = Runtime.unsafeFromLayer(ZEnv.live, RuntimeConfig.default)
+      implicit val r: Runtime[ZEnv]     = Runtime.unsafeFromLayer(ZEnv.live)
       implicit val c: ContextShift[CIO] = CIO.contextShift(global)
       slidingQueueTest[CIO]
     },
     testF("can use an unbounded queue from Cats Effect IO") {
-      implicit val r: Runtime[ZEnv]     = Runtime.unsafeFromLayer(ZEnv.live, RuntimeConfig.default)
+      implicit val r: Runtime[ZEnv]     = Runtime.unsafeFromLayer(ZEnv.live)
       implicit val c: ContextShift[CIO] = CIO.contextShift(global)
       unboundedQueueTest[CIO]
     }

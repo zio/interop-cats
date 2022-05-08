@@ -146,7 +146,7 @@ object Hub {
       override def size(implicit trace: Trace): F[Int] =
         toEffect(hub.size)
       override def subscribe(implicit trace: Trace): Resource[F, Dequeue[F, A]] =
-        Resource.fromZIOScoped[F, Any](hub.subscribe.map(dequeue => Dequeue[F, A](dequeue)))
+        Resource.scoped[F, Any](hub.subscribe.map(dequeue => Dequeue[F, A](dequeue)))
 
       private def Dequeue[F[+_], A](dequeue: zio.Dequeue[A]): Dequeue[F, A] =
         new Queue(dequeue.asInstanceOf[zio.Queue[A]])

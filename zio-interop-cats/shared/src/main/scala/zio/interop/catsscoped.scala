@@ -59,10 +59,10 @@ final class CatsIOResourceSyntax[F[_], A](private val resource: Resource[F, A]) 
 
 final class CatsResourceObjectSyntax(private val resource: Resource.type) extends AnyVal {
 
-  def fromZIOScopedZIO[R]: CatsResourceObjectSyntax.FromScopedZIOPartiallyApplied[R] =
+  def scopedZIO[R]: CatsResourceObjectSyntax.FromScopedZIOPartiallyApplied[R] =
     new FromScopedZIOPartiallyApplied[R]
 
-  def fromZIOScoped[F[_], R]: CatsResourceObjectSyntax.FromScopedPartiallyApplied[F, R] =
+  def scoped[F[_], R]: CatsResourceObjectSyntax.FromScopedPartiallyApplied[F, R] =
     new FromScopedPartiallyApplied[F, R]
 
 }
@@ -94,7 +94,7 @@ object CatsResourceObjectSyntax {
       scoped: ZIO[R with Scope, E, A]
     )(implicit F: Async[F], ev: Effect[ZIO[R, E, *]], trace: Trace): Resource[F, A] =
       new CatsResourceObjectSyntax(Resource)
-        .fromZIOScopedZIO[R](scoped)
+        .scopedZIO[R](scoped)
         .mapK(new FunctionK[ZIO[R, E, *], F] {
           def apply[A](fa: ZIO[R, E, A]): F[A] =
             F liftIO ev.toIO(fa)

@@ -9,22 +9,7 @@ import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio.interop.catz.taskEffectInstance
-import zio.{
-  Cause,
-  Clock,
-  Console,
-  Executor,
-  IO,
-  Random,
-  Runtime,
-  RuntimeConfig,
-  System,
-  Tag,
-  Task,
-  UIO,
-  ZEnvironment,
-  ZIO
-}
+import zio.{ Cause, Clock, Console, Executor, IO, Random, Runtime, System, Tag, Task, UIO, ZEnvironment, ZIO }
 
 private[zio] trait catzSpecBase
     extends AnyFunSuite
@@ -35,11 +20,8 @@ private[zio] trait catzSpecBase
 
   type Env = Clock with Console with System with Random
 
-  implicit def rts(implicit tc: TestContext): Runtime[Any] = Runtime(
-    ZEnvironment.empty,
-    RuntimeConfig
-      .fromExecutor(Executor.fromExecutionContext(Int.MaxValue)(tc))
-  )
+  implicit def rts(implicit tc: TestContext): Runtime[Any] =
+    Runtime.unsafeFromLayer(Runtime.setExecutor(Executor.fromExecutionContext(Int.MaxValue)(tc)))
 
   implicit val zioEqCauseNothing: Eq[Cause[Nothing]] = Eq.fromUniversalEquals
 

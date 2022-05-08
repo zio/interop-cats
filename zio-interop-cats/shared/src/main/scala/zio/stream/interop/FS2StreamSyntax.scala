@@ -22,7 +22,7 @@ class ZStreamSyntax[R, E, A](private val stream: ZStream[R, E, A]) extends AnyVa
   /** Convert a [[zio.stream.ZStream]] into an [[fs2.Stream]]. */
   def toFs2Stream(implicit trace: Trace): fs2.Stream[ZIO[R, E, *], A] =
     fs2.Stream
-      .resource(Resource.fromZIOScopedZIO[R](stream.toPull))
+      .resource(Resource.scopedZIO[R](stream.toPull))
       .flatMap { pull =>
         fs2.Stream.repeatEval(pull.unsome).unNoneTerminate.flatMap { chunk =>
           fs2.Stream.chunk(fs2.Chunk.indexedSeq(chunk))

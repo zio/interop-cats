@@ -113,7 +113,7 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
             Resource.make(CIO.delay { effects += x }.void)(_ => CIO.delay { effects += x }.void)
 
           def scope(x: Int): ZIO[Scope, Throwable, Unit] =
-            ZIO.succeed(effects += x).acquireRelease(ZIO.succeed(effects += x))(ZIO.unit)
+            ZIO.acquireReleaseWith(ZIO.succeed(effects += x))(_ => ZIO.succeed(effects += x))(_ => ZIO.unit)
 
           val testCase = {
             val scoped1: ZIO[Scope, Throwable, Unit] = res(1).toScoped
@@ -226,7 +226,7 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
             Resource.make(ZIO.succeed { effects += x }.unit)(_ => ZIO.succeed { effects += x }.unit)
 
           def scope(x: Int): ZIO[Scope, Throwable, Unit] =
-            ZIO.succeed(effects += x).acquireRelease(ZIO.succeed(effects += x))(ZIO.unit)
+            ZIO.acquireReleaseWith(ZIO.succeed(effects += x))(_ => ZIO.succeed(effects += x))(_ => ZIO.unit)
 
           val testCase = {
             val scoped1: ZIO[Scope, Throwable, Unit] = res(1).toScopedZIO
@@ -246,7 +246,7 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
           def scope(x: Int): ZIO[Scope, Throwable, Unit] =
             ZIO.acquireRelease(ZIO.succeed(effects += x).unit)(_ => ZIO.succeed(effects += x + 1))
 
-          val testCase = Resource.fromZIOScopedZIO[Any](scope(1)).use(_ => ZIO.unit)
+          val testCase = Resource.scopedZIO[Any](scope(1)).use(_ => ZIO.unit)
           for {
             _       <- testCase
             effects <- ZIO.succeed(effects.toList)
@@ -263,7 +263,7 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
             }
 
           val testCase =
-            Resource.fromZIOScopedZIO(scope(1)).use(_ => ZIO.fail(new RuntimeException()).unit)
+            Resource.scopedZIO(scope(1)).use(_ => ZIO.fail(new RuntimeException()).unit)
           for {
             _       <- testCase.orElse(ZIO.unit)
             effects <- ZIO.succeed(effects.toList)
@@ -279,7 +279,7 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
                 ZIO.unit
             }
 
-          val testCase = Resource.fromZIOScopedZIO(scope(1)).use(_ => ZIO.interrupt)
+          val testCase = Resource.scopedZIO(scope(1)).use(_ => ZIO.interrupt)
           for {
             _       <- testCase.orElse(ZIO.unit)
             effects <- ZIO.succeed(effects.toList)

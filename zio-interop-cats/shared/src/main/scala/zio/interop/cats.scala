@@ -178,8 +178,8 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
 
     effect.SyncIO {
       rts.unsafeRun {
-        ZIO.descriptor
-          .acquireReleaseExitWith(
+        ZIO
+          .acquireReleaseExitWith(ZIO.descriptor)(
             (descriptor, exit: Exit[Throwable, A]) =>
               ZIO.succeed {
                 exit match {
@@ -187,9 +187,8 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
                   case _ =>
                     effect.IO.suspend(cb(exit.toEither)).unsafeRunAsync(_ => ())
                 }
-              },
-            _ => fa
-          )
+              }
+          )(_ => fa)
           .interruptible
           .forkDaemon
           .map(_.interrupt.unit)
@@ -271,7 +270,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
   override final def bracket[A, B](acquire: RIO[R, A])(use: A => RIO[R, B])(release: A => RIO[R, Unit]): RIO[R, B] = {
     implicit def trace: Trace = InteropTracer.newTrace(use)
 
-    ZIO.acquireReleaseWith(acquire, release(_: A).orDie, use)
+    ZIO.acquireReleaseWith(acquire)(release(_: A).orDie)(use)
   }
 
   override final def bracketCase[A, B](acquire: RIO[R, A])(use: A => RIO[R, B])(
@@ -279,7 +278,7 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
   ): RIO[R, B] = {
     implicit def trace: Trace = InteropTracer.newTrace(release)
 
-    ZIO.acquireReleaseExitWith(acquire, (a: A, exit: Exit[Throwable, B]) => release(a, exitToExitCase(exit)).orDie, use)
+    ZIO.acquireReleaseExitWith(acquire)((a: A, exit: Exit[Throwable, B]) => release(a, exitToExitCase(exit)).orDie)(use)
   }
 
   override final def uncancelable[A](fa: RIO[R, A]): RIO[R, A] =
