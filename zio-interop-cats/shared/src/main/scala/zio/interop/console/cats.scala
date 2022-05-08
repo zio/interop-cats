@@ -17,7 +17,7 @@
 package zio.interop.console
 
 import _root_.cats.Show
-import zio.{ Console, ZIO, ZTraceElement }
+import zio.{ Console, Trace, ZIO }
 
 import java.io.IOException
 
@@ -26,12 +26,12 @@ object cats {
   /**
    * Prints the string representation of an object to the console.
    */
-  def print[A](a: A)(implicit ev: Show[A], trace: ZTraceElement): ZIO[Console, IOException, Unit] =
+  def print[A](a: A)(implicit ev: Show[A], trace: Trace): ZIO[Console, IOException, Unit] =
     zio.Console.print(ev.show(a))
 
   /**
    * Prints the string representation of an object to the console, including a newline character.
    */
-  def printLine[A](a: A)(implicit ev: Show[A], trace: ZTraceElement): ZIO[Console, IOException, Unit] =
+  def printLine[A](a: A)(implicit ev: Show[A], trace: Trace): ZIO[Console, IOException, Unit] =
     zio.Console.printLine(ev.show(a))
 }

@@ -6,9 +6,9 @@ import zio._
 import zio.interop.catz.core._
 import zio.stream.interop.catz.core._
 import zio.stream.{ Stream, ZStream }
-import zio.test.{ DefaultRunnableSpec, _ }
+import zio.test._
 
-object CoreSummonSpec extends DefaultRunnableSpec {
+object CoreSummonSpec extends ZIOSpecDefault {
   override def spec =
     suite("summons from catz.core work with only a cats-core dependency")(
       test("ZIO instances") {
@@ -21,19 +21,6 @@ object CoreSummonSpec extends DefaultRunnableSpec {
         monadError.map(ZIO.unit)(identity)
         semigroupK.combineK(ZIO.unit, ZIO.unit)
         bifunctor.leftMap(ZIO.fromOption(None))(identity)
-
-        assertCompletes
-      },
-      test("ZManaged instances") {
-        val monad      = implicitly[Monad[ZManaged[Any, Nothing, *]]]
-        val monadError = implicitly[MonadError[Managed[Throwable, *], Throwable]]
-        val semigroupK = implicitly[SemigroupK[Managed[Nothing, *]]]
-        val bifunctor  = implicitly[Bifunctor[Managed]]
-
-        monad.map(ZManaged.unit)(identity)
-        monadError.map(ZManaged.unit)(identity)
-        semigroupK.combineK(ZManaged.unit, ZManaged.unit)
-        bifunctor.leftMap(ZManaged.fail(()))(identity)
 
         assertCompletes
       },

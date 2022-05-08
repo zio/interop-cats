@@ -1,15 +1,16 @@
 package zio.interop
 
 import fs2.Stream
-import zio.{ Chunk, Clock, RIO, Ref, Task }
+import zio.{ Chunk, Ref, Task, ZIO }
 import zio.stream.ZStream
 import zio.test.Assertion.{ equalTo, fails }
 import zio.test._
 import zio.interop.catz._
 import zio.Random.nextIntBetween
 import zio.test.Gen
+import cats.effect.ConcurrentEffect
 
-object fs2StreamSpec extends DefaultRunnableSpec {
+object fs2StreamSpec extends ZIOSpecDefault {
   import zio.stream.interop.fs2z._
 
   val exception: Throwable = new Exception("Failed")
@@ -41,9 +42,9 @@ object fs2StreamSpec extends DefaultRunnableSpec {
         assertEqual(ZStream.fromChunk(chunk).toFs2Stream, fs2StreamFromChunk(chunk))
       }),
       test("error propagation") {
-        Task.concurrentEffectWith { implicit CE =>
+        ZIO.concurrentEffectWith { implicit CE: ConcurrentEffect[Task] =>
           val result = ZStream.fail(exception).toFs2Stream.compile.drain.exit
-          assertM(result)(fails(equalTo(exception)))
+          assertZIO(result)(fails(equalTo(exception)))
         }
       }
     ),
@@ -58,9 +59,9 @@ object fs2StreamSpec extends DefaultRunnableSpec {
         assertEqual(fs2StreamFromChunk(chunk).toZStream(), ZStream.fromChunk(chunk))
       }),
       test("error propagation") {
-        Task.concurrentEffectWith { implicit CE =>
+        ZIO.concurrentEffectWith { implicit CE: ConcurrentEffect[Task] =>
           val result = Stream.raiseError[Task](exception).toZStream().runDrain.exit
-          assertM(result)(fails(equalTo(exception)))
+          assertZIO(result)(fails(equalTo(exception)))
         }
       },
       test("releases all resources by the time the failover stream has started") {
@@ -89,11 +90,11 @@ object fs2StreamSpec extends DefaultRunnableSpec {
           result    <- assertEqual(fs2StreamFromChunk(chunk).toZStream(queueSize), ZStream.fromChunk(chunk))
         } yield result
       }),
-      test("RIO")(check(Gen.chunkOfN(10)(Gen.long)) { chunk =>
+      test("Task")(check(Gen.chunkOfN(10)(Gen.long)) { chunk =>
         for {
           queueSize <- nextIntBetween(2, 128)
           result <- assertEqual(
-                     fs2StreamFromChunk(chunk).covary[RIO[Clock, *]].toZStream(queueSize),
+                     fs2StreamFromChunk(chunk).covary[Task].toZStream(queueSize),
                      ZStream.fromChunk(chunk)
                    )
         } yield result

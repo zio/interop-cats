@@ -17,29 +17,32 @@
 package zio
 package interop
 
-import cats.arrow.{ ArrowChoice, FunctionK }
 import cats.effect.Resource.{ Allocate, Bind, Suspend }
-import cats.effect.{ Async, Effect, ExitCase, LiftIO, Resource, Sync, IO => CIO }
-import cats.{ ~>, Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
-import zio.ZManaged.ReleaseMap
+import cats.effect.Resource
 
 final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resource[ZIO[R, E, *], A]) extends AnyVal {
 
   /**
-   * Convert a cats Resource into a ZManaged.
+   * Convert a cats Resource into a scoped ZIO.
    * Beware that unhandled error during release of the resource will result in the fiber dying.
    */
-  def toManagedZIO(implicit trace: ZTraceElement): ZManaged[R, E, A] = {
-    def go[A1](res: Resource[ZIO[R, E, *], A1]): ZManaged[R, E, A1] =
+  def toScopedZIO(implicit trace: Trace): ZIO[R with Scope, E, A] = {
+    def go[A1](res: Resource[ZIO[R, E, *], A1]): ZIO[R with Scope, E, A1] =
       res match {
-        case Allocate(resource) =>
-          ZManaged.fromReservationZIO(resource.map {
-            case (a, r) => Reservation(ZIO.succeedNow(a), e => r(exitToExitCase(e)).orDie)
-          })
-        case Bind(source, fs) =>
-          go(source).flatMap(s => go(fs(s)))
-        case Suspend(resource) =>
-          ZManaged.unwrap(resource.map(go))
+        case alloc: Allocate[ZIO[R, E, *], A1] =>
+          ZIO.scopeWith { scope =>
+            ZIO.environmentWithZIO[R] { env =>
+              alloc.resource.flatMap {
+                case (a, r) => scope.addFinalizerExit(e => r(exitToExitCase(e)).provideEnvironment(env).orDie).as(a)
+              }
+            }
+          }
+
+        case bind: Bind[ZIO[R, E, *], a, A1] =>
+          go(bind.source).flatMap(s => go(bind.fs(s)))
+
+        case suspend: Suspend[ZIO[R, E, *], A1] =>
+          suspend.resource.flatMap(go)
       }
 
     go(resource)

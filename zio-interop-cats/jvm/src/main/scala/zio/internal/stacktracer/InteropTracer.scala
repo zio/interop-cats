@@ -15,24 +15,24 @@
  */
 package zio.internal.stacktracer
 
-import zio.ZTraceElement
+import zio.Trace
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import scala.util.matching.Regex
 
 object InteropTracer {
-  final def newTrace(f: AnyRef): ZTraceElement = {
+  final def newTrace(f: AnyRef): Trace = {
     val clazz       = f.getClass()
     val cachedTrace = cache.get(clazz)
     if (cachedTrace == null) {
       val computedTrace = AkkaLineNumbers(f) match {
-        case AkkaLineNumbers.NoSourceInfo => ZTraceElement.empty
+        case AkkaLineNumbers.NoSourceInfo => Trace.empty
 
-        case AkkaLineNumbers.UnknownSourceFormat(_) => ZTraceElement.empty
+        case AkkaLineNumbers.UnknownSourceFormat(_) => Trace.empty
 
         case AkkaLineNumbers.SourceFile(filename) =>
-          createTrace("<unknown>", filename.intern(), 0, 0).asInstanceOf[ZTraceElement]
+          createTrace("<unknown>", filename.intern(), 0, 0).asInstanceOf[Trace]
 
         case AkkaLineNumbers.SourceFileLines(filename, from, _, _, methodAnonfun) =>
           val methodName = lambdaNamePattern
@@ -40,14 +40,14 @@ object InteropTracer {
             .flatMap(Option apply _.group(1))
             .getOrElse(methodAnonfun)
 
-          createTrace(methodName.intern(), filename.intern(), from, 0).asInstanceOf[ZTraceElement]
+          createTrace(methodName.intern(), filename.intern(), from, 0).asInstanceOf[Trace]
       }
       cache.put(clazz, computedTrace)
       computedTrace
     } else cachedTrace
   }
 
-  private val cache: ConcurrentMap[Class[_], ZTraceElement] = new ConcurrentHashMap[Class[_], ZTraceElement]()
+  private val cache: ConcurrentMap[Class[_], Trace] = new ConcurrentHashMap[Class[_], Trace]()
 
   private def createTrace(location: String, file: String, line: Int, column: Int): String =
     s"$location($file:$line:$column)".intern

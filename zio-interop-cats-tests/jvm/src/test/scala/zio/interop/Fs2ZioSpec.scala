@@ -11,7 +11,7 @@ import zio.test.interop.catz.test._
 
 import scala.concurrent.ExecutionContext.global
 
-object Fs2ZioSpec extends DefaultRunnableSpec {
+object Fs2ZioSpec extends ZIOSpecDefault {
 
   def spec =
     suite("ZIO with Fs2")(
@@ -51,7 +51,7 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
       _ <- Stream
             .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
             .evalMap[Task, Unit] { _ =>
-              fail.await *> IO.fail(new Exception())
+              fail.await *> ZIO.fail(new Exception())
             }
             .compile
             .drain
@@ -70,7 +70,7 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
       _ <- Stream
             .bracket(started.succeed(()).unit)(_ => released.succeed(()).unit)
             .evalMap[Task, Unit] { _ =>
-              terminate.await *> IO.die(new Exception())
+              terminate.await *> ZIO.die(new Exception())
             }
             .compile
             .drain
@@ -86,8 +86,8 @@ object Fs2ZioSpec extends DefaultRunnableSpec {
       started  <- Promise.make[Nothing, Unit]
       released <- Promise.make[Nothing, Unit]
       f <- Stream
-            .bracket(IO.unit)(_ => released.succeed(()).unit)
-            .evalMap[Task, Unit](_ => started.succeed(()) *> IO.never)
+            .bracket(ZIO.unit)(_ => released.succeed(()).unit)
+            .evalMap[Task, Unit](_ => started.succeed(()) *> ZIO.never)
             .compile
             .drain
             .fork

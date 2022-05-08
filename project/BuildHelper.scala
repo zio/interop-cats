@@ -1,7 +1,6 @@
 import sbt._
 import Keys._
 
-import dotty.tools.sbtplugin.DottyPlugin.autoImport._
 import explicitdeps.ExplicitDepsPlugin.autoImport._
 import sbtcrossproject.CrossPlugin.autoImport.CrossType
 import sbtbuildinfo._
@@ -10,9 +9,9 @@ import BuildInfoKeys._
 object BuildHelper {
   val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.15.4" % Test)
 
-  val Scala212 = "2.12.13"
-  val Scala213 = "2.13.6"
-  val Scala3   = "3.1.0"
+  val Scala212 = "2.12.15"
+  val Scala213 = "2.13.8"
+  val Scala3   = "3.1.2"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -86,12 +85,14 @@ object BuildHelper {
     ThisBuild / scalaVersion := crossScalaVersions.value.head,
     scalacOptions := stdOptions ++ extraOptions(scalaVersion.value),
     libraryDependencies ++= testDeps ++ {
-      if (isDotty.value)
-        Seq.empty
-      else
-        Seq(
-          compilerPlugin("org.typelevel" % "kind-projector" % "0.13.0") cross CrossVersion.full
-        )
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, _)) =>
+          Seq.empty
+        case _ =>
+          Seq(
+            compilerPlugin("org.typelevel" % "kind-projector" % "0.13.2") cross CrossVersion.full
+          )
+      }
     },
     Test / parallelExecution := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
@@ -129,27 +130,33 @@ object BuildHelper {
     }
   )
 
-  val dottySettings = Seq(
-    crossScalaVersions += Scala3,
-    scalacOptions ++= {
-      if (isDotty.value)
-        Seq("-noindent")
-      else
-        Seq()
-    },
-    scalacOptions --= {
-      if (isDotty.value)
-        Seq("-Xfatal-warnings")
-      else
-        Seq()
-    },
-    Test / parallelExecution := {
-      val old = (Test / parallelExecution).value
-      if (isDotty.value) {
-        false
-      } else {
-        old
-      }
+  val dottySettings = {
+    def isScala3(scalaVer: String) = CrossVersion.partialVersion(scalaVer) match {
+      case Some((3, _)) => true
+      case _            => false
     }
-  )
+    Seq(
+      crossScalaVersions += Scala3,
+      scalacOptions ++= {
+        if (isScala3(scalaVersion.value))
+          Seq("-noindent")
+        else
+          Seq()
+      },
+      scalacOptions --= {
+        if (isScala3(scalaVersion.value))
+          Seq("-Xfatal-warnings")
+        else
+          Seq()
+      },
+      Test / parallelExecution := {
+        val old = (Test / parallelExecution).value
+        if (isScala3(scalaVersion.value)) {
+          false
+        } else {
+          old
+        }
+      }
+    )
+  }
 }
