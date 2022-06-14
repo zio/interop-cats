@@ -65,6 +65,27 @@ package object interop {
             Outcome.Errored(compositeError)
         }
     }
+  private[interop] def toOutcomeX[R, E, A](exit: Exit[E, A]): UIO[Outcome[ZIO[R, E, _], E, A]]   =
+    exit match {
+      case Exit.Success(value) =>
+        ZIO.succeedNow(Outcome.Succeeded(ZIO.succeedNow(value)))
+      case Exit.Failure(cause) =>
+        def outcomeErrored: Outcome[ZIO[R, E, _], E, A] =
+          cause.failureOrCause match {
+            case Left(error)  => Outcome.Errored(error)
+            case Right(cause) => Outcome.Succeeded(ZIO.halt(cause))
+          }
+        if (cause.interrupted)
+          ZIO.descriptorWith { descriptor =>
+            ZIO.succeedNow(
+              if (descriptor.interrupters.nonEmpty)
+                Outcome.Canceled()
+              else
+                outcomeErrored
+            )
+          }
+        else ZIO.succeedNow(outcomeErrored)
+    }
 
   @inline private[interop] def toExit(exitCase: Resource.ExitCase): Exit[Throwable, Unit] =
     exitCase match {
@@ -88,7 +109,6 @@ package object interop {
           case Right(cause)           =>
             val compositeError = dieCauseToThrowable(cause)
             Resource.ExitCase.Errored(compositeError)
-        }
     }
 
   private[interop] def toPoll[R, E](restore: ZIO.InterruptStatusRestore): Poll[ZIO[R, E, _]] = new Poll[ZIO[R, E, _]] {

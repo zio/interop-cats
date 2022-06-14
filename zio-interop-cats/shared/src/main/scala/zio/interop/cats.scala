@@ -272,7 +272,7 @@ private abstract class ZioConcurrent[R, E, E1]
     ZIO.interrupt
 
   override final def onCancel[A](fa: F[A], fin: F[Unit]): F[A] =
-    fa.onError(cause => fin.orDieWith(toThrowableOrFiberFailure).unless(cause.failed))
+    guaranteeCase(fa) { case Outcome.Canceled() => fin.orDieWith(fiberFailure); case _ => ZIO.unit }
 
   override final def memoize[A](fa: F[A]): F[F[A]] =
     fa.memoize
@@ -292,8 +292,43 @@ private abstract class ZioConcurrent[R, E, E1]
   override final def guarantee[A](fa: F[A], fin: F[Unit]): F[A] =
     fa.ensuring(fin.orDieWith(toThrowableOrFiberFailure))
 
+  override final def guaranteeCase[A](fa: ZIO[R, E, A])(
+    fin: Outcome[ZIO[R, E, _], E, A] => ZIO[R, E, Unit]
+  ): ZIO[R, E, A] =
+    fa.onExit(exit => toOutcomeX(exit).flatMap(fin).orDieWith(fiberFailure))
+
   override final def bracket[A, B](acquire: F[A])(use: A => F[B])(release: A => F[Unit]): F[B] =
     acquire.bracket(release.andThen(_.orDieWith(toThrowableOrFiberFailure)), use)
+
+  override final def bracketCase[A, B](acquire: ZIO[R, E, A])(use: A => ZIO[R, E, B])(
+    release: (A, Outcome[ZIO[R, E, _], E, B]) => ZIO[R, E, Unit]
+  ): ZIO[R, E, B] =
+    ZIO.bracketExit[R, E, A, B](
+      acquire,
+      (a, exit) => toOutcomeX(exit).flatMap(release(a, _)).orDieWith(fiberFailure),
+      use
+    )
+
+  override final def bracketFull[A, B](acquire: Poll[ZIO[R, E, _]] => ZIO[R, E, A])(use: A => ZIO[R, E, B])(
+    release: (A, Outcome[ZIO[R, E, _], E, B]) => ZIO[R, E, Unit]
+  ): ZIO[R, E, B] =
+    ZIO.uninterruptibleMask[R, E, B] { restore =>
+      acquire(toPoll(restore)).flatMap { a =>
+        ZIO
+          .effectSuspendTotal(restore(use(a)))
+          .run
+          .flatMap { e =>
+            ZIO
+              .effectSuspendTotal(
+                toOutcomeX(e).flatMap(release(a, _))
+              )
+              .foldCauseM(
+                cause2 => ZIO.halt(e.fold(_ ++ cause2, _ => cause2)),
+                _ => ZIO.done(e)
+              )
+          }
+      }
+    }
 
   override val unique: F[Unique.Token] =
     ZIO.effectTotal(new Unique.Token)
