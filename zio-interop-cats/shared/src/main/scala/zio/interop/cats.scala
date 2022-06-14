@@ -91,17 +91,23 @@ abstract class CatsEffectInstances extends CatsZioInstances {
   implicit final def asyncRuntimeInstance[R](implicit runtime: Runtime[Clock & CBlocking]): Async[RIO[R, _]] =
     new ZioRuntimeAsync(runtime.environment)
 
-  implicit final def temporalRuntimeInstance[R, E](implicit runtime: Runtime[Clock]): GenTemporal[ZIO[R, E, _], E] =
-    new ZioRuntimeTemporal(runtime.environment)
+  implicit final def temporalRuntimeInstance[R, E](implicit
+    runtime: Runtime[Clock],
+    maybeEIsThrowable: Throwable =:= E = null
+  ): GenTemporal[ZIO[R, E, _], E] =
+    new ZioRuntimeTemporal(
+      runtime.environment,
+      if (maybeEIsThrowable != null) (e => Some(maybeEIsThrowable(e))) else (_ => None)
+    )
 
   private[this] val asyncInstance0: Async[RIO[Clock & CBlocking, _]] =
     new ZioAsync[Clock & CBlocking] with ZioBlockingEnvIdentity[Clock & CBlocking, Throwable]
 
   private[this] val temporalInstance0: Temporal[RIO[Clock, _]] =
-    new ZioTemporal[Clock, Throwable] with ZioClockEnvIdentity[Clock, Throwable]
+    new ZioTemporal[Clock, Throwable](Some(_)) with ZioClockEnvIdentity[Clock, Throwable]
 
   private[this] val concurrentInstance0: Concurrent[Task] =
-    new ZioConcurrent[Any, Throwable]
+    new ZioConcurrent[Any, Throwable](Some(_))
 }
 
 abstract class CatsZioInstances extends CatsZioInstances1 {
@@ -191,19 +197,20 @@ private class ZioDefer[R, E] extends Defer[ZIO[R, E, _]] {
     ZIO.effectSuspendTotal(fa)
 }
 
-private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent[ZIO[R, E, _], E] {
+private class ZioConcurrent[R, E](fromThrowable: Throwable => Option[E])
+    extends ZioMonadError[R, E]
+    with GenConcurrent[ZIO[R, E, _], E] {
 
-  private def toPoll(restore: ZIO.InterruptStatusRestore) = new Poll[ZIO[R, E, _]] {
-    override def apply[T](fa: ZIO[R, E, T]): ZIO[R, E, T] = restore(fa)
-  }
-
-  private def toFiber[A](fiber: Fiber[E, A]) = new effect.Fiber[F, E, A] {
+  private def toFiber[A](fiber: Fiber[E, A]): effect.Fiber[F, E, A] = new effect.Fiber[F, E, A] {
     override final val cancel: F[Unit]           = fiber.interrupt.unit
-    override final val join: F[Outcome[F, E, A]] = fiber.await.map(toOutcome)
+    override final val join: F[Outcome[F, E, A]] = fiber.await.map(toOutcome(fromThrowable))
   }
 
-  private def fiberFailure(error: E) =
-    FiberFailure(Cause.fail(error))
+  private def fiberFailureOrThrowable(error: E) =
+    error match {
+      case t: Throwable => t
+      case _            => FiberFailure(Cause.fail(error))
+    }
 
   override def ref[A](a: A): F[effect.Ref[F, A]] =
     ZRef.make(a).map(new ZioRef(_))
@@ -224,31 +231,34 @@ private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent
     fa.foldCauseM(cause => if (cause.interrupted) ZIO.halt(cause) else fb, _ => fb)
 
   override final def uncancelable[A](body: Poll[F] => F[A]): F[A] =
-    ZIO.uninterruptibleMask(body.compose(toPoll))
+    ZIO.uninterruptibleMask(restore => body(toPoll(restore)))
 
   override final def canceled: F[Unit] =
     ZIO.interrupt
 
   override final def onCancel[A](fa: F[A], fin: F[Unit]): F[A] =
-    fa.onError(cause => fin.orDieWith(fiberFailure).unless(cause.failed))
+    fa.onError(cause => fin.orDieWith(fiberFailureOrThrowable).unless(cause.failed))
 
   override final def memoize[A](fa: F[A]): F[F[A]] =
     fa.memoize
 
-  override final def racePair[A, B](fa: F[A], fb: F[B]) =
+  override final def racePair[A, B](
+    fa: F[A],
+    fb: F[B]
+  ): ZIO[R, Nothing, Either[(Outcome[F, E, A], effect.Fiber[F, E, B]), (effect.Fiber[F, E, A], Outcome[F, E, B])]] =
     (fa.interruptible raceWith fb.interruptible)(
-      (exit, fiber) => ZIO.succeedNow(Left((toOutcome(exit), toFiber(fiber)))),
-      (exit, fiber) => ZIO.succeedNow(Right((toFiber(fiber), toOutcome(exit))))
+      (exit, fiber) => ZIO.succeedNow(Left((toOutcome(fromThrowable)(exit), toFiber(fiber)))),
+      (exit, fiber) => ZIO.succeedNow(Right((toFiber(fiber), toOutcome(fromThrowable)(exit))))
     )
 
   override final def both[A, B](fa: F[A], fb: F[B]): F[(A, B)] =
     fa.interruptible zipPar fb.interruptible
 
   override final def guarantee[A](fa: F[A], fin: F[Unit]): F[A] =
-    fa.ensuring(fin.orDieWith(fiberFailure))
+    fa.ensuring(fin.orDieWith(fiberFailureOrThrowable))
 
   override final def bracket[A, B](acquire: F[A])(use: A => F[B])(release: A => F[Unit]): F[B] =
-    acquire.bracket(release.andThen(_.orDieWith(fiberFailure)), use)
+    acquire.bracket(release.andThen(_.orDieWith(fiberFailureOrThrowable)), use)
 
   override val unique: F[Unique.Token] =
     ZIO.effectTotal(new Unique.Token)
@@ -316,8 +326,8 @@ private final class ZioRef[R, E, A](ref: ERef[E, A]) extends effect.Ref[ZIO[R, E
     ref.get
 }
 
-private abstract class ZioTemporal[R, E]
-    extends ZioConcurrent[R, E]
+private abstract class ZioTemporal[R, E](fromThrowable: Throwable => Option[E])
+    extends ZioConcurrent[R, E](fromThrowable)
     with GenTemporal[ZIO[R, E, _], E]
     with ZioClockEnv[R, E] {
 
@@ -331,7 +341,9 @@ private abstract class ZioTemporal[R, E]
     withClock(currentTime(MILLISECONDS).map(FiniteDuration(_, MILLISECONDS)))
 }
 
-private class ZioRuntimeTemporal[R, E](environment: Clock) extends ZioTemporal[R, E] with ZioClockEnv[R, E] {
+private class ZioRuntimeTemporal[R, E](environment: Clock, fromThrowable: Throwable => Option[E])
+    extends ZioTemporal[R, E](fromThrowable)
+    with ZioClockEnv[R, E] {
 
   override protected[this] def withClock[A](fa: ZIO[Clock, E, A]): ZIO[R, E, A] = fa.provide(environment)
 

@@ -56,14 +56,20 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
    */
   def toManagedZIO: ZManaged[R, E, A] = {
     type F[T] = ZIO[R, E, T]
-    val F = MonadCancel[F, E]
 
     def go[B](resource: Resource[F, B]): ZManaged[R, E, B] =
       resource match {
         case allocate: Resource.Allocate[F, b] =>
-          ZManaged.makeReserve[R, E, B](F.uncancelable(allocate.resource).map { case (b, release) =>
-            Reservation(ZIO.succeedNow(b), error => release(toExitCase(error)).orDie)
-          })
+          ZManaged {
+            ZIO.uninterruptibleMask { restore =>
+              for {
+                r               <- ZIO.environment[(R, ReleaseMap)]
+                af              <- allocate.resource(toPoll(restore)).provide(r._1)
+                (a, release)     = af
+                releaseMapEntry <- r._2.add(exit => release(toExitCase(exit)).provide(r._1).orDie)
+              } yield (releaseMapEntry, a)
+            }
+          }
 
         case bind: Resource.Bind[F, a, B] =>
           go(bind.source).flatMap(a => go(bind.fs(a)))

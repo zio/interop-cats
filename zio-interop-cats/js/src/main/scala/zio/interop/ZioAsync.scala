@@ -6,7 +6,7 @@ import zio.{ Promise, RIO, ZIO }
 import scala.concurrent.{ ExecutionContext, Future }
 
 private abstract class ZioAsync[R]
-    extends ZioTemporal[R, Throwable]
+    extends ZioTemporal[R, Throwable](Some(_))
     with Async[RIO[R, _]]
     with ZioBlockingEnv[R, Throwable] {
 

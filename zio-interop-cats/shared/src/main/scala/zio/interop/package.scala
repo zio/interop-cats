@@ -16,7 +16,7 @@
 
 package zio
 
-import cats.effect.kernel.{ Async, Outcome, Resource }
+import cats.effect.kernel.{ Async, Outcome, Poll, Resource }
 import cats.effect.std.Dispatcher
 import cats.syntax.all.*
 
@@ -39,16 +39,22 @@ package object interop {
   type Hub[F[+_], A] = CHub[F, A, A]
   val Hub: CHub.type = CHub
 
-  @inline private[interop] def toOutcome[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, _], E, A] =
+  @inline private[interop] def toOutcome[R, E, A](
+    fromThrowable: Throwable => Option[E]
+  )(exit: Exit[E, A]): Outcome[ZIO[R, E, _], E, A] =
     exit match {
       case Exit.Success(value)                      =>
-        Outcome.Succeeded(ZIO.succeed(value))
+        Outcome.Succeeded(ZIO.succeedNow(value))
       case Exit.Failure(cause) if cause.interrupted =>
         Outcome.Canceled()
       case Exit.Failure(cause)                      =>
         cause.failureOrCause match {
           case Left(error)  => Outcome.Errored(error)
-          case Right(cause) => Outcome.Succeeded(ZIO.halt(cause))
+          case Right(cause) =>
+            fromThrowable(dieCauseToThrowable(cause)) match {
+              case Some(compositeError) => Outcome.Errored(compositeError)
+              case None                 => Outcome.Succeeded(ZIO.halt(cause))
+            }
         }
     }
 
@@ -59,7 +65,7 @@ package object interop {
       case Resource.ExitCase.Errored(error) => Exit.fail(error)
     }
 
-  @inline private[interop] def toExitCase(exit: Exit[Any, Any]): Resource.ExitCase =
+  private[interop] def toExitCase(exit: Exit[Any, Any]): Resource.ExitCase =
     exit match {
       case Exit.Success(_)                          =>
         Resource.ExitCase.Succeeded
@@ -67,18 +73,32 @@ package object interop {
         Resource.ExitCase.Canceled
       case Exit.Failure(cause)                      =>
         cause.failureOrCause match {
-          case Left(error: Throwable) => Resource.ExitCase.Errored(error)
-          case _                      => Resource.ExitCase.Errored(FiberFailure(cause))
+          case Left(error: Throwable) =>
+            Resource.ExitCase.Errored(error)
+          case Left(_)                =>
+            Resource.ExitCase.Errored(FiberFailure(cause))
+          case Right(cause)           =>
+            val compositeError = dieCauseToThrowable(cause)
+            Resource.ExitCase.Errored(compositeError)
         }
+    }
+
+  private[interop] def toPoll[R, E](restore: ZIO.InterruptStatusRestore): Poll[ZIO[R, E, _]] = new Poll[ZIO[R, E, _]] {
+    override def apply[T](fa: ZIO[R, E, T]): ZIO[R, E, T] = restore(fa)
+  }
+
+  @inline private def dieCauseToThrowable(cause: Cause[Nothing]): Throwable =
+    cause.defects match {
+      case one :: Nil => one
+      case _          => FiberFailure(cause)
     }
 
   @inline def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F]): Task[A] =
     ZIO
       .effectTotal(F.unsafeToFutureCancelable(fa))
       .flatMap { case (future, cancel) =>
-        ZIO.fromFuture(_ => future).onInterrupt(ZIO.fromFuture(_ => cancel()).orDie).interruptible
+        ZIO.fromFuture(_ => future).onInterrupt(ZIO.fromFuture(_ => cancel()).orDie)
       }
-      .uninterruptible
 
   @inline def toEffect[F[_], R, A](rio: RIO[R, A])(implicit R: Runtime[R], F: Async[F]): F[A] =
     F.uncancelable { poll =>
