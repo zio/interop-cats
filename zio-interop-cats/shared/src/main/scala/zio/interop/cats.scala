@@ -125,7 +125,7 @@ abstract class CatsEffectInstances extends CatsZioInstances {
     new ZioConcurrent[Any, Throwable, Throwable] with ZioMonadErrorExitThrowable[Any]
 }
 
-sealed abstract class CatsEffectInstancesCause {
+sealed abstract class CatsEffectInstancesCause extends CatsZioInstances {
 
   implicit final def temporalInstanceCause[R <: Clock, E]: GenTemporal[ZIO[R, E, _], Cause[E]] =
     temporalInstance1.asInstanceOf[GenTemporal[ZIO[R, E, _], Cause[E]]]
@@ -217,6 +217,9 @@ sealed abstract class CatsZioInstances2 {
 
   implicit final def monadErrorInstance[R, E]: MonadError[ZIO[R, E, _], E] =
     monadErrorInstance0.asInstanceOf[MonadError[ZIO[R, E, _], E]]
+
+  implicit final def monadInstance[R, E]: Monad[ZIO[R, E, _]] =
+    monadErrorInstance0.asInstanceOf[Monad[ZIO[R, E, _]]]
 
   protected[this] final val arrowChoiceInstance0: ArrowChoice[RIO] =
     new ZioArrowChoice

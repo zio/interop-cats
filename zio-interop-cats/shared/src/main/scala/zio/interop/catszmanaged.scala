@@ -104,10 +104,13 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
       }
   }
 
-  def toResource[F[_]: Async](implicit R: Runtime[R], ev: E <:< Throwable): Resource[F, A] =
+  def toResource[F[_]: Async](implicit R: Runtime[R], ev: E <:< Throwable): Resource[F, A] = {
+    import zio.interop.catz.generic.*
+
     toResourceZIO.mapK(new (ZIO[R, E, _] ~> F) {
       override def apply[B](zio: ZIO[R, E, B]): F[B] = toEffect[F, R, B](zio.mapError(ev))
     })
+  }
 }
 
 trait CatsEffectZManagedInstances {
