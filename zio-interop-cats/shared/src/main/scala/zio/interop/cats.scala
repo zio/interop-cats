@@ -218,9 +218,6 @@ sealed abstract class CatsZioInstances2 {
   implicit final def monadErrorInstance[R, E]: MonadError[ZIO[R, E, _], E] =
     monadErrorInstance0.asInstanceOf[MonadError[ZIO[R, E, _], E]]
 
-  implicit final def monadInstance[R, E]: Monad[ZIO[R, E, _]] =
-    monadErrorInstance0.asInstanceOf[Monad[ZIO[R, E, _]]]
-
   protected[this] final val arrowChoiceInstance0: ArrowChoice[RIO] =
     new ZioArrowChoice
 
