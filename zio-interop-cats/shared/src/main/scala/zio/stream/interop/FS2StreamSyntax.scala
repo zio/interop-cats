@@ -1,8 +1,9 @@
 package zio
 package stream.interop
 
+import cats.effect.Resource
 import fs2.{ Pull, Stream }
-import zio.interop.catz.{ concurrentInstance, zManagedSyntax }
+import zio.interop.catz.*
 import zio.stream.{ Take, ZStream }
 
 import scala.language.implicitConversions
@@ -19,12 +20,14 @@ trait FS2StreamSyntax {
 class ZStreamSyntax[R, E, A](private val stream: ZStream[R, E, A]) extends AnyVal {
 
   /** Convert a [[zio.stream.ZStream]] into an [[fs2.Stream]]. */
-  def toFs2Stream: fs2.Stream[ZIO[R, E, _], A] =
-    fs2.Stream.resource(stream.process.toResourceZIO).flatMap { pull =>
+  def toFs2Stream: fs2.Stream[ZIO[R, E, _], A] = {
+    val resource: Resource[ZIO[R, E, _], ZIO[R, Option[E], Chunk[A]]] = stream.process.toResourceZIO
+    fs2.Stream.resource(resource).flatMap { pull =>
       fs2.Stream.repeatEval(pull.optional).unNoneTerminate.flatMap { chunk =>
         fs2.Stream.chunk(fs2.Chunk.indexedSeq(chunk))
       }
     }
+  }
 }
 
 final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
@@ -55,7 +58,7 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
       val toQueue = ZStream.fromEffect {
         integrate(stream, q).stream
           .handleErrorWith(e => Stream.eval(q.offer(Take.fail(e))))
-          .compile
+          .compile[RIO[R, _], RIO[R, _], Any]
           .drain
       }
 

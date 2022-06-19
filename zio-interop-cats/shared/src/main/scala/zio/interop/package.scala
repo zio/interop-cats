@@ -39,9 +39,19 @@ package object interop {
   type Hub[F[+_], A] = CHub[F, A, A]
   val Hub: CHub.type = CHub
 
-  @inline private[interop] def toOutcome[R, E, A](
-    fromThrowable: Throwable => Option[E]
-  )(exit: Exit[E, A]): Outcome[ZIO[R, E, _], E, A] =
+  @inline private[interop] def toOutcomeCause[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, _], Cause[E], A] =
+    exit match {
+      case Exit.Success(value)                      =>
+        Outcome.Succeeded(ZIO.succeedNow(value))
+      case Exit.Failure(cause) if cause.interrupted =>
+        Outcome.Canceled()
+      case Exit.Failure(cause)                      =>
+        Outcome.Errored(cause)
+    }
+
+  @inline private[interop] def toOutcomeThrowable[R, A](
+    exit: Exit[Throwable, A]
+  ): Outcome[ZIO[R, Throwable, _], Throwable, A] =
     exit match {
       case Exit.Success(value)                      =>
         Outcome.Succeeded(ZIO.succeedNow(value))
@@ -51,10 +61,8 @@ package object interop {
         cause.failureOrCause match {
           case Left(error)  => Outcome.Errored(error)
           case Right(cause) =>
-            fromThrowable(dieCauseToThrowable(cause)) match {
-              case Some(compositeError) => Outcome.Errored(compositeError)
-              case None                 => Outcome.Succeeded(ZIO.halt(cause))
-            }
+            val compositeError = dieCauseToThrowable(cause)
+            Outcome.Errored(compositeError)
         }
     }
 

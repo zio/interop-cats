@@ -6,9 +6,10 @@ import zio.{ Promise, RIO, ZIO }
 import scala.concurrent.{ ExecutionContext, Future }
 
 private abstract class ZioAsync[R]
-    extends ZioTemporal[R, Throwable](Some(_))
+    extends ZioTemporal[R, Throwable, Throwable]
     with Async[RIO[R, _]]
-    with ZioBlockingEnv[R, Throwable] {
+    with ZioBlockingEnv[R, Throwable]
+    with ZioMonadErrorExitThrowable[R] {
 
   override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] =
     fa.on(ec)

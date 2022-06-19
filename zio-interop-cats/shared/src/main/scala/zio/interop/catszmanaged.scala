@@ -23,7 +23,7 @@ import cats.effect.*
 import cats.effect.std.Dispatcher
 import cats.kernel.{ CommutativeMonoid, CommutativeSemigroup }
 import zio.ZManaged.ReleaseMap
-import zio.interop.catz.concurrentInstance
+import zio.interop.catz.*
 
 trait CatsZManagedSyntax {
   import scala.language.implicitConversions
@@ -106,7 +106,7 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
 
   def toResource[F[_]: Async](implicit R: Runtime[R], ev: E <:< Throwable): Resource[F, A] =
     toResourceZIO.mapK(new (ZIO[R, E, _] ~> F) {
-      override def apply[B](zio: ZIO[R, E, B]) = toEffect(zio.mapError(ev))
+      override def apply[B](zio: ZIO[R, E, B]): F[B] = toEffect[F, R, B](zio.mapError(ev))
     })
 }
 
