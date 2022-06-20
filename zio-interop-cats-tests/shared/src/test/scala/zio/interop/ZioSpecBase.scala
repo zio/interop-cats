@@ -31,8 +31,7 @@ private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPrior
       Gen.oneOf(
         e.arbitrary.map(Cause.Fail(_)),
         Arbitrary.arbitrary[Throwable].map(Cause.Die(_)),
-        // Generating interrupt failures causes law failures (`canceled`/`Outcome.Canceled` are ill-defined as of now https://github.com/zio/interop-cats/issues/503#issuecomment-1157101175=)
-//        Gen.long.flatMap(l1 => Gen.long.map(l2 => Cause.Interrupt(Fiber.Id(l1, l2)))),
+        Gen.long.flatMap(l1 => Gen.long.map(l2 => Cause.Interrupt(Fiber.Id(l1, l2)))),
         Gen.delay(self.map(Cause.Traced(_, ZTrace(Fiber.Id.None, Nil, Nil, None)))),
         Gen.delay(self.map(Cause.stackless)),
         Gen.delay(self.flatMap(e1 => self.map(e2 => Cause.Both(e1, e2)))),

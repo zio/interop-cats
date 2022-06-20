@@ -549,26 +549,16 @@ private trait ZioMonadErrorE[R, E] extends ZioMonadError[R, E, E] {
 private trait ZioMonadErrorCause[R, E] extends ZioMonadError[R, E, Cause[E]] {
 
   override final def handleErrorWith[A](fa: F[A])(f: Cause[E] => F[A]): F[A] =
-//    fa.catchAllCause(f)
-    fa.catchSomeCause {
-      // pretend that we can't catch inner interrupt to satisfy `uncancelable canceled associates right over flatMap attempt`
-      // law since we use a poor definition of `canceled=ZIO.interrupt` right now
-      // https://github.com/zio/interop-cats/issues/503#issuecomment-1157101175=
-      case c if !c.interrupted => f(c)
-    }
+    fa.catchAllCause(f)
 
   override final def recoverWith[A](fa: F[A])(pf: PartialFunction[Cause[E], F[A]]): F[A] =
-//    fa.catchSomeCause(pf)
-    fa.catchSomeCause(({ case c if !c.interrupted => c }: PartialFunction[Cause[E], Cause[E]]).andThen(pf))
+    fa.catchSomeCause(pf)
 
   override final def raiseError[A](e: Cause[E]): F[A] =
     ZIO.halt(e)
 
   override final def attempt[A](fa: F[A]): F[Either[Cause[E], A]] =
-//    fa.sandbox.attempt
-    fa.map(Right(_)).catchSomeCause {
-      case c if !c.interrupted => ZIO.succeedNow(Left(c))
-    }
+    fa.sandbox.either
 
   override final def adaptError[A](fa: F[A])(pf: PartialFunction[Cause[E], Cause[E]]): F[A] =
     fa.mapErrorCause(pf.orElse { case error => error })
