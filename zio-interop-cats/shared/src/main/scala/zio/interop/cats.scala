@@ -237,12 +237,12 @@ private abstract class ZioConcurrent[R, E, E1]
     extends ZioMonadErrorExit[R, E, E1]
     with GenConcurrent[ZIO[R, E, _], E1] {
 
-  }
-
   private def toFiber[A](interrupted: zio.Ref[Boolean])(fiber: Fiber[E, A]): effect.Fiber[F, E1, A] =
     new effect.Fiber[F, E1, A] {
-      override final val cancel: F[Unit]           = fiber.interrupt.unit
-      override final val join: F[Outcome[F, E1, A]] = fiber.await.flatMap(exit => toOutcomeOtherFiber(interrupted)(exit))
+      override final val cancel: F[Unit]            = fiber.interrupt.unit
+      override final val join: F[Outcome[F, E1, A]] =
+        fiber.await.flatMap[R, E, Outcome[F, E1, A]]((exit: Exit[E, A]) => toOutcomeOtherFiber[A](interrupted)(exit))
+    }
 
   private def toThrowableOrFiberFailure(error: E): Throwable =
     error match {
@@ -285,7 +285,11 @@ private abstract class ZioConcurrent[R, E, E1]
       ZIO.descriptorWith(d => if (d.interrupters.isEmpty) ZIO.yieldNow *> loopUntilInterrupted else ZIO.unit)
 
     ZIO.effectSuspendTotal {
-      val thisFiber = Fiber.unsafeCurrentFiber().get.asInstanceOf[FiberContext[Any, Any]]
+      val thisFiber = Fiber.unsafeCurrentFiber() match {
+        case Some(fiber) => fiber.asInstanceOf[FiberContext[Any, Any]]
+        case None        =>
+          throw new IllegalStateException("Impossible state: current Fiber not found in `zio.Fiber.unsafeCurrentFiber`")
+      }
       for {
         _ <- thisFiber.interruptAs(thisFiber.id).forkDaemon
         _ <- loopUntilInterrupted
@@ -293,11 +297,11 @@ private abstract class ZioConcurrent[R, E, E1]
     }
   }
 
-  override final def onError[A](fa: ZIO[R, E, A])(pf: PartialFunction[E, ZIO[R, E, Unit]]): ZIO[R, E, A] =
-    guaranteeCase(fa) { case Outcome.Errored(e) => pf.applyOrElse(e, (_: E) => ZIO.unit); case _ => ZIO.unit }
+  override final def onError[A](fa: ZIO[R, E, A])(pf: PartialFunction[E1, ZIO[R, E, Unit]]): ZIO[R, E, A] =
+    guaranteeCase(fa) { case Outcome.Errored(e) => pf.applyOrElse(e, (_: E1) => ZIO.unit); case _ => ZIO.unit }
 
   override final def onCancel[A](fa: F[A], fin: F[Unit]): F[A] =
-    guaranteeCase(fa) { case Outcome.Canceled() => fin.orDieWith(fiberFailure); case _ => ZIO.unit }
+    guaranteeCase(fa) { case Outcome.Canceled() => fin.orDieWith(toThrowableOrFiberFailure); case _ => ZIO.unit }
 
   override final def memoize[A](fa: F[A]): F[F[A]] =
     fa.memoize
@@ -312,13 +316,9 @@ private abstract class ZioConcurrent[R, E, E1]
       res          <- (onNotInterrupt(fa.interruptible)(interruptedA.set(false)) raceWith
                         onNotInterrupt(fb.interruptible)(interruptedB.set(false)))(
                         (exit, fiber) =>
-                          toOutcomeOtherFiber[R, E, A](interruptedA)(exit).map(outcome =>
-                            Left((outcome, toFiber(interruptedB)(fiber)))
-                          ),
+                          toOutcomeOtherFiber(interruptedA)(exit).map(outcome => Left((outcome, toFiber(interruptedB)(fiber)))),
                         (exit, fiber) =>
-                          toOutcomeOtherFiber[R, E, B](interruptedB)(exit).map(outcome =>
-                            Right((toFiber(interruptedA)(fiber), outcome))
-                          )
+                          toOutcomeOtherFiber(interruptedB)(exit).map(outcome => Right((toFiber(interruptedA)(fiber), outcome)))
                       )
     } yield res
 
@@ -329,24 +329,24 @@ private abstract class ZioConcurrent[R, E, E1]
     fa.ensuring(fin.orDieWith(toThrowableOrFiberFailure))
 
   override final def guaranteeCase[A](fa: ZIO[R, E, A])(
-    fin: Outcome[ZIO[R, E, _], E, A] => ZIO[R, E, Unit]
+    fin: Outcome[ZIO[R, E, _], E1, A] => ZIO[R, E, Unit]
   ): ZIO[R, E, A] =
-    fa.onExit(exit => toOutcomeThisFiber(exit).flatMap(fin).orDieWith(fiberFailure))
+    fa.onExit(exit => toOutcomeThisFiber(exit).flatMap(fin).orDieWith(toThrowableOrFiberFailure))
 
   override final def bracket[A, B](acquire: F[A])(use: A => F[B])(release: A => F[Unit]): F[B] =
     acquire.bracket(release.andThen(_.orDieWith(toThrowableOrFiberFailure)), use)
 
   override final def bracketCase[A, B](acquire: ZIO[R, E, A])(use: A => ZIO[R, E, B])(
-    release: (A, Outcome[ZIO[R, E, _], E, B]) => ZIO[R, E, Unit]
+    release: (A, Outcome[ZIO[R, E, _], E1, B]) => ZIO[R, E, Unit]
   ): ZIO[R, E, B] =
     ZIO.bracketExit[R, E, A, B](
       acquire,
-      (a, exit) => toOutcomeThisFiber(exit).flatMap(release(a, _)).orDieWith(fiberFailure),
+      (a, exit) => toOutcomeThisFiber(exit).flatMap(release(a, _)).orDieWith(toThrowableOrFiberFailure),
       use
     )
 
   override final def bracketFull[A, B](acquire: Poll[ZIO[R, E, _]] => ZIO[R, E, A])(use: A => ZIO[R, E, B])(
-    release: (A, Outcome[ZIO[R, E, _], E, B]) => ZIO[R, E, Unit]
+    release: (A, Outcome[ZIO[R, E, _], E1, B]) => ZIO[R, E, Unit]
   ): ZIO[R, E, B] =
     ZIO.uninterruptibleMask[R, E, B] { restore =>
       acquire(toPoll(restore)).flatMap { a =>
@@ -526,7 +526,6 @@ private abstract class ZioMonadError[R, E, E1] extends MonadError[ZIO[R, E, _], 
 
     ZIO.effectSuspendTotal(loop(a))
   }
-
 }
 
 private trait ZioMonadErrorE[R, E] extends ZioMonadError[R, E, E] {
@@ -576,17 +575,28 @@ private trait ZioMonadErrorCause[R, E] extends ZioMonadError[R, E, Cause[E]] {
 }
 
 private abstract class ZioMonadErrorExit[R, E, E1] extends ZioMonadError[R, E, E1] {
-  protected def exitToOutcome[A](exit: Exit[E, A]): Outcome[F, E1, A]
+  protected def toOutcomeThisFiber[A](exit: Exit[E, A]): UIO[Outcome[F, E1, A]]
+  protected def toOutcomeOtherFiber[A](interruptedHandle: zio.Ref[Boolean])(exit: Exit[E, A]): UIO[Outcome[F, E1, A]]
 }
 
 private trait ZioMonadErrorExitThrowable[R]
     extends ZioMonadErrorExit[R, Throwable, Throwable]
     with ZioMonadErrorE[R, Throwable] {
-  override protected def exitToOutcome[A](exit: Exit[Throwable, A]): Outcome[F, Throwable, A] = toOutcomeThrowable(exit)
+  override final protected def toOutcomeThisFiber[A](exit: Exit[Throwable, A]): UIO[Outcome[F, Throwable, A]] =
+    toOutcomeThrowableThisFiber(exit)
+  protected final def toOutcomeOtherFiber[A](interruptedHandle: zio.Ref[Boolean])(
+    exit: Exit[Throwable, A]
+  ): UIO[Outcome[F, Throwable, A]] =
+    interruptedHandle.get.map(toOutcomeThrowableOtherFiber(_)(ZIO.succeedNow, exit))
 }
 
 private trait ZioMonadErrorExitCause[R, E] extends ZioMonadErrorExit[R, E, Cause[E]] with ZioMonadErrorCause[R, E] {
-  override protected def exitToOutcome[A](exit: Exit[E, A]): Outcome[F, Cause[E], A] = toOutcomeCause(exit)
+  override protected def toOutcomeThisFiber[A](exit: Exit[E, A]): UIO[Outcome[F, Cause[E], A]] =
+    toOutcomeCauseThisFiber(exit)
+  protected final def toOutcomeOtherFiber[A](interruptedHandle: zio.Ref[Boolean])(
+    exit: Exit[E, A]
+  ): UIO[Outcome[F, Cause[E], A]] =
+    interruptedHandle.get.map(toOutcomeCauseOtherFiber(_)(ZIO.succeedNow, exit))
 }
 
 private class ZioSemigroupK[R, E] extends SemigroupK[ZIO[R, E, _]] {

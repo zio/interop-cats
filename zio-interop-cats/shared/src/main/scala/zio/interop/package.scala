@@ -39,42 +39,71 @@ package object interop {
   type Hub[F[+_], A] = CHub[F, A, A]
   val Hub: CHub.type = CHub
 
-  @inline private[interop] def toOutcomeCause[R, E, A](exit: Exit[E, A]): Outcome[ZIO[R, E, _], Cause[E], A] =
+  @inline private[interop] def toOutcomeCauseOtherFiber[F[_], E, A](
+    actuallyInterrupted: Boolean
+  )(pure: A => F[A], exit: Exit[E, A]): Outcome[F, Cause[E], A] =
     exit match {
-      case Exit.Success(value)                      =>
-        Outcome.Succeeded(ZIO.succeedNow(value))
-      case Exit.Failure(cause) if cause.interrupted =>
+      case Exit.Success(value)                                             =>
+        Outcome.Succeeded(pure(value))
+      case Exit.Failure(cause) if cause.interrupted && actuallyInterrupted =>
         Outcome.Canceled()
-      case Exit.Failure(cause)                      =>
+      case Exit.Failure(cause)                                             =>
         Outcome.Errored(cause)
     }
 
-  @inline private[interop] def toOutcomeThrowable[R, A](
-    exit: Exit[Throwable, A]
-  ): Outcome[ZIO[R, Throwable, _], Throwable, A] =
+  @inline private[interop] def toOutcomeThrowableOtherFiber[F[_], A](
+    actuallyInterrupted: Boolean
+  )(pure: A => F[A], exit: Exit[Throwable, A]): Outcome[F, Throwable, A] =
     exit match {
-      case Exit.Success(value)                      =>
-        Outcome.Succeeded(ZIO.succeedNow(value))
-      case Exit.Failure(cause) if cause.interrupted =>
+      case Exit.Success(value)                                             =>
+        Outcome.Succeeded(pure(value))
+      case Exit.Failure(cause) if cause.interrupted && actuallyInterrupted =>
         Outcome.Canceled()
-      case Exit.Failure(cause)                      =>
+      case Exit.Failure(cause)                                             =>
         cause.failureOrCause match {
-          case Left(error)  => Outcome.Errored(error)
+          case Left(error)  =>
+            Outcome.Errored(error)
           case Right(cause) =>
             val compositeError = dieCauseToThrowable(cause)
             Outcome.Errored(compositeError)
         }
     }
-  private[interop] def toOutcomeX[R, E, A](exit: Exit[E, A]): UIO[Outcome[ZIO[R, E, _], E, A]]   =
+
+  @inline private[interop] def toOutcomeCauseThisFiber[R, E, A](
+    exit: Exit[E, A]
+  ): UIO[Outcome[ZIO[R, E, _], Cause[E], A]] =
     exit match {
       case Exit.Success(value) =>
         ZIO.succeedNow(Outcome.Succeeded(ZIO.succeedNow(value)))
       case Exit.Failure(cause) =>
-        def outcomeErrored: Outcome[ZIO[R, E, _], E, A] =
-          cause.failureOrCause match {
-            case Left(error)  => Outcome.Errored(error)
-            case Right(cause) => Outcome.Succeeded(ZIO.halt(cause))
+        if (cause.interrupted)
+          ZIO.descriptorWith { descriptor =>
+            ZIO.succeedNow(
+              if (descriptor.interrupters.nonEmpty)
+                Outcome.Canceled()
+              else
+                Outcome.Errored(cause)
+            )
           }
+        else ZIO.succeedNow(Outcome.Errored(cause))
+    }
+
+  private[interop] def toOutcomeThrowableThisFiber[R, A](
+    exit: Exit[Throwable, A]
+  ): UIO[Outcome[ZIO[R, Throwable, _], Throwable, A]] =
+    exit match {
+      case Exit.Success(value) =>
+        ZIO.succeedNow(Outcome.Succeeded(ZIO.succeedNow(value)))
+      case Exit.Failure(cause) =>
+        def outcomeErrored: Outcome[ZIO[R, Throwable, _], Throwable, A] =
+          cause.failureOrCause match {
+            case Left(error)  =>
+              Outcome.Errored(error)
+            case Right(cause) =>
+              val compositeError = dieCauseToThrowable(cause)
+              Outcome.Errored(compositeError)
+          }
+
         if (cause.interrupted)
           ZIO.descriptorWith { descriptor =>
             ZIO.succeedNow(
@@ -87,28 +116,40 @@ package object interop {
         else ZIO.succeedNow(outcomeErrored)
     }
 
+  private[interop] def toExitCaseThisFiber(exit: Exit[Any, Any]): UIO[Resource.ExitCase] =
+    exit match {
+      case Exit.Success(_)     =>
+        ZIO.succeedNow(Resource.ExitCase.Succeeded)
+      case Exit.Failure(cause) =>
+        def exitCaseErrored: Resource.ExitCase.Errored =
+          cause.failureOrCause match {
+            case Left(error: Throwable) =>
+              Resource.ExitCase.Errored(error)
+            case Left(_)                =>
+              Resource.ExitCase.Errored(FiberFailure(cause))
+            case Right(cause)           =>
+              val compositeError = dieCauseToThrowable(cause)
+              Resource.ExitCase.Errored(compositeError)
+          }
+
+        if (cause.interrupted)
+          ZIO.descriptorWith { descriptor =>
+            ZIO.succeedNow(
+              if (descriptor.interrupters.nonEmpty)
+                Resource.ExitCase.Canceled
+              else
+                exitCaseErrored
+            )
+          }
+        else
+          ZIO.succeedNow(exitCaseErrored)
+    }
+
   @inline private[interop] def toExit(exitCase: Resource.ExitCase): Exit[Throwable, Unit] =
     exitCase match {
       case Resource.ExitCase.Succeeded      => Exit.unit
       case Resource.ExitCase.Canceled       => Exit.interrupt(Fiber.Id.None)
       case Resource.ExitCase.Errored(error) => Exit.fail(error)
-    }
-
-  private[interop] def toExitCase(exit: Exit[Any, Any]): Resource.ExitCase =
-    exit match {
-      case Exit.Success(_)                          =>
-        Resource.ExitCase.Succeeded
-      case Exit.Failure(cause) if cause.interrupted =>
-        Resource.ExitCase.Canceled
-      case Exit.Failure(cause)                      =>
-        cause.failureOrCause match {
-          case Left(error: Throwable) =>
-            Resource.ExitCase.Errored(error)
-          case Left(_)                =>
-            Resource.ExitCase.Errored(FiberFailure(cause))
-          case Right(cause)           =>
-            val compositeError = dieCauseToThrowable(cause)
-            Resource.ExitCase.Errored(compositeError)
     }
 
   private[interop] def toPoll[R, E](restore: ZIO.InterruptStatusRestore): Poll[ZIO[R, E, _]] = new Poll[ZIO[R, E, _]] {
