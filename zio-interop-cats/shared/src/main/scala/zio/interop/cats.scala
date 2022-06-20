@@ -284,15 +284,31 @@ private abstract class ZioConcurrent[R, E, E1]
     def loopUntilInterrupted: UIO[Unit] =
       ZIO.descriptorWith(d => if (d.interrupters.isEmpty) ZIO.yieldNow *> loopUntilInterrupted else ZIO.unit)
 
+    val maxRetries = 10
+
+    def getThisFiber(retries: Int): F[FiberContext[Any, Any]] =
+      ZIO.yieldNow *> // ZIO.yieldNow is necessary to avoid empty result in some cases (unsafeRunToFuture)
+        ZIO.effectSuspendTotal {
+          Fiber.unsafeCurrentFiber() match {
+            case Some(fiber) =>
+              ZIO.succeedNow(fiber.asInstanceOf[FiberContext[Any, Any]])
+            case None        =>
+              if (retries < maxRetries)
+                getThisFiber(retries + 1)
+              else
+                ZIO.effectTotal(
+                  throw new IllegalStateException(
+                    "Impossible state: current Fiber not found in `zio.Fiber.unsafeCurrentFiber`"
+                  )
+                )
+          }
+        }
+
     ZIO.effectSuspendTotal {
-      val thisFiber = Fiber.unsafeCurrentFiber() match {
-        case Some(fiber) => fiber.asInstanceOf[FiberContext[Any, Any]]
-        case None        =>
-          throw new IllegalStateException("Impossible state: current Fiber not found in `zio.Fiber.unsafeCurrentFiber`")
-      }
       for {
-        _ <- thisFiber.interruptAs(thisFiber.id).forkDaemon
-        _ <- loopUntilInterrupted
+        thisFiber <- getThisFiber(0)
+        _         <- thisFiber.interruptAs(thisFiber.id).forkDaemon
+        _         <- loopUntilInterrupted
       } yield ()
     }
   }

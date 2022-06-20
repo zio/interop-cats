@@ -78,7 +78,7 @@ object CatsInteropSpec extends CatsRunnableSpec {
                      case Outcome.Succeeded(_) => counter.update(_ + "3")
                    }.run
         res     <- counter.get
-      } yield assertTrue(res == "ABC")
+      } yield assertTrue(!res.contains("1")) && assertTrue(res == "ABC")
     },
     testM("onCancel is not triggered by ZIO.parTraverse + ZIO.die https://github.com/zio/zio/issues/6911") {
       val F = Concurrent[Task]
@@ -103,7 +103,7 @@ object CatsInteropSpec extends CatsRunnableSpec {
                      case Outcome.Succeeded(_) => counter.update(_ + "3")
                    }.run
         res     <- counter.get
-      } yield assertTrue(res == "ABC")
+      } yield assertTrue(!res.contains("1")) && assertTrue(res == "ABC")
     },
     testM("onCancel is not triggered by ZIO.parTraverse + ZIO.interrupt https://github.com/zio/zio/issues/6911") {
       val F = Concurrent[Task]
@@ -128,7 +128,7 @@ object CatsInteropSpec extends CatsRunnableSpec {
                      case Outcome.Succeeded(_) => counter.update(_ + "3")
                    }.run
         res     <- counter.get
-      } yield assertTrue(res == "ABC")
+      } yield assertTrue(!res.contains("1")) && assertTrue(res == "ABC")
     }
   )
 }

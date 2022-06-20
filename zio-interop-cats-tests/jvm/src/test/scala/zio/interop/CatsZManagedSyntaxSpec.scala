@@ -1,6 +1,6 @@
 package zio.interop
 
-import cats.effect.kernel.Resource
+import cats.effect.kernel.{ Concurrent, Resource }
 import cats.effect.IO as CIO
 import zio.*
 import zio.interop.catz.*
@@ -288,7 +288,22 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
           unsafeRun(testCase.orElse(ZIO.unit))
           assert(effects.toList)(equalTo(List(1, 2)))
         },
-        test("calls finalizers when using resource is canceled") {
+        test("calls finalizers when using resource is internally interrupted") {
+          val effects                                     = new mutable.ListBuffer[Int]
+          def man(x: Int): ZManaged[Any, Throwable, Unit] =
+            ZManaged.makeExit(ZIO.effectTotal(effects += x).unit) {
+              case (_, Exit.Failure(c)) if !c.interrupted && c.failureOption.nonEmpty =>
+                ZIO.effectTotal(effects += x + 1)
+              case _                                                                  =>
+                ZIO.unit
+            }
+
+          val testCase = man(1).toResource[RIO[ZEnv, _]].use(_ => ZIO.interrupt)
+          try unsafeRun(testCase)
+          catch { case _: Throwable => }
+          assert(effects.toList)(equalTo(List(1, 2)))
+        },
+        test("calls finalizers when using resource is externally interrupted") {
           val effects                                     = new mutable.ListBuffer[Int]
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
             ZManaged.makeExit(ZIO.effectTotal(effects += x).unit) {
@@ -298,8 +313,9 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
                 ZIO.unit
             }
 
-          val testCase = man(1).toResource[RIO[ZEnv, _]].use(_ => ZIO.interrupt)
-          unsafeRun(testCase.orElse(ZIO.unit))
+          val testCase = man(1).toResource[RIO[ZEnv, _]].use(_ => Concurrent[RIO[ZEnv, _]].canceled)
+          try unsafeRun(testCase)
+          catch { case _: Throwable => }
           assert(effects.toList)(equalTo(List(1, 2)))
         },
         test("acquisition of Reservation preserves cancellability in new F") {
