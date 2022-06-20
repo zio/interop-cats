@@ -114,6 +114,7 @@ private[zio] trait CatsSpecBase
   implicit def eqForUIO[A: Eq](implicit ticker: Ticker): Eq[UIO[A]] = { (uio1, uio2) =>
     val exit1 = unsafeRun(uio1)
     val exit2 = unsafeRun(uio2)
+//    println(s"comparing $exit1 $exit2")
     (exit1 eqv exit2) || {
       println(s"$exit1 was not equal to $exit2")
       false

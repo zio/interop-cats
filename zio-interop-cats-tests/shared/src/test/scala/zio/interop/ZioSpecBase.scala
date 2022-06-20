@@ -4,8 +4,6 @@ import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.*
 import zio.clock.Clock
 
-import scala.concurrent.CancellationException
-
 private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPriority with GenIOInteropCats {
 
   implicit def arbitraryUIO[A: Arbitrary]: Arbitrary[UIO[A]] =
@@ -55,26 +53,38 @@ private[interop] trait ZioSpecBaseLowPriority { self: ZioSpecBase =>
 
   implicit def arbitraryIO[E: CanFail: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[IO[E, A]] = {
     implicitly[CanFail[E]]
-    Arbitrary(Gen.oneOf(genIO[E, A], genLikeTrans(genIO[E, A]), genIdentityTrans(genIO[E, A])))
+    import zio.interop.catz.generic.concurrentInstanceCause
+    Arbitrary(
+      Gen.oneOf(
+        genIO[E, A],
+        genLikeTrans(genIO[E, A]),
+        genIdentityTrans(genIO[E, A])
+      )
+    )
   }
 
   implicit def arbitraryZIO[R: Cogen, E: CanFail: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZIO[R, E, A]] =
     Arbitrary(Gen.function1[R, IO[E, A]](arbitraryIO[E, A].arbitrary).map(ZIO.environment[R].flatMap))
 
-  implicit def arbitraryRIO[R: Cogen, A: Arbitrary: Cogen]: Arbitrary[RIO[R, A]] =
-    arbitraryZIO[R, Throwable, A]
-
-  implicit def arbTask[A: Arbitrary: Cogen](implicit ticker: Ticker): Arbitrary[Task[A]] = Arbitrary {
-    arbitraryIO[A].arbitrary.map(liftIO(_))
+  implicit def arbitraryTask[A: Arbitrary: Cogen](implicit ticker: Ticker): Arbitrary[Task[A]] = {
+    val arbIO = arbitraryIO[Throwable, A]
+    if (catsConversionGenerator)
+      Arbitrary(Gen.oneOf(arbIO.arbitrary, genCatsConversionTask[A]))
+    else
+      arbIO
   }
+
+  def genCatsConversionTask[A: Arbitrary: Cogen](implicit ticker: Ticker): Gen[Task[A]] =
+    arbitraryIO[A].arbitrary.map(liftIO(_))
 
   def liftIO[A](io: cats.effect.IO[A])(implicit ticker: Ticker): zio.Task[A] =
     ZIO.effectAsyncInterrupt { k =>
       val (result, cancel) = io.unsafeToFutureCancelable()
       k(ZIO.fromFuture(_ => result).tapError {
-        case c: CancellationException if c.getMessage == "The fiber was canceled" =>
-          zio.interop.catz.concurrentInstance[Any, Throwable].canceled *> ZIO.interrupt
-        case _                                                                    => ZIO.unit
+        case c: scala.concurrent.CancellationException if c.getMessage == "The fiber was canceled" =>
+          zio.interop.catz.concurrentInstance.canceled *> ZIO.interrupt
+        case _                                                                                     =>
+          ZIO.unit
       })
       Left(ZIO.fromFuture(_ => cancel()).orDie)
     }
