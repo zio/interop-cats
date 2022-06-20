@@ -66,7 +66,7 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
                 r               <- ZIO.environment[(R, ReleaseMap)]
                 af              <- allocate.resource(toPoll(restore)).provide(r._1)
                 (a, release)     = af
-                releaseMapEntry <- r._2.add(exit => release(toExitCase(exit)).provide(r._1).orDie)
+                releaseMapEntry <- r._2.add(toExitCaseThisFiber(_).flatMap(release).provide(r._1).orDie)
               } yield (releaseMapEntry, a)
             }
           }
