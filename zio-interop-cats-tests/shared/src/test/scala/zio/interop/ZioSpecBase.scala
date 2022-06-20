@@ -4,6 +4,8 @@ import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.*
 import zio.clock.Clock
 
+import scala.concurrent.CancellationException
+
 private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPriority with GenIOInteropCats {
 
   implicit def arbitraryUIO[A: Arbitrary]: Arbitrary[UIO[A]] =
@@ -63,8 +65,20 @@ private[interop] trait ZioSpecBaseLowPriority { self: ZioSpecBase =>
   implicit def arbitraryRIO[R: Cogen, A: Arbitrary: Cogen]: Arbitrary[RIO[R, A]] =
     arbitraryZIO[R, Throwable, A]
 
-  implicit def arbitraryTask[A: Arbitrary: Cogen]: Arbitrary[Task[A]] =
-    arbitraryIO[Throwable, A]
+  implicit def arbTask[A: Arbitrary: Cogen](implicit ticker: Ticker): Arbitrary[Task[A]] = Arbitrary {
+    arbitraryIO[A].arbitrary.map(liftIO(_))
+  }
+
+  def liftIO[A](io: cats.effect.IO[A])(implicit ticker: Ticker): zio.Task[A] =
+    ZIO.effectAsyncInterrupt { k =>
+      val (result, cancel) = io.unsafeToFutureCancelable()
+      k(ZIO.fromFuture(_ => result).tapError {
+        case c: CancellationException if c.getMessage == "The fiber was canceled" =>
+          zio.interop.catz.concurrentInstance[Any, Throwable].canceled *> ZIO.interrupt
+        case _                                                                    => ZIO.unit
+      })
+      Left(ZIO.fromFuture(_ => cancel()).orDie)
+    }
 
   def zManagedArbitrary[R, E, A](implicit zio: Arbitrary[ZIO[R, E, A]]): Arbitrary[ZManaged[R, E, A]] =
     Arbitrary(zio.arbitrary.map(ZManaged.fromEffect))
