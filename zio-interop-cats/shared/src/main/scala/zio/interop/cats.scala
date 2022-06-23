@@ -332,7 +332,7 @@ private abstract class ZioConcurrent[R, E, E1]
                           toOutcomeOtherFiber(interruptedA)(exit).map(outcome => Left((outcome, toFiber(interruptedB)(fiber)))),
                         (exit, fiber) =>
                           toOutcomeOtherFiber(interruptedB)(exit).map(outcome => Right((toFiber(interruptedA)(fiber), outcome)))
-                      ).resetForkScope
+                      )
     } yield res
 
   override final def both[A, B](fa: F[A], fb: F[B]): F[(A, B)] =
