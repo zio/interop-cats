@@ -186,9 +186,23 @@ package object interop {
       case Resource.ExitCase.Errored(error) => Exit.fail(error)
     }
 
-  private[interop] def toPoll[R, E](restore: ZIO.InterruptStatusRestore): Poll[ZIO[R, E, _]] = new Poll[ZIO[R, E, _]] {
-    override def apply[T](fa: ZIO[R, E, T]): ZIO[R, E, T] = restore(fa)
-  }
+  @inline private[interop] def toPoll[R, E](restore: ZIO.InterruptStatusRestore): Poll[ZIO[R, E, _]] =
+    new Poll[ZIO[R, E, _]] {
+      override def apply[T](fa: ZIO[R, E, T]): ZIO[R, E, T] = restore(fa)
+    }
+
+  @inline private[interop] def signalOnNoExternalInterrupt[R, E, A](
+    f: ZIO[R, E, A]
+  )(notInterrupted: UIO[Unit]): ZIO[R, E, A] =
+    f.onExit {
+      case Exit.Success(_) => UIO.unit
+      case Exit.Failure(_) =>
+        // we don't check if cause is interrupted
+        // because we can get an invalid state Cause.empty
+        // due to this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
+        // if the last error was an uninterruptible typed error
+        ZIO.descriptorWith(d => if (d.interrupters.isEmpty) notInterrupted else ZIO.unit)
+    }
 
   @inline private def dieCauseToThrowable(cause: Cause[Nothing]): Throwable =
     cause.defects match {

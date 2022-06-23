@@ -259,7 +259,7 @@ private abstract class ZioConcurrent[R, E, E1]
   override final def start[A](fa: F[A]): F[effect.Fiber[F, E1, A]] =
     for {
       interrupted <- zio.Ref.make(true) // fiber could be interrupted before executing a single op
-      fiber <- onNotInterrupt(fa.interruptible)(interrupted.set(false)).forkDaemon
+      fiber <- signalOnNoExternalInterrupt(fa.interruptible)(interrupted.set(false)).forkDaemon
     } yield toFiber(interrupted)(fiber)
 
   override def never[A]: F[A] =
@@ -329,13 +329,13 @@ private abstract class ZioConcurrent[R, E, E1]
     for {
       interruptedA <- zio.Ref.make(true)
       interruptedB <- zio.Ref.make(true)
-      res          <- (onNotInterrupt(fa.interruptible)(interruptedA.set(false)) raceWith
-                        onNotInterrupt(fb.interruptible)(interruptedB.set(false)))(
+      res          <- (signalOnNoExternalInterrupt(fa.interruptible)(interruptedA.set(false)) raceWith
+                        signalOnNoExternalInterrupt(fb.interruptible)(interruptedB.set(false)))(
                         (exit, fiber) =>
                           toOutcomeOtherFiber(interruptedA)(exit).map(outcome => Left((outcome, toFiber(interruptedB)(fiber)))),
                         (exit, fiber) =>
                           toOutcomeOtherFiber(interruptedB)(exit).map(outcome => Right((toFiber(interruptedA)(fiber), outcome)))
-                      )
+                      ).resetForkScope
     } yield res
 
   override final def both[A, B](fa: F[A], fb: F[B]): F[(A, B)] =
@@ -385,11 +385,6 @@ private abstract class ZioConcurrent[R, E, E1]
   override val unique: F[Unique.Token] =
     ZIO.effectTotal(new Unique.Token)
 
-  private[this] def onNotInterrupt[A](f: F[A])(notInterrupted: UIO[Unit]): F[A] =
-    guaranteeCase(f) {
-      case Outcome.Canceled() => ZIO.unit
-      case _                  => notInterrupted
-    }
 }
 
 private final class ZioDeferred[R, E, A](promise: Promise[E, A]) extends Deferred[ZIO[R, E, _], A] {
