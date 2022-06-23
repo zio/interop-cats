@@ -313,9 +313,6 @@ private abstract class ZioConcurrent[R, E, E1]
     }
   }
 
-  override final def onError[A](fa: ZIO[R, E, A])(pf: PartialFunction[E1, ZIO[R, E, Unit]]): ZIO[R, E, A] =
-    guaranteeCase(fa) { case Outcome.Errored(e) => pf.applyOrElse(e, (_: E1) => ZIO.unit); case _ => ZIO.unit }
-
   override final def onCancel[A](fa: F[A], fin: F[Unit]): F[A] =
     guaranteeCase(fa) { case Outcome.Canceled() => fin.orDieWith(toThrowableOrFiberFailure); case _ => ZIO.unit }
 
