@@ -48,7 +48,7 @@ private abstract class ZioAsync[R]
       val p = scala.concurrent.Promise[Either[Throwable, A]]()
 
       def get: F[A] =
-        ZIO.fromFuture(_ => p.future).flatMap(ZIO.fromEither(_))
+        ZIO.fromFuture(_ => p.future).flatMap[Any, Throwable, A](ZIO.fromEither(_))
 
       ZIO.uninterruptibleMask(restore =>
         k({ e => p.trySuccess(e); () }).flatMap {
