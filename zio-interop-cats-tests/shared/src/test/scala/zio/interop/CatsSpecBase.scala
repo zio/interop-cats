@@ -96,6 +96,8 @@ private[zio] trait CatsSpecBase
   implicit val eqForNothing: Eq[Nothing] =
     Eq.allEqual
 
+  // workaround for laws `evalOn local pure` & `executionContext commutativity`
+  // (ZIO cannot implement them at all due to `.executor.asEC` losing the original executionContext)
   implicit val eqForExecutionContext: Eq[ExecutionContext] =
     Eq.allEqual
 
