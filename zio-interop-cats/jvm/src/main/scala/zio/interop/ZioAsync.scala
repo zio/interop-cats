@@ -1,8 +1,8 @@
 package zio.interop
 
-import cats.effect.kernel.{ Async, Cont, Outcome, Sync, Unique }
+import cats.effect.kernel.{ Async, Cont, Sync, Unique }
 import zio.blocking.{ effectBlocking, effectBlockingInterrupt }
-import zio.{ Exit, RIO, Ref, ZIO }
+import zio.{ RIO, ZIO }
 
 import scala.concurrent.{ ExecutionContext, Future }
 
@@ -44,20 +44,19 @@ private abstract class ZioAsync[R]
     withBlocking(effectBlockingInterrupt(thunk))
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] =
-    for {
-      cancelerRef <- Ref.make[Option[F[Unit]]](None)
-      res         <- guaranteeCase(
-                       ZIO.effectAsyncM[R, Throwable, A] { resume =>
-                         k(exitEither => resume(ZIO.fromEither(exitEither))).onExit {
-                           case Exit.Success(maybeCanceler) => cancelerRef.set(maybeCanceler)
-                           case _: Exit.Failure[?]          => ZIO.unit
-                         }
-                       }
-                     ) {
-                       case Outcome.Canceled() => cancelerRef.get.flatMap(ZIO.foreach(_)(identity)).unit
-                       case _                  => ZIO.unit
-                     }
-    } yield res
+    ZIO.effectSuspendTotal {
+      val p = scala.concurrent.Promise[Either[Throwable, A]]()
+
+      def get: F[A] =
+        ZIO.fromFuture(_ => p.future).flatMap(ZIO.fromEither(_))
+
+      ZIO.uninterruptibleMask(restore =>
+        k({ e => p.trySuccess(e); () }).flatMap {
+          case Some(canceler) => onCancel(restore(get), canceler.orDie)
+          case None           => restore(get)
+        }
+      )
+    }
 
   override final def async_[A](k: (Either[Throwable, A] => Unit) => Unit): F[A] =
     ZIO.effectAsync(register => k(register.compose(fromEither)))

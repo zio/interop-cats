@@ -58,7 +58,10 @@ trait GenIOInteropCats {
         genNever
       )
     else
-      genSuccess[E, A]
+      Gen.oneOf(
+        genSuccess[E, A],
+        genNever
+      )
 
   def genUIO[A: Arbitrary]: Gen[UIO[A]] =
     Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
