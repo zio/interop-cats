@@ -86,24 +86,22 @@ object CatsInteropSpec extends CatsRunnableSpec {
       for {
         counter <- F.ref("")
         _       <- F.guaranteeCase(
-                     F.onError(
-                       F.onCancel(
-                         ZIO.collectAllPar(
-                           List(
-                             ZIO.unit.forever,
-                             counter.update(_ + "A") *> ZIO.die(new RuntimeException("x")).unit
-                           )
-                         ),
-                         counter.update(_ + "1")
-                       )
-                     ) { case _ => counter.update(_ + "B") }
+                     F.onCancel(
+                       ZIO.collectAllPar(
+                         List(
+                           ZIO.unit.forever,
+                           counter.update(_ + "A") *> ZIO.die(new RuntimeException("x")).unit
+                         )
+                       ),
+                       counter.update(_ + "1")
+                     )
                    ) {
                      case Outcome.Errored(_)   => counter.update(_ + "C")
                      case Outcome.Canceled()   => counter.update(_ + "2")
                      case Outcome.Succeeded(_) => counter.update(_ + "3")
                    }.run
         res     <- counter.get
-      } yield assertTrue(!res.contains("1")) && assertTrue(res == "ABC")
+      } yield assertTrue(!res.contains("1")) && assertTrue(res == "AC")
     },
     testM("onCancel is not triggered by ZIO.parTraverse + ZIO.interrupt https://github.com/zio/zio/issues/6911") {
       val F = Concurrent[Task]
@@ -128,7 +126,7 @@ object CatsInteropSpec extends CatsRunnableSpec {
                      case Outcome.Succeeded(_) => counter.update(_ + "3")
                    }.run
         res     <- counter.get
-      } yield assertTrue(!res.contains("1")) && assertTrue(res == "ABC")
+      } yield assertTrue(!res.contains("1")) && assertTrue(res == "AC")
     },
     test("F.canceled.toEffect results in CancellationException, not BoxedException") {
       val F = Concurrent[Task]
