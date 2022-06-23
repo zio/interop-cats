@@ -20,7 +20,7 @@ import cats.effect.kernel.{ Async, Outcome, Poll, Resource }
 import cats.effect.std.Dispatcher
 import cats.syntax.all.*
 
-import scala.concurrent.Future
+import java.util.concurrent.atomic.AtomicBoolean
 
 package object interop {
 
@@ -38,6 +38,40 @@ package object interop {
 
   type Hub[F[+_], A] = CHub[F, A, A]
   val Hub: CHub.type = CHub
+
+  @inline def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F]): Task[A] =
+    ZIO
+      .effectTotal(F.unsafeToFutureCancelable(fa))
+      .flatMap { case (future, cancel) =>
+        ZIO.fromFuture(_ => future).onInterrupt(ZIO.fromFuture(_ => cancel()).orDie)
+      }
+
+  @inline def toEffect[F[_], R, A](rio: RIO[R, A])(implicit R: Runtime[R], F: Async[F]): F[A] =
+    F.defer {
+      val interrupted = new AtomicBoolean(true)
+      F.async[Exit[Throwable, A]] { cb =>
+        val canceler       = R.unsafeRunAsyncCancelable {
+          signalOnNoExternalInterrupt {
+            rio
+          }(ZIO.effectTotal(interrupted.set(false)))
+        }(exit => cb(Right(exit)))
+        val cancelerEffect = F.delay { val _: Exit[Throwable, A] = canceler(zio.Fiber.Id.None) }
+        F.pure(Some(cancelerEffect))
+      }.flatMap { exit =>
+        toOutcomeThrowableOtherFiber(interrupted.get())(F.pure(_: A), exit) match {
+          case Outcome.Succeeded(fa) =>
+            fa
+          case Outcome.Errored(e)    =>
+            F.raiseError(e)
+          case Outcome.Canceled()    =>
+            F.canceled.flatMap(_ => F.raiseError(exit.asInstanceOf[Exit.Failure[Throwable]].cause.squash))
+        }
+      }
+    }
+
+  implicit class ToEffectSyntax[R, A](private val rio: RIO[R, A]) extends AnyVal {
+    @inline def toEffect[F[_]: Async](implicit R: Runtime[R]): F[A] = interop.toEffect(rio)
+  }
 
   @inline private[interop] def toOutcomeCauseOtherFiber[F[_], E, A](
     actuallyInterrupted: Boolean
@@ -162,21 +196,4 @@ package object interop {
       case _          => FiberFailure(cause)
     }
 
-  @inline def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F]): Task[A] =
-    ZIO
-      .effectTotal(F.unsafeToFutureCancelable(fa))
-      .flatMap { case (future, cancel) =>
-        ZIO.fromFuture(_ => future).onInterrupt(ZIO.fromFuture(_ => cancel()).orDie)
-      }
-
-  @inline def toEffect[F[_], R, A](rio: RIO[R, A])(implicit R: Runtime[R], F: Async[F]): F[A] =
-    F.uncancelable { poll =>
-      F.delay(R.unsafeRunToFuture(rio)).flatMap { future =>
-        poll(F.onCancel(F.fromFuture(F.pure[Future[A]](future)), F.fromFuture(F.delay(future.cancel())).void))
-      }
-    }
-
-  implicit class ToEffectSyntax[R, A](private val rio: RIO[R, A]) extends AnyVal {
-    @inline def toEffect[F[_]: Async](implicit R: Runtime[R]): F[A] = interop.toEffect(rio)
-  }
 }

@@ -129,6 +129,22 @@ object CatsInteropSpec extends CatsRunnableSpec {
                    }.run
         res     <- counter.get
       } yield assertTrue(!res.contains("1")) && assertTrue(res == "ABC")
+    },
+    test("F.canceled.toEffect results in CancellationException, not BoxedException") {
+      val F = Concurrent[Task]
+
+      val exception: Option[Throwable] =
+        try {
+          F.canceled.toEffect[cats.effect.IO].unsafeRunSync()
+          None
+        } catch {
+          case t: Throwable => Some(t)
+        }
+
+      assertTrue(
+        !exception.get.getMessage.contains("Boxed Exception") &&
+          exception.get.getMessage.contains("The fiber was canceled")
+      )
     }
   )
 }
