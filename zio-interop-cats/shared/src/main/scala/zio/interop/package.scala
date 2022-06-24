@@ -71,8 +71,10 @@ package object interop {
     rio: RIO[R, A]
   )(implicit R: Runtime[R], F: Async[F], trace: Trace): F[A] =
     F.uncancelable { poll =>
-      F.delay(R.unsafeRunToFuture(rio)).flatMap { future =>
-        poll(F.onCancel(F.fromFuture(F.pure[Future[A]](future)), F.fromFuture(F.delay(future.cancel())).void))
+      Unsafe.unsafeCompat { implicit u =>
+        F.delay(R.unsafe.runToFuture(rio)).flatMap { future =>
+          poll(F.onCancel(F.fromFuture(F.pure[Future[A]](future)), F.fromFuture(F.delay(future.cancel())).void))
+        }
       }
     }
 

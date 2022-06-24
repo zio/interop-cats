@@ -17,7 +17,7 @@
 package zio.interop.stm
 
 import cats.effect.kernel.Async
-import zio.{ Runtime, Trace, Zippable }
+import zio.{ Runtime, Trace, Unsafe, Zippable }
 import zio.stm.STM as ZSTM
 
 import scala.util.Try
@@ -179,8 +179,11 @@ object STM {
 
   final def atomically[F[+_], A](stm: => STM[F, A])(implicit R: Runtime[Any], F: Async[F], trace: Trace): F[A] =
     F.async_ { cb =>
-      R.unsafeRunAsyncWith(ZSTM.atomically(stm.underlying)) { exit =>
-        cb(exit.toEither)
+      Unsafe.unsafeCompat { implicit u =>
+        val fiber = R.unsafe.fork(ZSTM.atomically(stm.underlying))
+        fiber.unsafe.addObserver { exit =>
+          cb(exit.toEither)
+        }
       }
     }
 
