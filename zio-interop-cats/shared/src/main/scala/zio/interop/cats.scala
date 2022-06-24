@@ -165,8 +165,11 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
     implicit def trace: Trace = InteropTracer.newTrace(cb)
 
     effect.SyncIO {
-      rts.unsafeRunAsyncWith(fa.exit) { exit =>
-        cb(exit.flatMap(identity).toEither).unsafeRunAsync(_ => ())
+      Unsafe.unsafeCompat { implicit u =>
+        val fiber = rts.unsafe.fork(fa.exit)
+        fiber.unsafe.addObserver { exit =>
+          cb(exit.getOrThrowFiberFailure().toEither).unsafeRunAsync(_ => ())
+        }
       }
     }
   }
@@ -177,21 +180,23 @@ private class CatsConcurrentEffect[R](rts: Runtime[R])
     implicit def trace: Trace = InteropTracer.newTrace(cb)
 
     effect.SyncIO {
-      rts.unsafeRun {
-        ZIO
-          .acquireReleaseExitWith(ZIO.descriptor)(
-            (descriptor, exit: Exit[Throwable, A]) =>
-              ZIO.succeed {
-                exit match {
-                  case Exit.Failure(cause) if !cause.interruptors.forall(_ == descriptor.id) => ()
-                  case _ =>
-                    effect.IO.suspend(cb(exit.toEither)).unsafeRunAsync(_ => ())
+      Unsafe.unsafeCompat { implicit u =>
+        rts.unsafe.run {
+          ZIO
+            .acquireReleaseExitWith(ZIO.descriptor)(
+              (descriptor, exit: Exit[Throwable, A]) =>
+                ZIO.succeed {
+                  exit match {
+                    case Exit.Failure(cause) if !cause.interruptors.forall(_ == descriptor.id) => ()
+                    case _ =>
+                      effect.IO.suspend(cb(exit.toEither)).unsafeRunAsync(_ => ())
+                  }
                 }
-              }
-          )(_ => fa)
-          .interruptible
-          .forkDaemon
-          .map(_.interrupt.unit)
+            )(_ => fa)
+            .interruptible
+            .forkDaemon
+            .map(_.interrupt.unit)
+        }.getOrThrowFiberFailure()
       }
     }
   }
@@ -237,8 +242,8 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
       fc.interruptible
 
     (run(fa) raceWith run(fb))(
-      { case (l, f) => l.fold(f.interrupt *> ZIO.failCause(_), ZIO.succeedNow).map(lv => Left((lv, toFiber(f)))) },
-      { case (r, f) => r.fold(f.interrupt *> ZIO.failCause(_), ZIO.succeedNow).map(rv => Right((toFiber(f), rv))) }
+      { case (l, f) => l.foldExit(f.interrupt *> ZIO.failCause(_), ZIO.succeedNow).map(lv => Left((lv, toFiber(f)))) },
+      { case (r, f) => r.foldExit(f.interrupt *> ZIO.failCause(_), ZIO.succeedNow).map(rv => Right((toFiber(f), rv))) }
     )
   }
 

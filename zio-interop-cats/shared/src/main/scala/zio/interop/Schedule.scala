@@ -18,7 +18,7 @@ package zio.interop
 
 import java.time.{ Duration, OffsetDateTime }
 import cats.effect.{ Effect, LiftIO }
-import zio.{ Chunk, Runtime, ZEnv, Schedule => ZSchedule, Zippable, Trace }
+import zio.{ Chunk, Runtime, Schedule => ZSchedule, Zippable, Trace }
 
 /**
  * @see zio.ZSchedule
@@ -28,7 +28,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
 
   type State
 
-  protected def underlying: ZSchedule.WithState[State, ZEnv, In, Out]
+  protected def underlying: ZSchedule.WithState[State, Any, In, Out]
 
   /**
    * @see zio.ZSchedule.&&
@@ -122,7 +122,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
   )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State), Either[In, In2], Out1] =
     Schedule(
       (self.underlying ||| that.underlying)
-        .asInstanceOf[ZSchedule.WithState[(self.State, that.State), ZEnv, Either[In, In2], Out1]]
+        .asInstanceOf[ZSchedule.WithState[(self.State, that.State), Any, Either[In, In2], Out1]]
     )
 
   /**
@@ -232,7 +232,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
   /**
    * @see zio.ZSchedule.driver
    */
-  def driver(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[Schedule.Driver[F, State, In, Out]] =
+  def driver(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Schedule.Driver[F, State, In, Out]] =
     toEffect(underlying.driver.map(driver => new Schedule.Driver(driver)))
 
   /**
@@ -365,7 +365,7 @@ sealed abstract class Schedule[F[+_], -In, +Out] { self =>
   def run(
     now: OffsetDateTime,
     input: Iterable[In]
-  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[List[Out]] =
+  )(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[List[Out]] =
     toEffect(underlying.run(now, input).map(_.toList))
 
   /**
@@ -727,15 +727,15 @@ object Schedule {
     Schedule(ZSchedule.windowed(interval))
 
   final class Driver[F[+_], +State, -In, +Out] private[Schedule] (
-    private[Schedule] val underlying: ZSchedule.Driver[State, ZEnv, In, Out]
+    private[Schedule] val underlying: ZSchedule.Driver[State, Any, In, Out]
   ) {
-    def next(in: In)(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[Either[None.type, Out]] =
+    def next(in: In)(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Either[None.type, Out]] =
       toEffect(underlying.next(in).either)
-    def last(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[Either[NoSuchElementException, Out]] =
+    def last(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Either[NoSuchElementException, Out]] =
       toEffect(underlying.last.either)
-    def reset(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[Unit] =
+    def reset(implicit R: Runtime[Any], F: LiftIO[F]): F[Unit] =
       toEffect(underlying.reset)
-    def state(implicit R: Runtime[ZEnv], F: LiftIO[F]): F[State] =
+    def state(implicit R: Runtime[Any], F: LiftIO[F]): F[State] =
       toEffect(underlying.state)
   }
 
@@ -745,10 +745,10 @@ object Schedule {
     Schedule[F, In, Out] { type State = State0 }
 
   private def apply[F[+_], State0, In, Out](
-    underlying0: ZSchedule.WithState[State0, ZEnv, In, Out]
+    underlying0: ZSchedule.WithState[State0, Any, In, Out]
   ): Schedule.WithState[F, State0, In, Out] =
     new Schedule[F, In, Out] {
       type State = State0
-      val underlying: ZSchedule.WithState[State, ZEnv, In, Out] = underlying0
+      val underlying: ZSchedule.WithState[State, Any, In, Out] = underlying0
     }
 }
