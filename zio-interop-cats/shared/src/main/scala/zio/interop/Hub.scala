@@ -111,7 +111,7 @@ object Hub {
       def publish(a: A)(implicit trace: Trace): F[Boolean]               =
         hub.publish(a).toEffect[F]
       def publishAll(as: Iterable[A])(implicit trace: Trace): F[Boolean] =
-        hub.publishAll(as).toEffect[F]
+        hub.publishAll(as).map(_.isEmpty).toEffect[F]
       def shutdown(implicit trace: Trace): F[Unit]                       =
         hub.shutdown.toEffect[F]
       def size(implicit trace: Trace): F[Int]                            =

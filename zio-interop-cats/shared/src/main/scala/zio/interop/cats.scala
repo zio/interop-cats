@@ -180,7 +180,7 @@ private class ZioDefer[R, E] extends Defer[ZIO[R, E, _]] {
 
 private class ZioConcurrent[R, E] extends ZioMonadError[R, E] with GenConcurrent[ZIO[R, E, _], E] {
 
-  private def toPoll(restore: ZIO.InterruptStatusRestore) = new Poll[ZIO[R, E, _]] {
+  private def toPoll(restore: ZIO.InterruptibilityRestorer) = new Poll[ZIO[R, E, _]] {
     override def apply[T](fa: ZIO[R, E, T]): ZIO[R, E, T] = restore(fa)(CoreTracer.newTrace)
   }
 

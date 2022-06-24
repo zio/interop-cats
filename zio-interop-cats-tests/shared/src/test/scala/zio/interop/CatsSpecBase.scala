@@ -13,6 +13,7 @@ import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio.*
 import zio.managed.*
 
+import java.time.temporal.ChronoUnit
 import java.time.{ Instant, LocalDateTime, OffsetDateTime, ZoneOffset }
 import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
@@ -42,6 +43,9 @@ private[zio] trait CatsSpecBase
     def currentTime(unit: => TimeUnit)(implicit trace: Trace): UIO[Long] =
       ZIO.succeed(ticker.ctx.now().toUnit(unit).toLong)
 
+    def currentTime(unit: => ChronoUnit)(implicit trace: Trace, d: DummyImplicit): UIO[Long] =
+      ZIO.succeed(unit.between(Instant.EPOCH, Instant.ofEpochMilli(ticker.ctx.now().toMillis)))
+
     def currentDateTime(implicit trace: Trace): UIO[OffsetDateTime] =
       ZIO.succeed(OffsetDateTime.ofInstant(Instant.ofEpochMilli(ticker.ctx.now().toMillis), ZoneOffset.UTC))
 
@@ -68,7 +72,10 @@ private[zio] trait CatsSpecBase
   def unsafeRun[E, A](io: IO[E, A])(implicit ticker: Ticker): Exit[E, Option[A]] =
     try {
       var exit: Exit[E, Option[A]] = Exit.succeed(Option.empty[A])
-      runtime.unsafeRunAsyncWith[E, Option[A]](io.asSome)(exit = _)
+      Unsafe.unsafeCompat { implicit u =>
+        val fiber = runtime.unsafe.fork[E, Option[A]](io.asSome)
+        fiber.unsafe.addObserver(exit = _)
+      }
       ticker.ctx.tickAll(FiniteDuration(1, TimeUnit.SECONDS))
       exit
     } catch {
@@ -78,16 +85,17 @@ private[zio] trait CatsSpecBase
     }
 
   implicit def runtime(implicit ticker: Ticker): Runtime[Any] = {
-    val executor         = Executor.fromExecutionContext(1024)(ticker.ctx)
-    val blockingExecutor = Executor.fromExecutionContext(1024)(ticker.ctx)
-    val fiberId          = FiberId.unsafeMake(Trace.empty)
+    val executor         = Executor.fromExecutionContext(ticker.ctx)
+    val blockingExecutor = Executor.fromExecutionContext(ticker.ctx)
+    val fiberId          = Unsafe.unsafeCompat(implicit u => FiberId.make(Trace.empty))
     val fiberRefs        = FiberRefs(
       Map(
-        FiberRef.currentExecutor         -> ::(fiberId -> executor, Nil),
+        FiberRef.overrideExecutor        -> ::(fiberId -> Some(executor), Nil),
         FiberRef.currentBlockingExecutor -> ::(fiberId -> blockingExecutor, Nil)
       )
     )
-    Runtime(ZEnvironment.empty, fiberRefs)
+    val runtimeFlags     = RuntimeFlags.default
+    Runtime(ZEnvironment.empty, fiberRefs, runtimeFlags)
   }
 
   implicit val arbitraryAny: Arbitrary[Any] =
@@ -130,7 +138,7 @@ private[zio] trait CatsSpecBase
     eqForZIO[R, Nothing, A]
 
   implicit def execTask(task: Task[Boolean])(implicit ticker: Ticker): Prop =
-    ZEnv.services.locallyWith(_.add(testClock))(task).toEffect[CIO]
+    ZLayer.succeed(testClock).apply(task).toEffect[CIO]
 
   implicit def orderForUIOofFiniteDuration(implicit ticker: Ticker): Order[UIO[FiniteDuration]] =
     Order.by(unsafeRun(_).toEither.toOption)

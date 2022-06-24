@@ -89,7 +89,7 @@ object Enqueue {
       def offer(a: A)(implicit trace: Trace): F[Boolean]               =
         underlying.offer(a).toEffect[F]
       def offerAll(as: Iterable[A])(implicit trace: Trace): F[Boolean] =
-        underlying.offerAll(as).toEffect[F]
+        underlying.offerAll(as).map(_.isEmpty).toEffect[F]
       def shutdown(implicit trace: Trace): F[Unit]                     =
         underlying.shutdown.toEffect[F]
       def size(implicit trace: Trace): F[Int]                          =
