@@ -44,7 +44,7 @@ private[zio] trait CatsSpecBase
       ZIO.succeed(ticker.ctx.now().toUnit(unit).toLong)
 
     def currentTime(unit: => ChronoUnit)(implicit trace: Trace, d: DummyImplicit): UIO[Long] =
-      currentTime(TimeUnit.of(unit))
+      ZIO.succeed(unit.between(Instant.EPOCH, Instant.ofEpochMilli(ticker.ctx.now().toMillis)))
 
     def currentDateTime(implicit trace: Trace): UIO[OffsetDateTime] =
       ZIO.succeed(OffsetDateTime.ofInstant(Instant.ofEpochMilli(ticker.ctx.now().toMillis), ZoneOffset.UTC))
