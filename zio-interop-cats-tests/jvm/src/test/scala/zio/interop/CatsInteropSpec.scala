@@ -86,15 +86,17 @@ object CatsInteropSpec extends CatsRunnableSpec {
       for {
         counter <- F.ref("")
         _       <- F.guaranteeCase(
-                     F.onCancel(
-                       ZIO.collectAllPar(
-                         List(
-                           ZIO.unit.forever,
-                           counter.update(_ + "A") *> ZIO.die(new RuntimeException("x")).unit
-                         )
-                       ),
-                       counter.update(_ + "1")
-                     )
+                     F.onError(
+                       F.onCancel(
+                         ZIO.collectAllPar(
+                           List(
+                             ZIO.unit.forever,
+                             counter.update(_ + "A") *> ZIO.die(new RuntimeException("x")).unit
+                           )
+                         ),
+                         counter.update(_ + "1")
+                       )
+                     ) { case _ => counter.update(_ + "B") }
                    ) {
                      case Outcome.Errored(_)   => counter.update(_ + "C")
                      case Outcome.Canceled()   => counter.update(_ + "2")
