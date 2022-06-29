@@ -1,14 +1,21 @@
 package zio.interop
 
+import cats.effect.GenConcurrent
 import org.scalacheck.*
 import zio.*
 
-/**
- * Temporary fork of zio.GenIO that overrides `genParallel` with ZManaged-based code
- * instead of `io.zipPar(parIo).map(_._1)`
- * because ZIP-PAR IS NON-DETERMINISTIC IN ITS SPAWNED EC TASKS (required for TestContext equality)
- */
 trait GenIOInteropCats {
+
+  // FIXME generating anything but success (even genFail)
+  //  surfaces multiple further unaddressed law failures
+  def betterGenerators: Boolean = false
+
+  // FIXME cats conversion surfaces failures in the following laws:
+  //  `async left is uncancelable sequenced raiseError`
+  //  `async right is uncancelable sequenced pure`
+  //  `applicativeError onError raise`
+  //  `canceled sequences onCanceled in order`
+  def catsConversionGenerator: Boolean = false
 
   /**
    * Given a generator for `A`, produces a generator for `IO[E, A]` using the `IO.point` constructor.
@@ -26,8 +33,35 @@ trait GenIOInteropCats {
    */
   def genSuccess[E, A: Arbitrary]: Gen[IO[E, A]] = Gen.oneOf(genSyncSuccess[E, A], genAsyncSuccess[E, A])
 
-  def genIO[E, A: Arbitrary]: Gen[IO[E, A]] =
-    genSuccess[E, A]
+  def genFail[E: Arbitrary, A]: Gen[IO[E, A]] = Arbitrary.arbitrary[E].map(IO.fail[E](_))
+
+  def genDie(implicit arbThrowable: Arbitrary[Throwable]): Gen[UIO[Nothing]] = arbThrowable.arbitrary.map(IO.die(_))
+
+  def genInternalInterrupt: Gen[UIO[Nothing]] = ZIO.interrupt
+
+  def genCancel[E, A: Arbitrary](implicit F: GenConcurrent[IO[E, _], ?]): Gen[IO[E, A]] =
+    Arbitrary.arbitrary[A].map(F.canceled.as(_))
+
+  def genNever: Gen[UIO[Nothing]] = ZIO.never
+
+  def genIO[E: Arbitrary, A: Arbitrary](implicit
+    arbThrowable: Arbitrary[Throwable],
+    F: GenConcurrent[IO[E, _], ?]
+  ): Gen[IO[E, A]] =
+    if (betterGenerators)
+      Gen.oneOf(
+        genSuccess[E, A],
+        genFail[E, A],
+        genDie,
+        genInternalInterrupt,
+        genCancel[E, A],
+        genNever
+      )
+    else
+      Gen.oneOf(
+        genSuccess[E, A],
+        genNever
+      )
 
   def genUIO[A: Arbitrary]: Gen[UIO[A]] =
     Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
@@ -98,17 +132,8 @@ trait GenIOInteropCats {
     Gen.const(io.flatMap(a => IO.succeed(a)))
 
   private def genOfRace[E, A](io: IO[E, A]): Gen[IO[E, A]] =
-    Gen.const(io.raceFirst(ZIO.never.interruptible))
+    Gen.const(io.interruptible.raceFirst(ZIO.never.interruptible))
 
   private def genOfParallel[E, A](io: IO[E, A])(gen: Gen[IO[E, A]]): Gen[IO[E, A]] =
-    gen.map { parIo =>
-      // this should work, but generates more random failures on CI
-//      io.interruptible.zipPar(parIo.interruptible).map(_._1)
-      Promise.make[Nothing, Unit].flatMap { p =>
-        ZManaged
-          .fromEffect(parIo *> p.succeed(()))
-          .fork
-          .use_(p.await *> io)
-      }
-    }
+    gen.map(parIo => io.interruptible.zipPar(parIo.interruptible).map(_._1))
 }

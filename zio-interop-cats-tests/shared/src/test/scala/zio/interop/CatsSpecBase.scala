@@ -96,6 +96,8 @@ private[zio] trait CatsSpecBase
   implicit val eqForNothing: Eq[Nothing] =
     Eq.allEqual
 
+  // workaround for laws `evalOn local pure` & `executionContext commutativity`
+  // (ZIO cannot implement them at all due to `.executor.asEC` losing the original executionContext)
   implicit val eqForExecutionContext: Eq[ExecutionContext] =
     Eq.allEqual
 
@@ -114,6 +116,7 @@ private[zio] trait CatsSpecBase
   implicit def eqForUIO[A: Eq](implicit ticker: Ticker): Eq[UIO[A]] = { (uio1, uio2) =>
     val exit1 = unsafeRun(uio1)
     val exit2 = unsafeRun(uio2)
+//    println(s"comparing $exit1 $exit2")
     (exit1 eqv exit2) || {
       println(s"$exit1 was not equal to $exit2")
       false

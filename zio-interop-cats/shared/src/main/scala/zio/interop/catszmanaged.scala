@@ -66,7 +66,7 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
                 r               <- ZIO.environment[(R, ReleaseMap)]
                 af              <- allocate.resource(toPoll(restore)).provide(r._1)
                 (a, release)     = af
-                releaseMapEntry <- r._2.add(exit => release(toExitCase(exit)).provide(r._1).orDie)
+                releaseMapEntry <- r._2.add(toExitCaseThisFiber(_).flatMap(release).provide(r._1).orDie)
               } yield (releaseMapEntry, a)
             }
           }
@@ -104,13 +104,13 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
       }
   }
 
-  def toResource[F[_]: Async](implicit R: Runtime[R], ev: E <:< Throwable): Resource[F, A] = {
-    import zio.interop.catz.generic.*
-
-    toResourceZIO.mapK(new (ZIO[R, E, _] ~> F) {
-      override def apply[B](zio: ZIO[R, E, B]): F[B] = toEffect[F, R, B](zio.mapError(ev))
-    })
-  }
+  def toResource[F[_]: Async](implicit R: Runtime[R], ev: E <:< Throwable): Resource[F, A] =
+    managed
+      .mapError(ev)
+      .toResourceZIO
+      .mapK(new (ZIO[R, Throwable, _] ~> F) {
+        override def apply[B](zio: ZIO[R, Throwable, B]): F[B] = toEffect[F, R, B](zio)
+      })
 }
 
 trait CatsEffectZManagedInstances {

@@ -1,10 +1,10 @@
 package zio.interop
 
-import cats.effect.{ Async, IO as CIO, LiftIO }
+import cats.effect.{ Async, IO as CIO, LiftIO, Outcome }
 import cats.effect.kernel.{ Concurrent, Resource }
 import zio.interop.catz.*
 import zio.test.*
-import zio.{ Promise, Task }
+import zio.{ Promise, Task, ZIO }
 
 object CatsInteropSpec extends CatsRunnableSpec {
   def spec = suite("Cats interop")(
@@ -54,6 +54,97 @@ object CatsInteropSpec extends CatsRunnableSpec {
         sanityCheckCIO <- fromEffect(test[CIO])
         zioResult      <- test[Task]
       } yield zioResult && sanityCheckCIO
+    },
+    testM("onCancel is not triggered by ZIO.parTraverse + ZIO.fail https://github.com/zio/zio/issues/6911") {
+      val F = Concurrent[Task]
+
+      for {
+        counter <- F.ref("")
+        _       <- F.guaranteeCase(
+                     F.onError(
+                       F.onCancel(
+                         ZIO.collectAllPar(
+                           List(
+                             ZIO.unit.forever,
+                             counter.update(_ + "A") *> ZIO.fail(new RuntimeException("x")).unit
+                           )
+                         ),
+                         counter.update(_ + "1")
+                       )
+                     ) { case _ => counter.update(_ + "B") }
+                   ) {
+                     case Outcome.Errored(_)   => counter.update(_ + "C")
+                     case Outcome.Canceled()   => counter.update(_ + "2")
+                     case Outcome.Succeeded(_) => counter.update(_ + "3")
+                   }.run
+        res     <- counter.get
+      } yield assertTrue(!res.contains("1")) && assertTrue(res == "ABC")
+    },
+    testM("onCancel is not triggered by ZIO.parTraverse + ZIO.die https://github.com/zio/zio/issues/6911") {
+      val F = Concurrent[Task]
+
+      for {
+        counter <- F.ref("")
+        _       <- F.guaranteeCase(
+                     F.onError(
+                       F.onCancel(
+                         ZIO.collectAllPar(
+                           List(
+                             ZIO.unit.forever,
+                             counter.update(_ + "A") *> ZIO.die(new RuntimeException("x")).unit
+                           )
+                         ),
+                         counter.update(_ + "1")
+                       )
+                     ) { case _ => counter.update(_ + "B") }
+                   ) {
+                     case Outcome.Errored(_)   => counter.update(_ + "C")
+                     case Outcome.Canceled()   => counter.update(_ + "2")
+                     case Outcome.Succeeded(_) => counter.update(_ + "3")
+                   }.run
+        res     <- counter.get
+      } yield assertTrue(!res.contains("1")) && assertTrue(res == "AC")
+    },
+    testM("onCancel is not triggered by ZIO.parTraverse + ZIO.interrupt https://github.com/zio/zio/issues/6911") {
+      val F = Concurrent[Task]
+
+      for {
+        counter <- F.ref("")
+        _       <- F.guaranteeCase(
+                     F.onError(
+                       F.onCancel(
+                         ZIO.collectAllPar(
+                           List(
+                             ZIO.unit.forever,
+                             counter.update(_ + "A") *> ZIO.interrupt.unit
+                           )
+                         ),
+                         counter.update(_ + "1")
+                       )
+                     ) { case _ => counter.update(_ + "B") }
+                   ) {
+                     case Outcome.Errored(_)   => counter.update(_ + "C")
+                     case Outcome.Canceled()   => counter.update(_ + "2")
+                     case Outcome.Succeeded(_) => counter.update(_ + "3")
+                   }.run
+        res     <- counter.get
+      } yield assertTrue(!res.contains("1")) && assertTrue(res == "AC")
+    },
+    test("F.canceled.toEffect results in CancellationException, not BoxedException") {
+      val F = Concurrent[Task]
+
+      val exception: Option[Throwable] =
+        try {
+          F.canceled.toEffect[cats.effect.IO].unsafeRunSync()
+          None
+        } catch {
+          case t: Throwable => Some(t)
+        }
+
+      assertTrue(
+        !exception.get.getMessage.contains("Boxed Exception") &&
+          exception.get.getMessage.contains("The fiber was canceled")
+      )
     }
   )
 }

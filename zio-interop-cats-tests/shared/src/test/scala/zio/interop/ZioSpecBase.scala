@@ -29,8 +29,7 @@ private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPrior
       Gen.oneOf(
         e.arbitrary.map(Cause.Fail(_)),
         Arbitrary.arbitrary[Throwable].map(Cause.Die(_)),
-        // Generating interrupt failures causes law failures (`canceled`/`Outcome.Canceled` are ill-defined as of now https://github.com/zio/interop-cats/issues/503#issuecomment-1157101175=)
-//        Gen.long.flatMap(l1 => Gen.long.map(l2 => Cause.Interrupt(Fiber.Id(l1, l2)))),
+        Gen.long.flatMap(l1 => Gen.long.map(l2 => Cause.Interrupt(Fiber.Id(l1, l2)))),
         Gen.delay(self.map(Cause.Traced(_, ZTrace(Fiber.Id.None, Nil, Nil, None)))),
         Gen.delay(self.map(Cause.stackless)),
         Gen.delay(self.flatMap(e1 => self.map(e2 => Cause.Both(e1, e2)))),
@@ -54,17 +53,41 @@ private[interop] trait ZioSpecBaseLowPriority { self: ZioSpecBase =>
 
   implicit def arbitraryIO[E: CanFail: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[IO[E, A]] = {
     implicitly[CanFail[E]]
-    Arbitrary(Gen.oneOf(genIO[E, A], genLikeTrans(genIO[E, A]), genIdentityTrans(genIO[E, A])))
+    import zio.interop.catz.generic.concurrentInstanceCause
+    Arbitrary(
+      Gen.oneOf(
+        genIO[E, A],
+        genLikeTrans(genIO[E, A]),
+        genIdentityTrans(genIO[E, A])
+      )
+    )
   }
 
   implicit def arbitraryZIO[R: Cogen, E: CanFail: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZIO[R, E, A]] =
     Arbitrary(Gen.function1[R, IO[E, A]](arbitraryIO[E, A].arbitrary).map(ZIO.environment[R].flatMap))
 
-  implicit def arbitraryRIO[R: Cogen, A: Arbitrary: Cogen]: Arbitrary[RIO[R, A]] =
-    arbitraryZIO[R, Throwable, A]
+  implicit def arbitraryTask[A: Arbitrary: Cogen](implicit ticker: Ticker): Arbitrary[Task[A]] = {
+    val arbIO = arbitraryIO[Throwable, A]
+    if (catsConversionGenerator)
+      Arbitrary(Gen.oneOf(arbIO.arbitrary, genCatsConversionTask[A]))
+    else
+      arbIO
+  }
 
-  implicit def arbitraryTask[A: Arbitrary: Cogen]: Arbitrary[Task[A]] =
-    arbitraryIO[Throwable, A]
+  def genCatsConversionTask[A: Arbitrary: Cogen](implicit ticker: Ticker): Gen[Task[A]] =
+    arbitraryIO[A].arbitrary.map(liftIO(_))
+
+  def liftIO[A](io: cats.effect.IO[A])(implicit ticker: Ticker): zio.Task[A] =
+    ZIO.effectAsyncInterrupt { k =>
+      val (result, cancel) = io.unsafeToFutureCancelable()
+      k(ZIO.fromFuture(_ => result).tapError {
+        case c: scala.concurrent.CancellationException if c.getMessage == "The fiber was canceled" =>
+          zio.interop.catz.concurrentInstance.canceled *> ZIO.interrupt
+        case _                                                                                     =>
+          ZIO.unit
+      })
+      Left(ZIO.fromFuture(_ => cancel()).orDie)
+    }
 
   def zManagedArbitrary[R, E, A](implicit zio: Arbitrary[ZIO[R, E, A]]): Arbitrary[ZManaged[R, E, A]] =
     Arbitrary(zio.arbitrary.map(ZManaged.fromEffect))
