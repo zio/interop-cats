@@ -100,6 +100,9 @@ private[zio] trait CatsSpecBase
     Eq.allEqual
 
   implicit val eqForCauseOfNothing: Eq[Cause[Nothing]] =
+    eqForCauseOf[Nothing]
+
+  implicit def eqForCauseOf[E]: Eq[Cause[E]] =
     (x, y) => (x.interrupted && y.interrupted) || x == y
 
   implicit def eqForExitOfNothing[A: Eq]: Eq[Exit[Nothing, A]] = {
@@ -120,14 +123,36 @@ private[zio] trait CatsSpecBase
   implicit def eqForURIO[R: Arbitrary, A: Eq](implicit ticker: Ticker): Eq[URIO[R, A]] =
     eqForZIO[R, Nothing, A]
 
-  implicit def execRIO(rio: RIO[ZEnv, Boolean])(implicit ticker: Ticker): Prop =
-    rio.provide(environment).toEffect[CIO]
+  implicit def execZIO[E](rio: ZIO[ZEnv, E, Boolean])(implicit ticker: Ticker): Prop =
+    rio
+      .provide(environment)
+      .mapError {
+        case t: Throwable => t
+        case e            => FiberFailure(Cause.Fail(e))
+      }
+      .toEffect[CIO]
 
   implicit def orderForUIOofFiniteDuration(implicit ticker: Ticker): Order[UIO[FiniteDuration]] =
     Order.by(unsafeRun(_).toEither.toOption)
 
   implicit def orderForRIOofFiniteDuration[R: Arbitrary](implicit ticker: Ticker): Order[RIO[R, FiniteDuration]] =
-    (x, y) => Arbitrary.arbitrary[R].sample.fold(0)(r => x.orDie.provide(r) compare y.orDie.provide(r))
+    (x, y) =>
+      Arbitrary
+        .arbitrary[R]
+        .sample
+        .fold(0)(r => orderForUIOofFiniteDuration.compare(x.orDie.provide(r), y.orDie.provide(r)))
+
+  implicit def orderForZIOofFiniteDuration[E: Order, R: Arbitrary](implicit
+    ticker: Ticker
+  ): Order[ZIO[R, E, FiniteDuration]] = {
+    implicit val orderForIOofFiniteDuration: Order[IO[E, FiniteDuration]] =
+      Order.by(unsafeRun(_) match {
+        case Exit.Success(value) => Right(value)
+        case Exit.Failure(cause) => Left(cause.failureOption)
+      })
+
+    (x, y) => Arbitrary.arbitrary[R].sample.fold(0)(r => x.provide(r) compare y.provide(r))
+  }
 
   implicit def eqForUManaged[A: Eq](implicit ticker: Ticker): Eq[UManaged[A]] =
     zManagedEq[Any, Nothing, A]

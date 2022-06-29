@@ -23,7 +23,7 @@ import cats.effect.*
 import cats.effect.std.Dispatcher
 import cats.kernel.{ CommutativeMonoid, CommutativeSemigroup }
 import zio.ZManaged.ReleaseMap
-import zio.interop.catz.concurrentInstance
+import zio.interop.catz.*
 
 trait CatsZManagedSyntax {
   import scala.language.implicitConversions
@@ -56,14 +56,20 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
    */
   def toManagedZIO: ZManaged[R, E, A] = {
     type F[T] = ZIO[R, E, T]
-    val F = MonadCancel[F, E]
 
     def go[B](resource: Resource[F, B]): ZManaged[R, E, B] =
       resource match {
         case allocate: Resource.Allocate[F, b] =>
-          ZManaged.makeReserve[R, E, B](F.uncancelable(allocate.resource).map { case (b, release) =>
-            Reservation(ZIO.succeedNow(b), error => release(toExitCase(error)).orDie)
-          })
+          ZManaged {
+            ZIO.uninterruptibleMask { restore =>
+              for {
+                r               <- ZIO.environment[(R, ReleaseMap)]
+                af              <- allocate.resource(toPoll(restore)).provide(r._1)
+                (a, release)     = af
+                releaseMapEntry <- r._2.add(exit => release(toExitCase(exit)).provide(r._1).orDie)
+              } yield (releaseMapEntry, a)
+            }
+          }
 
         case bind: Resource.Bind[F, a, B] =>
           go(bind.source).flatMap(a => go(bind.fs(a)))
@@ -98,10 +104,13 @@ final class ZManagedSyntax[R, E, A](private val managed: ZManaged[R, E, A]) exte
       }
   }
 
-  def toResource[F[_]: Async](implicit R: Runtime[R], ev: E <:< Throwable): Resource[F, A] =
+  def toResource[F[_]: Async](implicit R: Runtime[R], ev: E <:< Throwable): Resource[F, A] = {
+    import zio.interop.catz.generic.*
+
     toResourceZIO.mapK(new (ZIO[R, E, _] ~> F) {
-      override def apply[B](zio: ZIO[R, E, B]) = toEffect(zio.mapError(ev))
+      override def apply[B](zio: ZIO[R, E, B]): F[B] = toEffect[F, R, B](zio.mapError(ev))
     })
+  }
 }
 
 trait CatsEffectZManagedInstances {
