@@ -1,13 +1,16 @@
 package zio.interop
 
+import cats.effect.kernel.Outcome
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.*
 import zio.clock.Clock
 
 private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPriority with GenIOInteropCats {
 
-  implicit def arbitraryUIO[A: Arbitrary]: Arbitrary[UIO[A]] =
+  implicit def arbitraryUIO[A: Arbitrary]: Arbitrary[UIO[A]] = {
+    import zio.interop.catz.generic.concurrentInstanceCause
     Arbitrary(genUIO[A])
+  }
 
   implicit def arbitraryURIO[R: Cogen, A: Arbitrary]: Arbitrary[URIO[R, A]] =
     Arbitrary(Arbitrary.arbitrary[R => UIO[A]].map(ZIO.environment[R].flatMap))
@@ -39,8 +42,13 @@ private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPrior
     Arbitrary(self)
   }
 
-  implicit def cogenCause[E]: Cogen[Cause[E]] =
-    Cogen(_.hashCode.toLong)
+  implicit def cogenCause[E: Cogen]: Cogen[Cause[E]] =
+    Cogen[Outcome[Option, Either[E, Int], Unit]].contramap { cause =>
+      toOutcomeOtherFiber0[Option, E, Either[E, Int], Unit](true)(Option(_), Exit.Failure(cause))(
+        (e, _) => Left(e),
+        c => Right(c.hashCode())
+      )
+    }
 }
 
 private[interop] trait ZioSpecBaseLowPriority { self: ZioSpecBase =>
