@@ -140,7 +140,7 @@ object Hub {
       override def publish(a: A)(implicit trace: Trace): F[Boolean] =
         toEffect(hub.publish(a))
       override def publishAll(as: Iterable[A])(implicit trace: Trace): F[Boolean] =
-        toEffect(hub.publishAll(as))
+        toEffect(hub.publishAll(as).map(_.isEmpty))
       override def shutdown(implicit trace: Trace): F[Unit] =
         toEffect(hub.shutdown)
       override def size(implicit trace: Trace): F[Int] =

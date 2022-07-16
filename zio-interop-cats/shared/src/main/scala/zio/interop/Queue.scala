@@ -17,7 +17,7 @@
 package zio.interop
 
 import cats.effect.LiftIO
-import zio.{ Runtime, Trace, UIO, ZEnv }
+import zio.{ Runtime, Trace, UIO }
 
 /**
  * @see [[zio.Dequeue]]
@@ -185,7 +185,7 @@ final class Queue[F[+_], A] private[interop] (
    * @see [[zio.Queue.offerAll]]
    */
   override def offerAll(as: Iterable[A])(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Boolean] =
-    toEffect(underlying.offerAll(as))
+    toEffect(underlying.offerAll(as).map(_.isEmpty))
 
   /**
    * @see [[zio.Queue.shutdown]]
@@ -236,7 +236,7 @@ object Queue {
    */
   final def bounded[F[+_], A](
     capacity: Int
-  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
+  )(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
     create(zio.Queue.bounded[A](capacity))
 
   /**
@@ -244,7 +244,7 @@ object Queue {
    */
   final def dropping[F[+_], A](
     capacity: Int
-  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
+  )(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
     create(zio.Queue.dropping[A](capacity))
 
   /**
@@ -252,18 +252,18 @@ object Queue {
    */
   final def sliding[F[+_], A](
     capacity: Int
-  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
+  )(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
     create(zio.Queue.sliding[A](capacity))
 
   /**
    * @see zio.Queue.unbounded
    */
-  final def unbounded[F[+_], A](implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
+  final def unbounded[F[+_], A](implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
     create(zio.Queue.unbounded[A])
 
   private final def create[F[+_], A](
     in: UIO[zio.Queue[A]]
-  )(implicit R: Runtime[ZEnv], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
+  )(implicit R: Runtime[Any], F: LiftIO[F], trace: Trace): F[Queue[F, A]] =
     toEffect(in.map(new Queue[F, A](_)))
 
 }
