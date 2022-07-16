@@ -228,12 +228,13 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
 
   override final def start[A](fa: RIO[R, A]): RIO[R, effect.Fiber[RIO[R, *], A]] = {
     implicit def trace: Trace = CoreTracer.newTrace
+    val self = fa.interruptible
     ZIO
       .withFiberRuntime[R, Nothing, Fiber.Runtime[Throwable, A]] { (fiberState, status) =>
         ZIO.succeedNow {
-          val fiber = forkUnstarted(trace, fa, fiberState, status.runtimeFlags)(Unsafe.unsafe)
+          val fiber = forkUnstarted(trace, self, fiberState, status.runtimeFlags)(Unsafe.unsafe)
           fiber.setFiberRef(FiberRef.interruptedCause, Cause.empty)(Unsafe.unsafe)
-          fiber.startFork(fa)(Unsafe.unsafe)
+          fiber.startFork(self)(Unsafe.unsafe)
           fiber
         }
       }
