@@ -228,8 +228,9 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
 
   override final def start[A](fa: RIO[R, A]): RIO[R, effect.Fiber[RIO[R, *], A]] = {
     implicit def trace: Trace = CoreTracer.newTrace
-
-    fa.interruptible.forkDaemon.map(toFiber)
+    FiberRef.interruptedCause.locally(Cause.empty) {
+      fa.interruptible.forkDaemon.map(toFiber)
+    }
   }
 
   override final def racePair[A, B](
