@@ -77,7 +77,7 @@ lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
 
 lazy val zioInteropCatsJVM = zioInteropCats.jvm.settings(dottySettings)
 
-lazy val zioInteropCatsJS    = zioInteropCats.js
+lazy val zioInteropCatsJS = zioInteropCats.js
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
 lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
@@ -114,7 +114,7 @@ lazy val zioInteropCatsTestsJVM = zioInteropCatsTests.jvm.settings(dottySettings
 lazy val zioInteropCatsTestsJS = zioInteropCatsTests.js
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
-lazy val zioTestInteropCats    = crossProject(JSPlatform, JVMPlatform)
+lazy val zioTestInteropCats = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-test-interop-cats"))
   .dependsOn(zioInteropCats)
   .enablePlugins(BuildInfoPlugin)
@@ -150,7 +150,7 @@ lazy val zioTestInteropCatsJVM = zioTestInteropCats.jvm.settings(dottySettings)
 lazy val zioTestInteropCatsJS = zioTestInteropCats.js
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
-lazy val coreOnlyTest         = crossProject(JSPlatform, JVMPlatform)
+lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   .in(file("core-only-test"))
   .dependsOn(zioInteropCats)
   .settings(stdSettings("core-only-test"))
