@@ -3,7 +3,7 @@ addSbtPlugin("org.portable-scala"                % "sbt-scalajs-crossproject"  %
 addSbtPlugin("org.scalameta"                     % "sbt-scalafmt"              % "2.4.3")
 addSbtPlugin("com.eed3si9n"                      % "sbt-buildinfo"             % "0.10.0")
 addSbtPlugin("org.scoverage"                     % "sbt-scoverage"             % "1.8.2")
-addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings"          % "3.0.0")
+addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings"          % "3.0.2")
 addSbtPlugin("com.github.cb372"                  % "sbt-explicit-dependencies" % "0.2.16")
 addSbtPlugin("de.heikoseeberger"                 % "sbt-header"                % "5.6.0")
 addSbtPlugin("ch.epfl.scala"                     % "sbt-bloop"                 % "1.4.8")
