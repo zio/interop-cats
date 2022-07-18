@@ -51,7 +51,7 @@ val zioVersion                 = "2.0.0"
 val catsVersion                = "2.8.0"
 val catsEffectVersion          = "3.2.9"
 val catsMtlVersion             = "1.2.1"
-val disciplineScalaTestVersion = "2.1.5"
+val disciplineScalaTestVersion = "2.2.0"
 val fs2Version                 = "3.0.6"
 val scalaJavaTimeVersion       = "2.3.0"
 
