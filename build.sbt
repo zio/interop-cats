@@ -48,7 +48,7 @@ lazy val root = project
   )
 
 val zioVersion                 = "2.0.0"
-val catsVersion                = "2.6.1"
+val catsVersion                = "2.8.0"
 val catsEffectVersion          = "3.2.9"
 val catsMtlVersion             = "1.2.1"
 val disciplineScalaTestVersion = "2.2.0"
