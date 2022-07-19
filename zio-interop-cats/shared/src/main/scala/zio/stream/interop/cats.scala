@@ -79,24 +79,24 @@ private class ZStreamMonadError[R, E] extends MonadError[ZStream[R, E, _], E] wi
 
     fa.flatMap(f)
   }
-  override final def pure[A](a: A): ZStream[R, E, A] = {
+  override final def pure[A](a: A): ZStream[R, E, A]                                                 = {
     implicit def trace: Trace = CoreTracer.newTrace
 
     ZStream.succeed(a)
   }
-  override final def map[A, B](fa: ZStream[R, E, A])(f: A => B): ZStream[R, E, B] = {
+  override final def map[A, B](fa: ZStream[R, E, A])(f: A => B): ZStream[R, E, B]                    = {
     implicit def trace: Trace = InteropTracer.newTrace(f)
 
     fa.map(f)
   }
 
-  override final def widen[A, B >: A](fa: ZStream[R, E, A]): ZStream[R, E, B] = fa
+  override final def widen[A, B >: A](fa: ZStream[R, E, A]): ZStream[R, E, B]                                    = fa
   override final def map2[A, B, Z](fa: ZStream[R, E, A], fb: ZStream[R, E, B])(f: (A, B) => Z): ZStream[R, E, Z] = {
     implicit def trace: Trace = InteropTracer.newTrace(f)
 
     fa.crossWith(fb)(f)
   }
-  override final def as[A, B](fa: ZStream[R, E, A], b: B): ZStream[R, E, B] = {
+  override final def as[A, B](fa: ZStream[R, E, A], b: B): ZStream[R, E, B]                                      = {
     implicit def trace: Trace = CoreTracer.newTrace
 
     fa.as(b)

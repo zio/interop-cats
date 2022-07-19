@@ -175,7 +175,7 @@ private[stacktracer] object AkkaLineNumbers {
     } finally try dis.close()
     catch {
       case ex: InterruptedException => throw ex
-      case NonFatal(_)              => // ignore
+      case NonFatal(_) => // ignore
     }
   }
 
