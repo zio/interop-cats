@@ -715,7 +715,7 @@ object Schedule {
   )(implicit runtime: Runtime[Any]): Schedule.WithState[F, State0, In, Out] =
     new Schedule[F, In, Out] { self =>
       type State = State0
-      val underlying: ZSchedule.WithState[State0, Any, In, Out]                                                     =
+      val underlying: ZSchedule.WithState[State0, Any, In, Out]                                               =
         underlying0
       def &&[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
@@ -723,35 +723,35 @@ object Schedule {
         Schedule(underlying && that.underlying)
       def ***[In2, Out2](
         that: Schedule[F, In2, Out2]
-      ): Schedule.WithState[F, (self.State, that.State), (In, In2), (Out, Out2)]                                    =
+      ): Schedule.WithState[F, (self.State, that.State), (In, In2), (Out, Out2)] =
         Schedule(underlying *** that.underlying)
       def *>[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State), In1, Out2]                          =
+      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State), In1, Out2] =
         Schedule(underlying *> that.underlying)
       def ++[In1 <: In, Out2 >: Out](
         that: Schedule[F, In1, Out2]
-      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State, Boolean), In1, Out2]                 =
+      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State, Boolean), In1, Out2] =
         Schedule(underlying ++ that.underlying)
       def +++[In2, Out2](
         that: Schedule[F, In2, Out2]
-      ): Schedule.WithState[F, (self.State, that.State), Either[In, In2], Either[Out, Out2]]                        =
+      ): Schedule.WithState[F, (self.State, that.State), Either[In, In2], Either[Out, Out2]] =
         Schedule(underlying +++ that.underlying)
       def <||>[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      ): Schedule.WithState[F, (self.State, that.State, Boolean), In1, Either[Out, Out2]]                           =
+      ): Schedule.WithState[F, (self.State, that.State, Boolean), In1, Either[Out, Out2]] =
         Schedule(underlying <||> that.underlying)
       def <*[In1 <: In, Out2](that: Schedule[F, In1, Out2])(implicit
         trace: Trace
-      ): Schedule.WithState[F, (self.State, that.State), In1, Out]                                                  =
+      ): Schedule.WithState[F, (self.State, that.State), In1, Out] =
         Schedule(underlying <* that.underlying)
       def <*>[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
       )(implicit zippable: Zippable[Out, Out2]): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out] =
         Schedule(underlying <*> that.underlying)
-      def <<<[In2](that: Schedule[F, In2, In]): Schedule.WithState[F, (that.State, self.State), In2, Out]           =
+      def <<<[In2](that: Schedule[F, In2, In]): Schedule.WithState[F, (that.State, self.State), In2, Out]     =
         Schedule(underlying <<< that.underlying)
-      def >>>[Out2](that: Schedule[F, Out, Out2]): Schedule.WithState[F, (self.State, that.State), In, Out2]        =
+      def >>>[Out2](that: Schedule[F, Out, Out2]): Schedule.WithState[F, (self.State, that.State), In, Out2]  =
         Schedule(underlying >>> that.underlying)
       def ||[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
@@ -759,156 +759,156 @@ object Schedule {
         Schedule(underlying || that.underlying)
       def |||[Out1 >: Out, In2](
         that: Schedule[F, In2, Out1]
-      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State), Either[In, In2], Out1]              =
+      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State), Either[In, In2], Out1] =
         Schedule(
           (underlying ||| that.underlying)
             .asInstanceOf[ZSchedule.WithState[(underlying.State, that.underlying.State), Any, Either[In, In2], Out1]]
         )
-      def addDelay(f: Out => Duration)(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]           =
+      def addDelay(f: Out => Duration)(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]     =
         Schedule(underlying.addDelay(f))
-      def addDelayM(f: Out => F[Duration])(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]       =
+      def addDelayM(f: Out => F[Duration])(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out] =
         Schedule(underlying.addDelayZIO(out => fromEffect(f(out)).orDie))
       def andThen[In1 <: In, Out2 >: Out](
         that: Schedule[F, In1, Out2]
-      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State, Boolean), In1, Out2]                 =
+      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State, Boolean), In1, Out2] =
         Schedule(underlying andThen that.underlying)
       def andThenEither[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      ): Schedule.WithState[F, (self.State, that.State, Boolean), In1, Either[Out, Out2]]                           =
+      ): Schedule.WithState[F, (self.State, that.State, Boolean), In1, Either[Out, Out2]] =
         Schedule(underlying andThenEither that.underlying)
-      def as[Out2](out2: => Out2)(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out2]               =
+      def as[Out2](out2: => Out2)(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out2]         =
         Schedule(underlying.as(out2))
       def check[In11 <: In](test: (In11, Out) => Boolean)(implicit
         trace: Trace
-      ): Schedule.WithState[F, self.State, In11, Out]                                                               =
+      ): Schedule.WithState[F, self.State, In11, Out] =
         Schedule(underlying.check(test))
       def checkM[In1 <: In](test: (In1, Out) => F[Boolean])(implicit
         trace: Trace
-      ): Schedule.WithState[F, self.State, In1, Out]                                                                =
+      ): Schedule.WithState[F, self.State, In1, Out] =
         Schedule(underlying.checkZIO((in1, out) => fromEffect(test(in1, out)).orDie))
       def collectAll[Out1 >: Out](implicit
         trace: Trace
-      ): Schedule.WithState[F, (self.State, Chunk[Out1]), In, List[Out1]]                                           =
+      ): Schedule.WithState[F, (self.State, Chunk[Out1]), In, List[Out1]] =
         Schedule(underlying.collectAll[Out1].map(_.toList))
-      def compose[In2](that: Schedule[F, In2, In]): Schedule.WithState[F, (that.State, self.State), In2, Out]       =
+      def compose[In2](that: Schedule[F, In2, In]): Schedule.WithState[F, (that.State, self.State), In2, Out] =
         Schedule(underlying compose that.underlying)
-      def contramap[In2](f: In2 => In)(implicit trace: Trace): Schedule.WithState[F, self.State, In2, Out]          =
+      def contramap[In2](f: In2 => In)(implicit trace: Trace): Schedule.WithState[F, self.State, In2, Out]    =
         Schedule(underlying.contramap(f))
-      def delayed(f: Duration => Duration)(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]       =
+      def delayed(f: Duration => Duration)(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out] =
         Schedule(underlying.delayed(f))
       def delayedM(f: Duration => F[Duration])(implicit
         trace: Trace
-      ): Schedule.WithState[F, self.State, In, Out]                                                                 =
+      ): Schedule.WithState[F, self.State, In, Out] =
         Schedule(underlying.delayedZIO(d => fromEffect(f(d)).orDie))
       def dimap[In2, Out2](f: In2 => In, g: Out => Out2)(implicit
         trace: Trace
-      ): Schedule.WithState[F, self.State, In2, Out2]                                                               =
+      ): Schedule.WithState[F, self.State, In2, Out2] =
         Schedule(underlying.dimap(f, g))
-      def driver(implicit trace: Trace): F[Schedule.Driver[F, State, In, Out]]                                      =
+      def driver(implicit trace: Trace): F[Schedule.Driver[F, State, In, Out]]                                =
         underlying.driver.map(driver => new Schedule.Driver(driver)).toEffect[F]
       def either[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)]                                          =
+      ): Schedule.WithState[F, (self.State, that.State), In1, (Out, Out2)] =
         Schedule(underlying either that.underlying)
       def eitherWith[In1 <: In, Out2, Out3](
         that: Schedule[F, In1, Out2]
       )(f: (Out, Out2) => Out3)(implicit
         trace: Trace
-      ): Schedule.WithState[F, (self.State, that.State), In1, Out3]                                                 =
+      ): Schedule.WithState[F, (self.State, that.State), In1, Out3] =
         Schedule(underlying.eitherWith(that.underlying)(f))
-      def ensuring(finalizer: F[Any])(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]            =
+      def ensuring(finalizer: F[Any])(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]      =
         Schedule(underlying.ensuring(fromEffect(finalizer).orDie))
-      def first[X]: Schedule.WithState[F, (self.State, Unit), (In, X), (Out, X)]                                    =
+      def first[X]: Schedule.WithState[F, (self.State, Unit), (In, X), (Out, X)]                              =
         Schedule(underlying.first[X])
       def fold[Z](z: Z)(f: (Z, Out) => Z)(implicit
         trace: Trace
-      ): Schedule.WithState[F, (self.State, Z), In, Z]                                                              =
+      ): Schedule.WithState[F, (self.State, Z), In, Z] =
         Schedule(underlying.fold(z)(f))
       def foldM[Z](z: Z)(f: (Z, Out) => F[Z])(implicit
         trace: Trace
-      ): Schedule.WithState[F, (self.State, Z), In, Z]                                                              =
+      ): Schedule.WithState[F, (self.State, Z), In, Z] =
         Schedule(underlying.foldZIO(z)((z2, out) => fromEffect(f(z2, out)).orDie))
-      def forever: Schedule.WithState[F, self.State, In, Out]                                                       =
+      def forever: Schedule.WithState[F, self.State, In, Out]                                                 =
         Schedule(underlying.forever)
       def intersectWith[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
       )(f: (Intervals, Intervals) => Intervals)(implicit
         zippable: Zippable[Out, Out2]
-      ): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]                                         =
+      ): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out] =
         Schedule(underlying.intersectWith(that.underlying)(f))
-      def jittered(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]                               =
+      def jittered(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]                         =
         Schedule(underlying.jittered)
       def jittered(min: Double, max: Double)(implicit
         trace: Trace
-      ): Schedule.WithState[F, self.State, In, Out]                                                                 =
+      ): Schedule.WithState[F, self.State, In, Out] =
         Schedule(underlying.jittered(min, max))
-      def left[X]: Schedule.WithState[F, (self.State, Unit), Either[In, X], Either[Out, X]]                         =
+      def left[X]: Schedule.WithState[F, (self.State, Unit), Either[In, X], Either[Out, X]]                   =
         Schedule(underlying.left[X])
-      def map[Out2](f: Out => Out2)(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out2]             =
+      def map[Out2](f: Out => Out2)(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out2]       =
         Schedule(underlying.map(f))
-      def mapM[Out2](f: Out => F[Out2])(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out2]         =
+      def mapM[Out2](f: Out => F[Out2])(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out2]   =
         Schedule(underlying.mapZIO(out => fromEffect(f(out)).orDie))
-      def modifyDelay(f: (Out, Duration) => Duration): Schedule.WithState[F, self.State, In, Out]                   =
+      def modifyDelay(f: (Out, Duration) => Duration): Schedule.WithState[F, self.State, In, Out]             =
         Schedule(underlying.modifyDelay(f))
       def modifyDelayM(f: (Out, Duration) => F[Duration])(implicit
         trace: Trace
-      ): Schedule.WithState[F, self.State, In, Out]                                                                 =
+      ): Schedule.WithState[F, self.State, In, Out] =
         Schedule(underlying.modifyDelayZIO((out, duration) => fromEffect(f(out, duration)).orDie))
-      def repetitions(implicit trace: Trace): Schedule.WithState[F, (self.State, Long), In, Long]                   =
+      def repetitions(implicit trace: Trace): Schedule.WithState[F, (self.State, Long), In, Long]             =
         Schedule(underlying.repetitions)
       def resetAfter(duration: Duration)(implicit
         trace: Trace
-      ): Schedule.WithState[F, (self.State, Option[OffsetDateTime]), In, Out]                                       =
+      ): Schedule.WithState[F, (self.State, Option[OffsetDateTime]), In, Out] =
         Schedule(underlying.resetAfter(duration))
-      def resetWhen(f: Out => Boolean): Schedule.WithState[F, self.State, In, Out]                                  =
+      def resetWhen(f: Out => Boolean): Schedule.WithState[F, self.State, In, Out]                            =
         Schedule(underlying.resetWhen(f))
-      def right[X]: Schedule.WithState[F, (Unit, self.State), Either[X, In], Either[X, Out]]                        =
+      def right[X]: Schedule.WithState[F, (Unit, self.State), Either[X, In], Either[X, Out]]                  =
         Schedule(underlying.right[X])
-      def run(now: OffsetDateTime, input: Iterable[In])(implicit trace: Trace): F[List[Out]]                        =
+      def run(now: OffsetDateTime, input: Iterable[In])(implicit trace: Trace): F[List[Out]]                  =
         underlying.run(now, input).map(_.toList).toEffect[F]
-      def second[X]: Schedule.WithState[F, (Unit, self.State), (X, In), (X, Out)]                                   =
+      def second[X]: Schedule.WithState[F, (Unit, self.State), (X, In), (X, Out)]                             =
         Schedule(underlying.second[X])
       def tapInput[In1 <: In](f: In1 => F[Any])(implicit
         trace: Trace
-      ): Schedule.WithState[F, self.State, In1, Out]                                                                =
+      ): Schedule.WithState[F, self.State, In1, Out] =
         Schedule(underlying.tapInput(in => fromEffect(f(in)).orDie))
-      def tapOutput(f: Out => F[Any])(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]            =
+      def tapOutput(f: Out => F[Any])(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]      =
         Schedule(underlying.tapOutput(out => fromEffect(f(out)).orDie))
       def unionWith[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
       )(f: (Intervals, Intervals) => Intervals)(implicit
         zippable: Zippable[Out, Out2]
-      ): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out]                                         =
+      ): Schedule.WithState[F, (self.State, that.State), In1, zippable.Out] =
         Schedule(underlying.unionWith(that.underlying)(f))
-      def unit(implicit trace: Trace): Schedule.WithState[F, self.State, In, Unit]                                  =
+      def unit(implicit trace: Trace): Schedule.WithState[F, self.State, In, Unit]                            =
         Schedule(underlying.unit)
       def untilInput[In1 <: In](f: In1 => Boolean)(implicit
         trace: Trace
-      ): Schedule.WithState[F, self.State, In1, Out]                                                                =
+      ): Schedule.WithState[F, self.State, In1, Out] =
         Schedule(underlying.untilInput(f))
       def untilInputM[In1 <: In](f: In1 => F[Boolean])(implicit
         trace: Trace
-      ): Schedule.WithState[F, self.State, In1, Out]                                                                =
+      ): Schedule.WithState[F, self.State, In1, Out] =
         Schedule(underlying.untilInputZIO(in => fromEffect(f(in)).orDie))
-      def untilOutput(f: Out => Boolean)(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]         =
+      def untilOutput(f: Out => Boolean)(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]   =
         Schedule(underlying.untilOutput(f))
       def untilOutputM(f: Out => F[Boolean])(implicit
         trace: Trace
-      ): Schedule.WithState[F, self.State, In, Out]                                                                 =
+      ): Schedule.WithState[F, self.State, In, Out] =
         Schedule(underlying.untilOutputZIO(out => fromEffect(f(out)).orDie))
       def whileInput[In1 <: In](f: In1 => Boolean)(implicit
         trace: Trace
-      ): Schedule.WithState[F, self.State, In1, Out]                                                                =
+      ): Schedule.WithState[F, self.State, In1, Out] =
         Schedule(underlying.whileInput(f))
       def whileInputM[In1 <: In](f: In1 => F[Boolean])(implicit
         trace: Trace
-      ): Schedule.WithState[F, self.State, In1, Out]                                                                =
+      ): Schedule.WithState[F, self.State, In1, Out] =
         Schedule(underlying.whileInputZIO(in => fromEffect(f(in)).orDie))
-      def whileOutput(f: Out => Boolean)(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]         =
+      def whileOutput(f: Out => Boolean)(implicit trace: Trace): Schedule.WithState[F, self.State, In, Out]   =
         Schedule(underlying.whileOutput(f))
       def whileOutputM(f: Out => F[Boolean])(implicit
         trace: Trace
-      ): Schedule.WithState[F, self.State, In, Out]                                                                 =
+      ): Schedule.WithState[F, self.State, In, Out] =
         Schedule(underlying.whileOutputZIO(out => fromEffect(f(out)).orDie))
       def zip[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
@@ -916,15 +916,15 @@ object Schedule {
         Schedule(underlying zip that.underlying)
       def zipLeft[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State), In1, Out]                           =
+      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State), In1, Out] =
         Schedule(underlying zipLeft that.underlying)
       def zipRight[In1 <: In, Out2](
         that: Schedule[F, In1, Out2]
-      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State), In1, Out2]                          =
+      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State), In1, Out2] =
         Schedule(underlying zipRight that.underlying)
       def zipWith[In1 <: In, Out2, Out3](that: Schedule[F, In1, Out2])(
         f: (Out, Out2) => Out3
-      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State), In1, Out3]                          =
+      )(implicit trace: Trace): Schedule.WithState[F, (self.State, that.State), In1, Out3] =
         Schedule(underlying.zipWith(that.underlying)(f))
     }
 }
