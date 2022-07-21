@@ -118,7 +118,7 @@ trait CatsNonEmptyChunkInstances extends CatsNonEmptyChunkInstances1 {
         Eval.defer(loop(0))
       }
 
-      override def toNonEmptyList[A](fa: NonEmptyChunk[A]): NonEmptyList[A]      =
+      override def toNonEmptyList[A](fa: NonEmptyChunk[A]): NonEmptyList[A] =
         fa.toCons match { case a :: as => NonEmptyList(a, as) }
 
       // Foldable
