@@ -1,6 +1,6 @@
 package zio.interop
 
-import cats.effect.{ IO as CIO, LiftIO }
+import cats.effect.{ Async, IO as CIO, LiftIO }
 import cats.effect.kernel.{ Concurrent, Resource }
 import zio.interop.catz.*
 import zio.test.*
@@ -25,6 +25,32 @@ object CatsInteropSpec extends CatsRunnableSpec {
         _        <- lift.liftIO(promise1.get)
         _        <- fiber.interrupt
       } yield assertCompletes
+    },
+    test("ZIO respects Async#async cancel finalizer") {
+      def test[F[_]](implicit F: Async[F]) = {
+        import cats.syntax.all.*
+        import cats.effect.syntax.all.*
+        for {
+          counter <- F.ref(0)
+          latch   <- F.deferred[Unit]
+          fiber   <- F.start(
+                       F.async[Unit] { _ =>
+                         for {
+                           _ <- latch.complete(())
+                           _ <- counter.update(_ + 1)
+                         } yield Some(counter.update(_ + 1))
+                       }.forceR(counter.update(_ + 9000))
+                     )
+          _       <- latch.get
+          _       <- fiber.cancel
+          res     <- counter.get
+        } yield assertTrue(res == 2)
+      }
+
+      for {
+        sanityCheckCIO <- fromEffect(test[CIO])
+        zioResult      <- test[Task]
+      } yield zioResult && sanityCheckCIO
     }
   )
 }

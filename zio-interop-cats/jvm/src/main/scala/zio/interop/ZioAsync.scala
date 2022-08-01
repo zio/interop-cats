@@ -1,7 +1,7 @@
 package zio.interop
 
 import cats.effect.kernel.{ Async, Cont, Sync, Unique }
-import zio.{ Promise, RIO, ZIO }
+import zio.{ Exit, Promise, RIO, ZIO }
 
 import scala.concurrent.{ ExecutionContext, Future }
 
@@ -38,11 +38,17 @@ private class ZioAsync[R] extends ZioTemporal[R, Throwable] with Async[RIO[R, _]
     ZIO.attemptBlockingInterrupt(thunk)
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] =
-    Promise.make[Nothing, Unit].flatMap { promise =>
-      ZIO.asyncZIO { register =>
-        k(either => register(promise.await *> ZIO.fromEither(either))) *> promise.succeed(())
-      }
-    }
+    for {
+      cancelerPromise <- Promise.make[Nothing, Option[F[Unit]]]
+      res             <- ZIO
+                           .asyncZIO[R, Throwable, A] { resume =>
+                             k(exitEither => resume(ZIO.fromEither(exitEither))).onExit {
+                               case Exit.Success(maybeCanceler) => cancelerPromise.succeed(maybeCanceler)
+                               case _: Exit.Failure[?]          => cancelerPromise.succeed(None)
+                             }
+                           }
+                           .onInterrupt(cancelerPromise.await.flatMap(ZIO.foreach(_)(identity)).orDie)
+    } yield res
 
   override final def async_[A](k: (Either[Throwable, A] => Unit) => Unit): F[A] =
     ZIO.async(register => k(register.compose(fromEither)))
