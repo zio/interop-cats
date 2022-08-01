@@ -333,11 +333,9 @@ private abstract class ZioConcurrent[R, E, E1]
                       )
     } yield res
 
-  override final def both[A, B](fa: F[A], fb: F[B]): F[(A, B)] = {
-    implicit def trace: Trace = CoreTracer.newTrace
-
-    fa.interruptible zipPar fb.interruptible
-  }
+  // delegate race & both to default implementations, because `raceFirst` & `zipPar` semantics do not match them
+  override final def race[A, B](fa: F[A], fb: F[B]): F[Either[A, B]] = super.race(fa, fb)
+  override final def both[A, B](fa: F[A], fb: F[B]): F[(A, B)]       = super.both(fa, fb)
 
   override final def guarantee[A](fa: F[A], fin: F[Unit]): F[A] = {
     implicit def trace: Trace = CoreTracer.newTrace
@@ -713,8 +711,10 @@ private abstract class ZioMonadErrorExit[R, E, E1] extends ZioMonadError[R, E, E
 private trait ZioMonadErrorExitThrowable[R]
     extends ZioMonadErrorExit[R, Throwable, Throwable]
     with ZioMonadErrorE[R, Throwable] {
+
   override final protected def toOutcomeThisFiber[A](exit: Exit[Throwable, A]): UIO[Outcome[F, Throwable, A]] =
     toOutcomeThrowableThisFiber(exit)
+
   protected final def toOutcomeOtherFiber[A](interruptedHandle: zio.Ref[Boolean])(
     exit: Exit[Throwable, A]
   ): UIO[Outcome[F, Throwable, A]] =
@@ -722,8 +722,10 @@ private trait ZioMonadErrorExitThrowable[R]
 }
 
 private trait ZioMonadErrorExitCause[R, E] extends ZioMonadErrorExit[R, E, Cause[E]] with ZioMonadErrorCause[R, E] {
+
   override protected def toOutcomeThisFiber[A](exit: Exit[E, A]): UIO[Outcome[F, Cause[E], A]] =
     toOutcomeCauseThisFiber(exit)
+
   protected final def toOutcomeOtherFiber[A](interruptedHandle: zio.Ref[Boolean])(
     exit: Exit[E, A]
   ): UIO[Outcome[F, Cause[E], A]] =

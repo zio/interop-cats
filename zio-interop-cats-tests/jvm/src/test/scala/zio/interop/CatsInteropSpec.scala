@@ -127,6 +127,61 @@ object CatsInteropSpec extends CatsRunnableSpec {
         res     <- counter.get
       } yield assertTrue(!res.contains("1")) && assertTrue(res == "AC")
     },
+    test(
+      "onCancel is triggered when a fiber executing ZIO.parTraverse + ZIO.fail is interrupted and the inner typed" +
+        " error is lost in final Cause (Fail & Interrupt nodes cannot both exist in Cause after external interruption)"
+    ) {
+      val F = Concurrent[Task]
+
+      for {
+        latch1     <- F.deferred[Unit]
+        latch2     <- F.deferred[Unit]
+        latch3     <- F.deferred[Unit]
+        counter    <- F.ref("")
+        cause      <- F.ref(Option.empty[Cause[Throwable]])
+//        outerScope <- ZIO.forkScope
+        outerScope <- ZIO.scope
+        fiber      <- F.guaranteeCase(
+                        F.onError(
+                          F.onCancel(
+                            ZIO
+                              .collectAllPar(
+                                List(
+                                  F.onCancel(
+                                    ZIO.never,
+                                    latch2.complete(()).unit
+                                  ),
+                                  (latch1.complete(()) *> latch3.get).uninterruptible,
+                                  counter.update(_ + "A") *>
+                                    latch1.get *>
+                                    ZIO.fail(new RuntimeException("The_Error")).unit
+                                )
+                              )
+//                              .overrideForkScope(outerScope)
+                              .forkScoped
+                              .provideSomeLayer(ZLayer.succeed(outerScope)) // todo how to replace overrideForkScope?
+                              .onExit {
+                                case Exit.Success(_) => ZIO.unit
+                                case Exit.Failure(c) => cause.set(Some(c)).orDie
+                              },
+                            counter.update(_ + "B")
+                          )
+                        ) { case _ => counter.update(_ + "1") }
+                      ) {
+                        case Outcome.Errored(_)   => counter.update(_ + "2")
+                        case Outcome.Canceled()   => counter.update(_ + "C")
+                        case Outcome.Succeeded(_) => counter.update(_ + "3")
+                      }.fork
+        _          <- latch2.get
+        _          <- fiber.interrupt
+        _          <- latch3.complete(())
+        res        <- counter.get
+        cause      <- cause.get
+      } yield assertTrue(!res.contains("1")) &&
+        assertTrue(res == "ABC") &&
+        assertTrue(cause.isDefined) &&
+        assertTrue(!cause.get.prettyPrint.contains("The_Error"))
+    },
     test("F.canceled.toEffect results in CancellationException, not BoxedException") {
       val F = Concurrent[Task]
 

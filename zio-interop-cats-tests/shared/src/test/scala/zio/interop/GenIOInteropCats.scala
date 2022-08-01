@@ -6,15 +6,17 @@ import zio.*
 
 trait GenIOInteropCats {
 
-  // FIXME generating anything but success (even genFail)
-  //  surfaces multiple further unaddressed law failures
+  // FIXME `genDie` and `genInternalInterrupt` surface multiple further unaddressed law failures
+  //  See `genDie` scaladoc
   def betterGenerators: Boolean = false
 
-  // FIXME cats conversion surfaces failures in the following laws:
-  //  `async left is uncancelable sequenced raiseError`
-  //  `async right is uncancelable sequenced pure`
-  //  `applicativeError onError raise`
-  //  `canceled sequences onCanceled in order`
+  // FIXME cats conversion generator works most of the time
+  //  but generates rare law failures in
+  //   - `canceled sequences onCanceled in order`
+  //   - `uncancelable eliminates onCancel`
+  //   - `fiber join is guarantee case`
+  //  possibly coming from the `GenSpawnGenerators#genRacePair` generator + `F.canceled`.
+  //  Errors occur more often when combined with `genOfRace` or `genOfParallel`
   def catsConversionGenerator: Boolean = false
 
   /**
@@ -35,9 +37,28 @@ trait GenIOInteropCats {
 
   def genFail[E: Arbitrary, A]: Gen[IO[E, A]] = Arbitrary.arbitrary[E].map(ZIO.fail[E](_))
 
+  /**
+   * We can't pass laws like `cats.effect.laws.GenSpawnLaws#fiberJoinIsGuaranteeCase`
+   * with either `genDie` or `genInternalInterrupt` because
+   * we are forced to rethrow an `Outcome.Errored` using
+   * `raiseError` in `Outcome#embed` which converts the
+   * specific state into a typed error.
+   *
+   * While we consider both states to be `Outcome.Errored`,
+   * they aren't really 'equivalent' even if we massage them
+   * into having the same `Outcome`, because `handleErrorWith`
+   * can't recover from these states.
+   *
+   * Now, we could make ZIO Throwable instances recover from
+   * all errors via [[zio.Cause#squashTraceWith]], but
+   * this would make Throwable instances contradict the
+   * generic MonadError instance.
+   * (Which I believe is acceptable, if confusing, as long
+   * as the generic instances are moved to a separate `generic`
+   * object.)
+   */
   def genDie(implicit arbThrowable: Arbitrary[Throwable]): Gen[UIO[Nothing]] = arbThrowable.arbitrary.map(ZIO.die(_))
-
-  def genInternalInterrupt: Gen[UIO[Nothing]] = ZIO.interrupt
+  def genInternalInterrupt: Gen[UIO[Nothing]]                                = ZIO.interrupt
 
   def genCancel[E, A: Arbitrary](implicit F: GenConcurrent[IO[E, _], ?]): Gen[IO[E, A]] =
     Arbitrary.arbitrary[A].map(F.canceled.as(_))
@@ -59,10 +80,12 @@ trait GenIOInteropCats {
   else
     Gen.oneOf(
       genSuccess[E, A],
+      genFail[E, A],
+      genCancel[E, A],
       genNever
     )
 
-  def genUIO[A: Arbitrary]: Gen[UIO[A]] =
+  def genUIO[A: Arbitrary](implicit F: GenConcurrent[UIO, ?]): Gen[UIO[A]] =
     Gen.oneOf(genSuccess[Nothing, A], genIdentityTrans(genSuccess[Nothing, A]))
 
   /**
@@ -70,7 +93,9 @@ trait GenIOInteropCats {
    * by using some random combination of the methods `map`, `flatMap`, `mapError`, and any other method that does not change
    * the success/failure of the value, but may change the value itself.
    */
-  def genLikeTrans[E: Arbitrary: Cogen, A: Arbitrary: Cogen](gen: Gen[IO[E, A]]): Gen[IO[E, A]] = {
+  def genLikeTrans[E: Arbitrary: Cogen, A: Arbitrary: Cogen](
+    gen: Gen[IO[E, A]]
+  )(implicit F: GenConcurrent[IO[E, _], ?]): Gen[IO[E, A]] = {
     val functions: IO[E, A] => Gen[IO[E, A]] = io =>
       Gen.oneOf(
         genOfFlatMaps[E, A](io)(genSuccess[E, A]),
@@ -86,7 +111,8 @@ trait GenIOInteropCats {
    * Given a generator for `IO[E, A]`, produces a sized generator for `IO[E, A]` which represents a transformation,
    * by using methods that can have no effect on the resulting value (e.g. `map(identity)`, `io.race(never)`, `io.par(io2).map(_._1)`).
    */
-  def genIdentityTrans[E, A: Arbitrary](gen: Gen[IO[E, A]]): Gen[IO[E, A]] = {
+  def genIdentityTrans[E, A: Arbitrary](gen: Gen[IO[E, A]])(implicit F: GenConcurrent[IO[E, _], ?]): Gen[IO[E, A]] = {
+    implicitly[Arbitrary[A]]
     val functions: IO[E, A] => Gen[IO[E, A]] = io =>
       Gen.oneOf(
         genOfIdentityFlatMaps[E, A](io),
@@ -130,9 +156,13 @@ trait GenIOInteropCats {
   private def genOfIdentityFlatMaps[E, A](io: IO[E, A]): Gen[IO[E, A]] =
     Gen.const(io.flatMap(a => ZIO.succeed(a)))
 
-  private def genOfRace[E, A](io: IO[E, A]): Gen[IO[E, A]] =
-    Gen.const(io.interruptible.raceFirst(ZIO.never.interruptible))
+  private def genOfRace[E, A](io: IO[E, A])(implicit F: GenConcurrent[IO[E, _], ?]): Gen[IO[E, A]] =
+//    Gen.const(io.interruptible.raceFirst(ZIO.never.interruptible))
+    Gen.const(F.race(io, ZIO.never).map(_.merge)) // we must use cats version for Outcome preservation in F.canceled
 
-  private def genOfParallel[E, A](io: IO[E, A])(gen: Gen[IO[E, A]]): Gen[IO[E, A]] =
-    gen.map(parIo => io.interruptible.zipPar(parIo.interruptible).map(_._1))
+  private def genOfParallel[E, A](io: IO[E, A])(
+    gen: Gen[IO[E, A]]
+  )(implicit F: GenConcurrent[IO[E, _], ?]): Gen[IO[E, A]] =
+//    gen.map(parIo => io.interruptible.zipPar(parIo.interruptible).map(_._1))
+    gen.map(parIO => F.both(io, parIO).map(_._1)) // we must use cats version for Outcome preservation in F.canceled
 }
