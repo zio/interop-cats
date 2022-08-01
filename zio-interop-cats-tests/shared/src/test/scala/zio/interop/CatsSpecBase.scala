@@ -117,6 +117,9 @@ private[zio] trait CatsSpecBase
     Eq.allEqual
 
   implicit val eqForCauseOfNothing: Eq[Cause[Nothing]] =
+    eqForCauseOf[Nothing]
+
+  implicit def eqForCauseOf[E]: Eq[Cause[E]] =
     (x, y) => (x.isInterrupted && y.isInterrupted) || x == y
 
   implicit def eqForExitOfNothing[A: Eq]: Eq[Exit[Nothing, A]] = {
@@ -137,20 +140,37 @@ private[zio] trait CatsSpecBase
   implicit def eqForURIO[R: Arbitrary: Tag, A: Eq](implicit ticker: Ticker): Eq[URIO[R, A]] =
     eqForZIO[R, Nothing, A]
 
-  implicit def execTask(task: Task[Boolean])(implicit ticker: Ticker): Prop =
-    ZLayer.succeed(testClock).apply(task).toEffect[CIO]
+  implicit def execZIO[E](zio: ZIO[Any, E, Boolean])(implicit ticker: Ticker): Prop =
+    zio
+      .provideEnvironment(environment)
+      .mapError {
+        case t: Throwable => t
+        case e            => FiberFailure(Cause.Fail(e, StackTrace.none))
+      }
+      .toEffect[CIO]
 
   implicit def orderForUIOofFiniteDuration(implicit ticker: Ticker): Order[UIO[FiniteDuration]] =
     Order.by(unsafeRun(_).toEither.toOption)
 
-  implicit def orderForRIOofFiniteDuration[R: Arbitrary: Tag](implicit
-    ticker: Ticker
-  ): Order[RIO[R, FiniteDuration]] =
+  implicit def orderForRIOofFiniteDuration[R: Arbitrary: Tag](implicit ticker: Ticker): Order[RIO[R, FiniteDuration]] =
     (x, y) =>
       Arbitrary
         .arbitrary[ZEnvironment[R]]
         .sample
-        .fold(0)(r => x.orDie.provideEnvironment(r) compare y.orDie.provideEnvironment(r))
+        .fold(0)(r => orderForUIOofFiniteDuration.compare(x.orDie.provideEnvironment(r), y.orDie.provideEnvironment(r)))
+
+  implicit def orderForZIOofFiniteDuration[E: Order, R: Arbitrary: Tag](implicit
+    ticker: Ticker
+  ): Order[ZIO[R, E, FiniteDuration]] = {
+    implicit val orderForIOofFiniteDuration: Order[IO[E, FiniteDuration]] =
+      Order.by(unsafeRun(_) match {
+        case Exit.Success(value) => Right(value)
+        case Exit.Failure(cause) => Left(cause.failureOption)
+      })
+
+    (x, y) =>
+      Arbitrary.arbitrary[ZEnvironment[R]].sample.fold(0)(r => x.provideEnvironment(r) compare y.provideEnvironment(r))
+  }
 
   implicit def eqForUManaged[A: Eq](implicit ticker: Ticker): Eq[UManaged[A]] =
     zManagedEq[Any, Nothing, A]

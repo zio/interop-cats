@@ -67,13 +67,14 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
    */
   def toScopedZIO(implicit trace: Trace): ZIO[R with Scope, E, A] = {
     type F[T] = ZIO[R, E, T]
-    val F = MonadCancel[F, E]
 
     def go[B](resource: Resource[F, B]): ZIO[R with Scope, E, B] =
       resource match {
         case allocate: Resource.Allocate[F, b] =>
           ZIO.acquireReleaseExit {
-            F.uncancelable(allocate.resource)
+            ZIO.uninterruptibleMask { restore =>
+              allocate.resource(toPoll(restore))
+            }
           } { case ((_, release), exit) =>
             release(toExitCase(exit)).orDie
           }.map(_._1)
@@ -126,6 +127,7 @@ final class ScopedSyntax(private val self: Resource.type) extends AnyVal {
   def scoped[F[_]: Async, R, A](
     zio: ZIO[Scope with R, Throwable, A]
   )(implicit runtime: Runtime[R], trace: Trace): Resource[F, A] =
+    // import _root_.zio.interop.catz.generic.*
     scopedZIO[R, Throwable, A](zio).mapK(new (ZIO[R, Throwable, _] ~> F) {
       override def apply[B](zio: ZIO[R, Throwable, B]) = toEffect(zio)
     })
