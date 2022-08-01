@@ -94,7 +94,12 @@ private[zio] trait CatsSpecBase
         FiberRef.currentBlockingExecutor -> ::(fiberId -> blockingExecutor, Nil)
       )
     )
-    val runtimeFlags     = RuntimeFlags.default
+    val runtimeFlags     = RuntimeFlags( // todo
+      RuntimeFlag.FiberRoots,
+      RuntimeFlag.Interruption,
+      RuntimeFlag.CooperativeYielding,
+      RuntimeFlag.CurrentFiber
+    )
     Runtime(ZEnvironment.empty, fiberRefs, runtimeFlags)
   }
 
@@ -113,6 +118,8 @@ private[zio] trait CatsSpecBase
   implicit val eqForNothing: Eq[Nothing] =
     Eq.allEqual
 
+  // workaround for laws `evalOn local pure` & `executionContext commutativity`
+  // (ZIO cannot implement them at all due to `.executor.asEC` losing the original executionContext)
   implicit val eqForExecutionContext: Eq[ExecutionContext] =
     Eq.allEqual
 

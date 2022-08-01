@@ -75,9 +75,7 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
             ZIO.uninterruptibleMask { restore =>
               allocate.resource(toPoll(restore))
             }
-          } { case ((_, release), exit) =>
-            release(toExitCase(exit)).orDie
-          }.map(_._1)
+          } { case ((_, release), exit) => toExitCaseThisFiber(exit).flatMap(t => release(t)).orDie }.map(_._1)
 
         case bind: Resource.Bind[F, a, B] =>
           go(bind.source).flatMap(a => go(bind.fs(a)))
@@ -127,7 +125,6 @@ final class ScopedSyntax(private val self: Resource.type) extends AnyVal {
   def scoped[F[_]: Async, R, A](
     zio: ZIO[Scope with R, Throwable, A]
   )(implicit runtime: Runtime[R], trace: Trace): Resource[F, A] =
-    // import _root_.zio.interop.catz.generic.*
     scopedZIO[R, Throwable, A](zio).mapK(new (ZIO[R, Throwable, _] ~> F) {
       override def apply[B](zio: ZIO[R, Throwable, B]) = toEffect(zio)
     })
