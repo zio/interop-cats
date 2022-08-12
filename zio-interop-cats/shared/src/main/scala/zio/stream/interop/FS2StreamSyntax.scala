@@ -65,16 +65,16 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
         for {
           queue <- ZIO.acquireRelease(Queue.bounded[Take[Throwable, A]](queueSize))(_.shutdown)
           _     <- {
-            stream
-              .chunkLimit(queueSize)
-              .evalTap(a => queue.offer(Take.chunk(zio.Chunk.fromIterable(a.toList))))
-              .unchunk ++ fs2.Stream.eval(queue.offer(Take.end))
-          }.handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
-            .compile[RIO[R, _], RIO[R, _], Any]
-            .resource
-            .drain
-            .toScopedZIO
-            .forkScoped
+                     stream
+                       .chunkLimit(queueSize)
+                       .evalTap(a => queue.offer(Take.chunk(zio.Chunk.fromIterable(a.toList))))
+                       .unchunk ++ fs2.Stream.eval(queue.offer(Take.end))
+                   }.handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
+                     .compile[RIO[R, _], RIO[R, _], Any]
+                     .resource
+                     .drain
+                     .toScopedZIO
+                     .forkScoped
         } yield ZStream.fromQueue(queue).flattenTake
       }
       .flatten
