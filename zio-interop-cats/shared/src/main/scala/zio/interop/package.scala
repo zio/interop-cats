@@ -85,17 +85,25 @@ package object interop {
       case Exit.Success(value) =>
         Outcome.Succeeded(pure(value))
       case Exit.Failure(cause) =>
-        cause.failureOrCause match {
-          // if we have a typed failure then we're guaranteed to not be interrupting,
-          // typed failure absence is guaranteed by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
-          case Left(error)                                                                   =>
-            Outcome.Errored(convertFail(error, cause))
-          // deem empty cause to be interruption as well, due to occasional invalid ZIO states
-          // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
-          case Right(cause) if (cause.isInterrupted || cause.isEmpty) && actuallyInterrupted =>
-            Outcome.Canceled()
-          case Right(cause)                                                                  =>
-            Outcome.Errored(convertDie(cause))
+        // ZIO 2, unlike ZIO 1, _does not_ guarantee that the presence of a typed failure
+        // means we're NOT interrupting, so we have to check for interruption to matter what
+        if (
+          (cause.isInterrupted || {
+            // deem empty cause to be interruption as well, due to occasional invalid ZIO states
+            // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
+            // NOTE: this line is for ZIO 1, it may not apply for ZIO 2, someone needs to debunk
+            // whether this is required
+            cause.isEmpty
+          }) && actuallyInterrupted
+        ) {
+          Outcome.Canceled()
+        } else {
+          cause.failureOrCause match {
+            case Left(error)  =>
+              Outcome.Errored(convertFail(error, cause))
+            case Right(cause) =>
+              Outcome.Errored(convertDie(cause))
+          }
         }
     }
 
@@ -116,25 +124,32 @@ package object interop {
     case Exit.Success(value) =>
       ZIO.succeedNow(Outcome.Succeeded(ZIO.succeedNow(value)))
     case Exit.Failure(cause) =>
-      cause.failureOrCause match {
-        // if we have a typed failure then we're guaranteed to not be interrupting,
-        // typed failure absence is guaranteed by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
-        case Left(error)                                          =>
+      lazy val nonCanceledOutcome: UIO[Outcome[ZIO[R, E, _], E1, A]] = cause.failureOrCause match {
+        case Left(error)  =>
           ZIO.succeedNow(Outcome.Errored(convertFail(error, cause)))
-        // deem empty cause to be interruption as well, due to occasional invalid ZIO states
-        // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
-        case Right(cause) if cause.isInterrupted || cause.isEmpty =>
-          ZIO.descriptorWith { descriptor =>
-            ZIO.succeedNow(
-              if (descriptor.interrupters.nonEmpty)
-                Outcome.Canceled()
-              else {
-                Outcome.Errored(convertDie(cause))
-              }
-            )
-          }
-        case Right(cause)                                         =>
+        case Right(cause) =>
           ZIO.succeedNow(Outcome.Errored(convertDie(cause)))
+      }
+      // ZIO 2, unlike ZIO 1, _does not_ guarantee that the presence of a typed failure
+      // means we're NOT interrupting, so we have to check for interruption to matter what
+      if (
+        cause.isInterrupted || {
+          // deem empty cause to be interruption as well, due to occasional invalid ZIO states
+          // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
+          // NOTE: this line is for ZIO 1, it may not apply for ZIO 2, someone needs to debunk
+          // whether this is required
+          cause.isEmpty
+        }
+      ) {
+        ZIO.descriptorWith { descriptor =>
+          if (descriptor.interrupters.nonEmpty)
+            ZIO.succeedNow(Outcome.Canceled())
+          else {
+            nonCanceledOutcome
+          }
+        }
+      } else {
+        nonCanceledOutcome
       }
   }
 
@@ -143,26 +158,33 @@ package object interop {
       case Exit.Success(_)     =>
         ZIO.succeedNow(Resource.ExitCase.Succeeded)
       case Exit.Failure(cause) =>
-        cause.failureOrCause match {
-          // if we have a typed failure then we're guaranteed to not be interrupting,
-          // typed failure absence is guaranteed by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
-          case Left(error: Throwable)                               =>
+        lazy val nonCanceledOutcome: UIO[Resource.ExitCase] = cause.failureOrCause match {
+          case Left(error: Throwable) =>
             ZIO.succeedNow(Resource.ExitCase.Errored(error))
-          case Left(_)                                              =>
+          case Left(_)                =>
             ZIO.succeedNow(Resource.ExitCase.Errored(FiberFailure(cause)))
-          // deem empty cause to be interruption as well, due to occasional invalid ZIO states
-          // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
-          case Right(cause) if cause.isInterrupted || cause.isEmpty =>
-            ZIO.descriptorWith { descriptor =>
-              ZIO.succeedNow {
-                if (descriptor.interrupters.nonEmpty) {
-                  Resource.ExitCase.Canceled
-                } else
-                  Resource.ExitCase.Errored(dieCauseToThrowable(cause))
-              }
-            }
-          case Right(cause)                                         =>
+          case Right(cause)           =>
             ZIO.succeedNow(Resource.ExitCase.Errored(dieCauseToThrowable(cause)))
+        }
+        // ZIO 2, unlike ZIO 1, _does not_ guarantee that the presence of a typed failure
+        // means we're NOT interrupting, so we have to check for interruption to matter what
+        if (
+          cause.isInterrupted || {
+            // deem empty cause to be interruption as well, due to occasional invalid ZIO states
+            // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
+            // NOTE: this line is for ZIO 1, it may not apply for ZIO 2, someone needs to debunk
+            // whether this is required
+            cause.isEmpty
+          }
+        ) {
+          ZIO.descriptorWith { descriptor =>
+            if (descriptor.interrupters.nonEmpty) {
+              ZIO.succeedNow(Resource.ExitCase.Canceled)
+            } else
+              nonCanceledOutcome
+          }
+        } else {
+          nonCanceledOutcome
         }
     }
 

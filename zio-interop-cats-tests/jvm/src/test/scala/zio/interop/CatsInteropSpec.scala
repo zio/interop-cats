@@ -129,58 +129,64 @@ object CatsInteropSpec extends CatsRunnableSpec {
     },
     test(
       "onCancel is triggered when a fiber executing ZIO.parTraverse + ZIO.fail is interrupted and the inner typed" +
-        " error is lost in final Cause (Fail & Interrupt nodes cannot both exist in Cause after external interruption)"
+        " error is, unlike ZIO 1, preserved in final Cause (in ZIO 1 Fail & Interrupt nodes CAN both exist in Cause after external interruption)"
     ) {
       val F = Concurrent[Task]
 
+      def println(s: String): Unit = {
+        val _ = s
+      }
+
       for {
-        latch1     <- F.deferred[Unit]
-        latch2     <- F.deferred[Unit]
-        latch3     <- F.deferred[Unit]
-        counter    <- F.ref("")
-        cause      <- F.ref(Option.empty[Cause[Throwable]])
-//        outerScope <- ZIO.forkScope
-        outerScope <- ZIO.scope
-        fiber      <- F.guaranteeCase(
-                        F.onError(
-                          F.onCancel(
-                            ZIO
-                              .collectAllPar(
-                                List(
-                                  F.onCancel(
-                                    ZIO.never,
-                                    latch2.complete(()).unit
-                                  ),
-                                  (latch1.complete(()) *> latch3.get).uninterruptible,
-                                  counter.update(_ + "A") *>
-                                    latch1.get *>
-                                    ZIO.fail(new RuntimeException("The_Error")).unit
-                                )
-                              )
-//                              .overrideForkScope(outerScope)
-                              .forkScoped
-                              .provideSomeLayer(ZLayer.succeed(outerScope)) // todo how to replace overrideForkScope?
-                              .onExit {
-                                case Exit.Success(_) => ZIO.unit
-                                case Exit.Failure(c) => cause.set(Some(c)).orDie
-                              },
-                            counter.update(_ + "B")
-                          )
-                        ) { case _ => counter.update(_ + "1") }
-                      ) {
-                        case Outcome.Errored(_)   => counter.update(_ + "2")
-                        case Outcome.Canceled()   => counter.update(_ + "C")
-                        case Outcome.Succeeded(_) => counter.update(_ + "3")
-                      }.fork
-        _          <- latch2.get
-        _          <- fiber.interrupt
-        _          <- latch3.complete(())
-        res        <- counter.get
-        cause      <- cause.get
+        latch1  <- F.deferred[Unit]
+        latch2  <- F.deferred[Unit]
+        latch3  <- F.deferred[Unit]
+        counter <- F.ref("")
+        cause   <- F.ref(Option.empty[Cause[Throwable]])
+        fiberId <- ZIO.fiberId
+        fiber   <- F.guaranteeCase(
+                     F.onError(
+                       F.onCancel(
+                         ZIO
+                           .collectAllPar(
+                             List(
+                               F.onCancel(
+                                 ZIO.never,
+                                 ZIO.succeed(println("A")) *> latch2.complete(()).unit
+                               ).onExit(_ => ZIO.succeed(println("XA"))),
+                               (latch1.complete(()) *> latch3.get *> ZIO.succeed(println("C"))).uninterruptible,
+                               counter.update(_ + "A") *>
+                                 latch1.get *>
+                                 ZIO.succeed(println("B")) *> ZIO.fail(new RuntimeException("The_Error")).unit
+                             )
+                           )
+                           .onExit {
+                             case Exit.Success(_) => ZIO.unit
+                             case Exit.Failure(c) => cause.set(Some(c)).orDie
+                           },
+                         counter.update(_ + "B")
+                       )
+                     ) { case _ => counter.update(_ + "1") }
+                   ) {
+                     case Outcome.Errored(_)   => counter.update(_ + "2")
+                     case Outcome.Canceled()   => counter.update(_ + "C")
+                     case Outcome.Succeeded(_) => counter.update(_ + "3")
+                   }.fork
+        _        = println("x1")
+        _       <- latch2.get
+        _        = println("x2")
+        _       <- fiber.interruptFork
+        _        = println("x3")
+        _       <- latch3.complete(())
+        _       <- fiber.interrupt
+        _        = println("x4")
+        res     <- counter.get
+        cause   <- cause.get
       } yield assertTrue(!res.contains("1")) &&
         assertTrue(res == "ABC") &&
         assertTrue(cause.isDefined) &&
-        assertTrue(!cause.get.prettyPrint.contains("The_Error"))
+        assertTrue(cause.get.prettyPrint.contains("The_Error")) &&
+        assertTrue(cause.get.interruptors.contains(fiberId))
     },
     test("F.canceled.toEffect results in CancellationException, not BoxedException") {
       val F = Concurrent[Task]

@@ -27,9 +27,8 @@ import zio.{ Fiber, Ref as ZRef, ZEnvironment }
 import zio.*
 import zio.Clock.{ currentTime, nanoTime }
 import zio.Duration
-
 import zio.internal.stacktracer.InteropTracer
-import zio.internal.stacktracer.{ Tracer => CoreTracer }
+import zio.internal.stacktracer.Tracer as CoreTracer
 
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{ ExecutionContext, Future }
@@ -280,35 +279,10 @@ private abstract class ZioConcurrent[R, E, E1]
     def loopUntilInterrupted: UIO[Unit] =
       ZIO.descriptorWith(d => if (d.interrupters.isEmpty) ZIO.yieldNow *> loopUntilInterrupted else ZIO.unit)
 
-    val maxRetries = 10
-
-    def getThisFiber(retries: Int, unsafe: Unsafe): ZIO[Any, Nothing, Fiber[Any, Any]] =
-      ZIO.yieldNow *> // ZIO.yieldNow is necessary to avoid empty result in some cases (unsafeRunToFuture)
-        ZIO.suspendSucceed {
-          Fiber.currentFiber()(unsafe) match {
-            case Some(fiber) =>
-              ZIO.succeedNow(fiber)
-            case None        =>
-              if (retries < maxRetries)
-                getThisFiber(retries + 1, unsafe)
-              else
-                ZIO.succeed(
-                  throw new IllegalStateException(
-                    "Impossible state: current Fiber not found in `zio.Fiber.unsafeCurrentFiber`"
-                  )
-                )
-          }
-        }
-
-    Unsafe.unsafeCompat { implicit unsafe =>
-      ZIO.suspendSucceed {
-        for {
-          thisFiber <- getThisFiber(0, unsafe)
-          _         <- thisFiber.interruptAs(thisFiber.id).forkDaemon
-          _         <- loopUntilInterrupted
-        } yield ()
-      }
-    }
+    for {
+      _ <- ZIO.withFiberRuntime[Any, Nothing, Unit]((thisFiber, _) => thisFiber.interruptAsFork(thisFiber.id))
+      _ <- loopUntilInterrupted
+    } yield ()
   }
 
   override final def onCancel[A](fa: F[A], fin: F[Unit]): F[A] =

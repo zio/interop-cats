@@ -12,7 +12,7 @@ trait GenIOInteropCats {
 
   // FIXME cats conversion generator works most of the time
   //  but generates rare law failures in
-  //   - `canceled sequences onCanceled in order`
+  //   - `canceled sequences onCancel in order`
   //   - `uncancelable eliminates onCancel`
   //   - `fiber join is guarantee case`
   //  possibly coming from the `GenSpawnGenerators#genRacePair` generator + `F.canceled`.
