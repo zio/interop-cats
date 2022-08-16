@@ -45,11 +45,7 @@ jobs:
       - name: Cache scala dependencies
         uses: coursier/cache-action@v5
       - name: Run tests
-        if: matrix.scala != '3.1.2'
         run: sbt ++${{ matrix.scala }}! test${{ matrix.platform }}
-      - name: Run dotty tests
-        if: matrix.scala == '3.1.2' && matrix.platform == 'JVM'
-        run: sbt ++${{ matrix.scala }}! testJVM
 
   ci:
     runs-on: ubuntu-20.04
