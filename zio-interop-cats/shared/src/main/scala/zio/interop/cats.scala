@@ -475,7 +475,7 @@ private class ZioRuntimeAsync[R](environment: Clock & CBlocking) extends ZioAsyn
   override protected[this] def withClock[A](fa: RIO[Clock, A]): RIO[R, A] = fa.provide(environment)
 
   override protected[this] def withBlocking[A](fa: RIO[CBlocking, A]): RIO[R, A] =
-    fa.provide(environment)(NeedsEnv.needsEnv)
+    PlatformSpecific.provideBlocking(environment)(fa)
 
 }
 
