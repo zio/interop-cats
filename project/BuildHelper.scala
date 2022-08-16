@@ -11,7 +11,7 @@ object BuildHelper {
 
   val Scala212 = "2.12.14"
   val Scala213 = "2.13.6"
-  val Scala3   = "3.0.2"
+  val Scala3   = "3.1.2"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -53,7 +53,7 @@ object BuildHelper {
 
   def extraOptions(scalaVersion: String) =
     CrossVersion.partialVersion(scalaVersion) match {
-      case Some((3, 0))  =>
+      case Some((3, _))  =>
         std3xOptions
       case Some((2, 13)) =>
         Seq(
@@ -80,10 +80,9 @@ object BuildHelper {
 
   def stdSettings(prjName: String) = Seq(
     name                     := s"$prjName",
-    scalacOptions            := stdOptions,
+    scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value),
     crossScalaVersions       := Seq(Scala213, Scala212),
     ThisBuild / scalaVersion := crossScalaVersions.value.head,
-    scalacOptions            := stdOptions ++ extraOptions(scalaVersion.value),
     libraryDependencies ++= testDeps ++ {
       if (isDotty(scalaVersion.value)) Seq.empty
       else Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.2") cross CrossVersion.full)
@@ -104,7 +103,7 @@ object BuildHelper {
             CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2.12+")) ++
             CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2")) ++
             CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2.12+"))
-        case Some((3, 0))            =>
+        case Some((3, _))            =>
           CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-3")) ++
             CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-3"))
         case _                       => Nil
