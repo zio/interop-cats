@@ -17,11 +17,11 @@
 package zio.interop
 
 import cats.arrow.FunctionK
-import zio.internal.stacktracer.{InteropTracer, Tracer => CoreTracer}
-import cats.effect.{Async, Effect, ExitCase, LiftIO, Resource, Sync, IO => CIO}
-import cats.{Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK, ~>}
-import zio.interop.CatsResourceObjectSyntax.{FromScopedPartiallyApplied, FromScopedZIOPartiallyApplied}
-import zio.{CanFail, ExecutionStrategy, Scope, Trace, ZIO}
+import zio.internal.stacktracer.{ InteropTracer, Tracer => CoreTracer }
+import cats.effect.{ Async, Effect, ExitCase, LiftIO, Resource, Sync, IO => CIO }
+import cats.{ ~>, Bifunctor, Monad, MonadError, Monoid, Semigroup, SemigroupK }
+import zio.interop.CatsResourceObjectSyntax.{ FromScopedPartiallyApplied, FromScopedZIOPartiallyApplied }
+import zio.{ CanFail, ExecutionStrategy, Scope, Trace, ZIO }
 import zio.managed.ZManaged
 import zio.managed.ZManaged.ReleaseMap
 
@@ -121,7 +121,6 @@ final class CatsResourceObjectSyntax(private val resource: Resource.type) extend
 
 }
 
-
 object CatsResourceObjectSyntax {
 
   final class FromScopedZIOPartiallyApplied[R](private val dummy: Boolean = true) extends AnyVal {
@@ -161,8 +160,8 @@ object CatsResourceObjectSyntax {
 trait CatsEffectZManagedInstances {
 
   implicit def liftIOZManagedInstances[R](
-                                           implicit ev: LiftIO[ZIO[R, Throwable, *]]
-                                         ): LiftIO[ZManaged[R, Throwable, *]] =
+    implicit ev: LiftIO[ZIO[R, Throwable, *]]
+  ): LiftIO[ZManaged[R, Throwable, *]] =
     new LiftIO[ZManaged[R, Throwable, *]] {
       override def liftIO[A](ioa: CIO[A]): ZManaged[R, Throwable, A] =
         ZManaged.fromZIO(ev.liftIO(ioa))(CoreTracer.newTrace)
@@ -240,7 +239,7 @@ private class CatsZManagedSemigroupK[R, E] extends SemigroupK[ZManaged[R, E, *]]
 private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] with Sync[ZManaged[R, Throwable, *]] {
 
   override final def delay[A](thunk: => A): ZManaged[R, Throwable, A] = {
-    val byName: () => A                = () => thunk
+    val byName: () => A        = () => thunk
     implicit def tracer: Trace = InteropTracer.newTrace(byName)
 
     ZManaged.fromZIO(ZIO.attempt(thunk))
@@ -248,16 +247,16 @@ private class CatsZManagedSync[R] extends CatsZManagedMonadError[R, Throwable] w
 
   override final def suspend[A](thunk: => ZManaged[R, Throwable, A]): ZManaged[R, Throwable, A] = {
     val byName: () => ZManaged[R, Throwable, A] = () => thunk
-    implicit def tracer: Trace          = InteropTracer.newTrace(byName)
+    implicit def tracer: Trace                  = InteropTracer.newTrace(byName)
 
     ZManaged.unwrap(ZIO.attempt(thunk))
   }
 
   override def bracketCase[A, B](
-                                  acquire: ZManaged[R, Throwable, A]
-                                )(use: A => ZManaged[R, Throwable, B])(
-                                  release: (A, cats.effect.ExitCase[Throwable]) => ZManaged[R, Throwable, Unit]
-                                ): ZManaged[R, Throwable, B] = {
+    acquire: ZManaged[R, Throwable, A]
+  )(use: A => ZManaged[R, Throwable, B])(
+    release: (A, cats.effect.ExitCase[Throwable]) => ZManaged[R, Throwable, Unit]
+  ): ZManaged[R, Throwable, B] = {
     implicit def tracer: Trace = InteropTracer.newTrace(use)
 
     ZManaged {

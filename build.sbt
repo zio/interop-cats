@@ -58,7 +58,7 @@ lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
   .settings(
     libraryDependencies ++= Seq(
       "dev.zio"       %%% "zio"             % zioVersion,
-      "dev.zio"       %%% "zio-managed"             % zioVersion,
+      "dev.zio"       %%% "zio-managed"     % zioVersion,
       "dev.zio"       %%% "zio-stacktracer" % zioVersion,
       "dev.zio"       %%% "zio-streams"     % zioVersion,
       "org.typelevel" %%% "cats-effect"     % "2.5.1",

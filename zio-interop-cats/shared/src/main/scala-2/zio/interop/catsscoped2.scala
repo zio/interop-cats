@@ -17,9 +17,9 @@
 package zio
 package interop
 
-import cats.effect.Resource.{Allocate, Bind, Suspend}
+import cats.effect.Resource.{ Allocate, Bind, Suspend }
 import cats.effect.Resource
-import zio.managed.{Reservation, ZManaged}
+import zio.managed.{ Reservation, ZManaged }
 
 final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resource[ZIO[R, E, *], A]) extends AnyVal {
 
