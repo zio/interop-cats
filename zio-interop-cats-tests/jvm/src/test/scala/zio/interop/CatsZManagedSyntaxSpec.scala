@@ -334,7 +334,7 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
             effects <- ZIO.succeed(effects.toList)
           } yield assert(effects)(equalTo(List(1, 2)))
         },
-        test("calls finalizers when using resource is externally interrupted") { // todo
+        test("calls finalizers when using resource is externally interrupted") {
           val effects                                     = new mutable.ListBuffer[Int]
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
             ZManaged.acquireReleaseExitWith(ZIO.succeed(effects += x).unit) {

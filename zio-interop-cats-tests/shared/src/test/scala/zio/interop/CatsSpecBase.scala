@@ -97,12 +97,7 @@ private[zio] trait CatsSpecBase
         FiberRef.currentBlockingExecutor -> ::(fiberId -> blockingExecutor, Nil)
       )
     )
-    val runtimeFlags     = RuntimeFlags( // todo
-      RuntimeFlag.FiberRoots,
-      RuntimeFlag.Interruption,
-      RuntimeFlag.CooperativeYielding,
-      RuntimeFlag.CurrentFiber
-    )
+    val runtimeFlags     = RuntimeFlags.default
     Runtime(ZEnvironment.empty, fiberRefs, runtimeFlags)
   }
 

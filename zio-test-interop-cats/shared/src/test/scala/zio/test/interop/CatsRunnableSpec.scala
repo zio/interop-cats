@@ -12,17 +12,8 @@ abstract class CatsRunnableSpec extends ZIOSpecDefault {
   private[this] var openDispatcher: Dispatcher[CIO] = _
   private[this] var closeDispatcher: CIO[Unit]      = _
 
-  implicit def zioRuntime: Runtime[Any] = // todo
-    Runtime(
-      ZEnvironment.empty,
-      FiberRefs.empty,
-      RuntimeFlags(
-        RuntimeFlag.FiberRoots,
-        RuntimeFlag.Interruption,
-        RuntimeFlag.CooperativeYielding,
-        RuntimeFlag.CurrentFiber
-      )
-    )
+  implicit val zioRuntime: Runtime[Any] =
+    Runtime.default
 
   implicit val cioRuntime: IORuntime =
     Scheduler.createDefaultScheduler() match {
