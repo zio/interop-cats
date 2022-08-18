@@ -1,11 +1,11 @@
 package zio.interop
 
-import cats.effect.{ExitCase, Resource, IO => CIO}
+import cats.effect.{ ExitCase, Resource, IO => CIO }
 import zio.interop.catz._
 import zio.managed.ZManaged
 import zio.test.Assertion._
 import zio.test._
-import zio.{Exit, Scope, Task, Unsafe, ZIO}
+import zio.{ Exit, Scope, Task, Unsafe, ZIO }
 
 import scala.collection.mutable
 
@@ -229,9 +229,9 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
             Resource.make(CIO.delay { effects += x }.void)(_ => CIO.delay { effects += x }.void)
 
           def managed(x: Int): ZManaged[Any, Throwable, Unit] =
-            ZManaged.acquireReleaseWith(ZIO.succeed(effects += x))(_ => ZIO.succeed(effects += x))
+            ZManaged
+              .acquireReleaseWith(ZIO.succeed(effects += x))(_ => ZIO.succeed(effects += x))
               .flatMap(_ => ZManaged.unit)
-
 
           val testCase = {
             val managed1: ZManaged[Any, Throwable, Unit] = res(1).toManaged
@@ -390,7 +390,7 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
 
           val testCase = {
             val managed: ZManaged[Any, Throwable, Unit] = res(1).toManagedZIO
-            managed.use(_ =>ZIO.fail(new RuntimeException()).unit)
+            managed.use(_ => ZIO.fail(new RuntimeException()).unit)
           }
 
           for {
@@ -457,9 +457,9 @@ object CatsScopedSyntaxSpec extends ZIOSpecDefault {
             Resource.make(ZIO.succeed { effects += x }.unit)(_ => ZIO.succeed { effects += x }.unit)
 
           def managed(x: Int): ZManaged[Any, Throwable, Unit] =
-            ZManaged.acquireReleaseWith(ZIO.succeed(effects += x))(_ => ZIO.succeed(effects += x))
+            ZManaged
+              .acquireReleaseWith(ZIO.succeed(effects += x))(_ => ZIO.succeed(effects += x))
               .flatMap(_ => ZManaged.unit)
-
 
           val testCase = {
             val managed1: ZManaged[Any, Throwable, Unit] = res(1).toManagedZIO
