@@ -46,7 +46,7 @@ object BuildHelper {
   )
 
   def optimizerOptions(optimize: Boolean) =
-    if(optimize) {
+    if (optimize) {
       Seq(
         "-opt:l:inline",
         "-opt-inline-from:zio.interop.**"
@@ -83,7 +83,7 @@ object BuildHelper {
     name                     := s"$prjName",
     crossScalaVersions       := Seq(Scala213, Scala212),
     ThisBuild / scalaVersion := crossScalaVersions.value.head,
-    scalacOptions            ++= stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
+    scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
     libraryDependencies ++= testDeps ++ {
       if (isDotty(scalaVersion.value)) Seq.empty
       else Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.2") cross CrossVersion.full)
