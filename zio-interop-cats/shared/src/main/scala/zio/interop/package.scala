@@ -35,7 +35,7 @@ package object interop {
     F.defer {
       val interrupted = new AtomicBoolean(true)
       F.async[Exit[Throwable, A]] { cb =>
-        Unsafe.unsafeCompat { implicit unsafe =>
+        Unsafe.unsafe { implicit unsafe =>
           val fiber          = R.unsafe.fork {
             signalOnNoExternalInterrupt {
               rio
