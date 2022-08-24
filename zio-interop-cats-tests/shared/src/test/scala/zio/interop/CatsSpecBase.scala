@@ -73,7 +73,7 @@ private[zio] trait CatsSpecBase
     try {
       var exit: Exit[E, Option[A]] = Exit.succeed(Option.empty[A])
       var interrupted: Boolean     = true
-      Unsafe.unsafeCompat { implicit u =>
+      Unsafe.unsafe { implicit u =>
         val fiber = runtime.unsafe.fork[E, Option[A]](signalOnNoExternalInterrupt(io)(ZIO.succeed {
           interrupted = false
         }).asSome)
@@ -90,7 +90,7 @@ private[zio] trait CatsSpecBase
   implicit def runtime(implicit ticker: Ticker): Runtime[Any] = {
     val executor         = Executor.fromExecutionContext(ticker.ctx)
     val blockingExecutor = Executor.fromExecutionContext(ticker.ctx)
-    val fiberId          = Unsafe.unsafeCompat(implicit u => FiberId.make(Trace.empty))
+    val fiberId          = Unsafe.unsafe(implicit u => FiberId.make(Trace.empty))
     val fiberRefs        = FiberRefs(
       Map(
         FiberRef.overrideExecutor        -> ::(fiberId -> Some(executor), Nil),

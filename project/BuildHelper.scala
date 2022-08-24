@@ -45,13 +45,15 @@ object BuildHelper {
     buildInfoObject  := "BuildInfoInteropCats"
   )
 
-  val optimizerOptions =
-    Seq(
-      "-opt:l:inline",
-      "-opt-inline-from:zio.interop.**"
-    )
+  def optimizerOptions(optimize: Boolean) =
+    if (optimize) {
+      Seq(
+        "-opt:l:inline",
+        "-opt-inline-from:zio.interop.**"
+      )
+    } else Nil
 
-  def extraOptions(scalaVersion: String) =
+  def extraOptions(scalaVersion: String, optimize: Boolean) =
     CrossVersion.partialVersion(scalaVersion) match {
       case Some((3, 1))  =>
         std3xOptions
@@ -61,7 +63,7 @@ object BuildHelper {
           "-Wnumeric-widen",
           "-Wunused:_",
           "-Wvalue-discard"
-        ) ++ std2xOptions ++ optimizerOptions
+        ) ++ std2xOptions ++ optimizerOptions(optimize)
       case Some((2, 12)) =>
         Seq(
           "-opt-warnings",
@@ -73,16 +75,15 @@ object BuildHelper {
           "-Ywarn-inaccessible",
           "-Ywarn-nullary-override",
           "-Ywarn-nullary-unit"
-        ) ++ std2xOptions ++ optimizerOptions
+        ) ++ std2xOptions ++ optimizerOptions(optimize)
       case _             => Seq.empty
     }
 
   def stdSettings(prjName: String) = Seq(
     name                     := s"$prjName",
-    scalacOptions            := stdOptions,
     crossScalaVersions       := Seq(Scala213, Scala212),
     ThisBuild / scalaVersion := crossScalaVersions.value.head,
-    scalacOptions            := stdOptions ++ extraOptions(scalaVersion.value),
+    scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
     libraryDependencies ++= testDeps ++ {
       if (isDotty(scalaVersion.value)) Seq.empty
       else Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.2") cross CrossVersion.full)

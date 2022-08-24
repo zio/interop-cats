@@ -1,5 +1,6 @@
 .bloop
 .metals
+metals.sbt
 project/.sbt
 project/travis-deploy-key
 project/secrets.tar.xz
@@ -7,3 +8,5 @@ project/zecret
 target
 test-output/
 .idea/
+.bsp
+.vscode

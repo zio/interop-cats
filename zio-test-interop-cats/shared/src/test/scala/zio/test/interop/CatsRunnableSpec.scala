@@ -18,7 +18,7 @@ abstract class CatsRunnableSpec extends ZIOSpecDefault {
   implicit val cioRuntime: IORuntime =
     Scheduler.createDefaultScheduler() match {
       case (scheduler, shutdown) =>
-        Unsafe.unsafeCompat { implicit u =>
+        Unsafe.unsafe { implicit u =>
           val ec = zioRuntime.unsafe.run(ZIO.executor.map(_.asExecutionContext)).getOrThrowFiberFailure()
           IORuntime(ec, ec, scheduler, shutdown, IORuntimeConfig())
         }
@@ -29,7 +29,7 @@ abstract class CatsRunnableSpec extends ZIOSpecDefault {
       openDispatcher.unsafeToFutureCancelable(fa)
   }
 
-  Unsafe.unsafeCompat { implicit u =>
+  Unsafe.unsafe { implicit u =>
     runtime.unsafe.runToFuture {
       ZIO.fromFuture { implicit ec =>
         Dispatcher[CIO].allocated.unsafeToFuture().andThen { case Success((dispatcher, close)) =>

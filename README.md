@@ -17,7 +17,7 @@ libraryDependencies += "dev.zio" %% "zio-interop-cats" % "<check-badge-for-lates
 **ZIO** integrates with Typelevel libraries by providing an instance of `Concurrent`, `Temporal` and `Async` for `Task` 
 as required, for instance, by `fs2`, `doobie` and `http4s`.
 
-For convenience, we have defined an alias as follows:
+For convenience, the ZIO library defines an alias as follows:
 
 ```scala
 type Task[A] = ZIO[Any, Throwable, A]
