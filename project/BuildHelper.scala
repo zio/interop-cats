@@ -7,7 +7,7 @@ import sbtbuildinfo._
 import BuildInfoKeys._
 
 object BuildHelper {
-  val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.15.4" % Test)
+  val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.17.0" % Test)
 
   val Scala212 = "2.12.14"
   val Scala213 = "2.13.6"
