@@ -4,62 +4,40 @@ import cats.effect.ParallelF
 import cats.effect.laws.*
 import cats.effect.unsafe.IORuntime
 import cats.laws.discipline.*
-import zio.{ durationInt => _, _ }
 import zio.interop.catz.*
 import zio.managed.*
+import zio.{ durationInt as _, _ }
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class CatsSpec extends ZioSpecBase {
 
-  // ZIO tests
-  checkAllAsync(
-    "Async[Task]",
-    implicit tc => AsyncTests[Task].async[Int, Int, Int](100.millis)
-  )
-  checkAllAsync(
-    "Temporal[Task]",
-    implicit tc => GenTemporalTests[Task, Throwable].temporal[Int, Int, Int](100.millis)
-  )
-
+  // ZIO generic tests
   locally {
-    checkAllAsync(
-      "GenTemporal[IO[Int, _], Cause[Int]]",
-      { implicit tc =>
-        import zio.interop.catz.generic.*
-        GenTemporalTests[IO[Int, _], Cause[Int]].temporal[Int, Int, Int](100.millis)
-      }
-    )
-    checkAllAsync(
-      "GenSpawn[IO[Int, _], Cause[Int]]",
-      { implicit tc =>
-        import zio.interop.catz.generic.*
-        GenSpawnTests[IO[Int, _], Cause[Int]].spawn[Int, Int, Int]
-      }
-    )
-    checkAllAsync(
-      "MonadCancel[IO[In t, _], Cause[Int]]",
-      { implicit tc =>
-        import zio.interop.catz.generic.*
-        MonadCancelTests[IO[Int, _], Cause[Int]].monadCancel[Int, Int, Int]
-      }
-    )
+    import zio.interop.catz.generic.*
+    type F[A] = IO[Int, A]
+    type Err  = Cause[Int]
+    checkAllAsync("Temporal[IO]", implicit tc => GenTemporalTests[F, Err].temporal[Int, Int, Int](100.millis))
+    checkAllAsync("Spawn[IO]", implicit tc => GenSpawnTests[F, Cause[Int]].spawn[Int, Int, Int])
+    checkAllAsync("MonadCancel[IO]", implicit tc => MonadCancelTests[F, Err].monadCancel[Int, Int, Int])
   }
-  checkAllAsync("MonoidK[IO[Int, _]]", implicit tc => MonoidKTests[IO[Int, _]].monoidK[Int])
-  checkAllAsync("SemigroupK[IO[Option[Unit], _]]", implicit tc => SemigroupKTests[IO[Option[Unit], _]].semigroupK[Int])
+
+  // ZIO tests
+  checkAllAsync("Async[Task]", implicit tc => AsyncTests[Task].async[Int, Int, Int](100.millis))
+  checkAllAsync("Temporal[Task]", implicit tc => GenTemporalTests[Task, Throwable].temporal[Int, Int, Int](100.millis))
+  checkAllAsync("MonadError[IO]", implicit tc => MonadErrorTests[IO[Int, _], Int].monadError[Int, Int, Int])
+  checkAllAsync("MonoidK[IO]", implicit tc => MonoidKTests[IO[Int, _]].monoidK[Int])
+  checkAllAsync("SemigroupK[IO]", implicit tc => SemigroupKTests[IO[Option[Unit], _]].semigroupK[Int])
   checkAllAsync("SemigroupK[Task]", implicit tc => SemigroupKTests[Task].semigroupK[Int])
   checkAllAsync("Bifunctor[IO]", implicit tc => BifunctorTests[IO].bifunctor[Int, Int, Int, Int, Int, Int])
   checkAllAsync("Parallel[Task]", implicit tc => ParallelTests[Task, ParallelF[Task, _]].parallel[Int, Int])
-  checkAllAsync("Monad[URIO[Int, _]]", implicit tc => MonadTests[URIO[Int, _]].apply[Int, Int, Int])
+  checkAllAsync("Monad[URIO]", implicit tc => MonadTests[URIO[Int, _]].apply[Int, Int, Int])
 
   // ZManaged Tests
   checkAllAsync("Monad[TaskManaged]", implicit tc => MonadTests[TaskManaged].apply[Int, Int, Int])
   checkAllAsync("Monad[TaskManaged]", implicit tc => ExtraMonadTests[TaskManaged].monadExtras[Int])
   checkAllAsync("SemigroupK[TaskManaged]", implicit tc => SemigroupKTests[TaskManaged].semigroupK[Int])
-  checkAllAsync(
-    "MonadError[Managed[Int, _]]",
-    implicit tc => MonadErrorTests[Managed[Int, _], Int].monadError[Int, Int, Int]
-  )
+  checkAllAsync("MonadError[Managed]", implicit tc => MonadErrorTests[Managed[Int, _], Int].monadError[Int, Int, Int])
 
   object summoningInstancesTest {
     import cats.*
@@ -68,12 +46,6 @@ class CatsSpec extends ZioSpecBase {
 
     Async[RIO[ZClock, _]]
     Sync[RIO[ZClock, _]]
-    locally {
-      import zio.interop.catz.generic.*
-
-      GenTemporal[ZIO[ZClock, Int, _], Cause[Int]]
-      GenConcurrent[ZIO[String, Int, _], Cause[Int]]
-    }
     Temporal[RIO[ZClock, _]]
     Concurrent[RIO[String, _]]
     MonadError[RIO[String, _], Throwable]
@@ -90,13 +62,19 @@ class CatsSpec extends ZioSpecBase {
     Functor[ZManaged[String, Throwable, _]]
     SemigroupK[ZManaged[String, Throwable, _]]
 
+    locally {
+      import zio.interop.catz.generic.*
+      GenTemporal[ZIO[ZClock, Int, _], Cause[Int]]
+      GenConcurrent[ZIO[String, Int, _], Cause[Int]]
+    }
+
     def liftRIO(implicit runtime: IORuntime)                  = LiftIO[RIO[String, _]]
     def liftZManaged(implicit runtime: IORuntime)             = LiftIO[ZManaged[String, Throwable, _]]
+    def runtimeTemporal(implicit runtime: Runtime[ZClock])    = Temporal[Task]
     def runtimeGenTemporal(implicit runtime: Runtime[ZClock]) = {
       import zio.interop.catz.generic.*
       GenTemporal[ZIO[Any, Int, _], Cause[Int]]
     }
-    def runtimeTemporal(implicit runtime: Runtime[ZClock])    = Temporal[Task]
   }
 
   object syntaxTest {

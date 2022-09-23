@@ -1,9 +1,9 @@
 package zio.interop
 
-import cats.effect.testkit.TestInstances
-import cats.effect.kernel.Outcome
 import cats.effect.IO as CIO
+import cats.effect.kernel.Outcome
 import cats.effect.kernel.Outcome.Succeeded
+import cats.effect.testkit.TestInstances
 import cats.syntax.all.*
 import cats.{ Eq, Id, Order }
 import org.scalacheck.{ Arbitrary, Cogen, Gen, Prop }
@@ -12,14 +12,15 @@ import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio.*
+import zio.Scheduler.CancelToken
 import zio.managed.*
 
 import java.time.temporal.ChronoUnit
 import java.time.{ Instant, LocalDateTime, OffsetDateTime, ZoneOffset }
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{ RejectedExecutionException, ScheduledExecutorService, TimeUnit }
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration.Infinite
-import scala.concurrent.duration.{ FiniteDuration, TimeUnit }
+import scala.concurrent.duration.FiniteDuration
 import scala.language.implicitConversions
 
 private[zio] trait CatsSpecBase
@@ -35,12 +36,13 @@ private[zio] trait CatsSpecBase
   val environment: ZEnvironment[Any] =
     ZEnvironment(())
 
-  def testClock(implicit ticker: Ticker) = new Clock {
+  def testClock(implicit ticker: Ticker): Clock = new Clock {
+    def instant(implicit trace: Trace): UIO[Instant] =
+      currentTime(TimeUnit.MILLISECONDS).map(Instant.ofEpochMilli)
 
-    def instant(implicit trace: Trace): UIO[Instant]                     =
-      ???
-    def localDateTime(implicit trace: Trace): UIO[LocalDateTime]         =
-      ???
+    def localDateTime(implicit trace: Trace): UIO[LocalDateTime] =
+      instant.map(LocalDateTime.ofInstant(_, ZoneOffset.UTC))
+
     def currentTime(unit: => TimeUnit)(implicit trace: Trace): UIO[Long] =
       ZIO.succeed(ticker.ctx.now().toUnit(unit).toLong)
 
@@ -48,13 +50,13 @@ private[zio] trait CatsSpecBase
       ZIO.succeed(unit.between(Instant.EPOCH, Instant.ofEpochMilli(ticker.ctx.now().toMillis)))
 
     def currentDateTime(implicit trace: Trace): UIO[OffsetDateTime] =
-      ZIO.succeed(OffsetDateTime.ofInstant(Instant.ofEpochMilli(ticker.ctx.now().toMillis), ZoneOffset.UTC))
+      localDateTime.map(_.atOffset(ZoneOffset.UTC))
 
     def javaClock(implicit trace: zio.Trace): zio.UIO[java.time.Clock] =
-      ???
+      instant.map(java.time.Clock.fixed(_, ZoneOffset.UTC))
 
     def nanoTime(implicit trace: Trace): UIO[Long] =
-      ZIO.succeed(ticker.ctx.now().toNanos)
+      currentTime(TimeUnit.NANOSECONDS)
 
     def sleep(duration: => Duration)(implicit trace: Trace): UIO[Unit] = duration.asScala match {
       case finite: FiniteDuration =>
@@ -67,7 +69,20 @@ private[zio] trait CatsSpecBase
     }
 
     def scheduler(implicit trace: Trace): UIO[Scheduler] =
-      ???
+      ZIO.succeedNow(ZioScheduler)
+
+    private object ZioScheduler extends Scheduler {
+      def asScheduledExecutorService: ScheduledExecutorService = ???
+
+      def schedule(task: Runnable, duration: Duration)(implicit unsafe: Unsafe): CancelToken =
+        duration.asScala match {
+          case finite: FiniteDuration =>
+            val cancel = ticker.ctx.schedule(finite, task)
+            () => { cancel(); true }
+          case infinite: Infinite     =>
+            throw new RejectedExecutionException(s"Unexpected infinite duration $infinite passed to Ticker")
+        }
+    }
   }
 
   def unsafeRun[E, A](io: IO[E, A])(implicit ticker: Ticker): (Exit[E, Option[A]], Boolean) =
