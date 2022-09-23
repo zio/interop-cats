@@ -63,6 +63,8 @@ trait GenIOInteropCats {
   def genCancel[E, A: Arbitrary](implicit F: GenConcurrent[IO[E, _], ?]): Gen[IO[E, A]] =
     Arbitrary.arbitrary[A].map(F.canceled.as(_))
 
+  def genNever: Gen[UIO[Nothing]] = ZIO.never
+
   def genIO[E: Arbitrary, A: Arbitrary](implicit
     arbThrowable: Arbitrary[Throwable],
     F: GenConcurrent[IO[E, _], ?]
@@ -72,12 +74,14 @@ trait GenIOInteropCats {
       genFail[E, A],
       genDie,
       genInternalInterrupt,
+      genNever,
       genCancel[E, A]
     )
   else
     Gen.oneOf(
       genSuccess[E, A],
       genFail[E, A],
+      genNever,
       genCancel[E, A]
     )
 
