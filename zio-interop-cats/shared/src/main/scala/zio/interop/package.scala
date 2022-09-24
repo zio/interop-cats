@@ -153,7 +153,7 @@ package object interop {
       }
   }
 
-  private[interop] def toExitCaseThisFiber(exit: Exit[Any, Any]): UIO[Resource.ExitCase] =
+  private[interop] def toExitCaseThisFiber(exit: Exit[Any, Any])(implicit trace: Trace): UIO[Resource.ExitCase] =
     exit match {
       case Exit.Success(_)     =>
         ZIO.succeedNow(Resource.ExitCase.Succeeded)
