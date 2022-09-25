@@ -20,15 +20,12 @@ trait FS2StreamSyntax {
 class ZStreamSyntax[R, E, A](private val stream: ZStream[R, E, A]) extends AnyVal {
 
   /** Convert a [[zio.stream.ZStream]] into an [[fs2.Stream]]. */
-  def toFs2Stream(implicit trace: Trace): fs2.Stream[ZIO[R, E, _], A] = {
-    import zio.interop.catz.generic.*
-
+  def toFs2Stream(implicit trace: Trace): fs2.Stream[ZIO[R, E, _], A] =
     fs2.Stream.resource(Resource.scopedZIO[R, E, ZIO[R, Option[E], Chunk[A]]](stream.toPull)).flatMap { pull =>
       fs2.Stream.repeatEval(pull.unsome).unNoneTerminate.flatMap { chunk =>
         fs2.Stream.chunk(fs2.Chunk.indexedSeq(chunk))
       }
     }
-  }
 }
 
 final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
