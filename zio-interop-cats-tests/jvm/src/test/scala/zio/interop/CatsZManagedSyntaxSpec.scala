@@ -1,6 +1,6 @@
 package zio.interop
 
-import cats.effect.kernel.{ Concurrent, Resource }
+import cats.effect.kernel.Resource
 import cats.effect.IO as CIO
 import zio.*
 import zio.interop.catz.*
@@ -15,39 +15,13 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
   def spec =
     suite("CatsZManagedSyntaxSpec")(
       suite("toManaged")(
-        test("calls finalizers correctly when use is externally interrupted") {
+        test("calls finalizers correctly when use is interrupted") {
           val effects                          = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[CIO, Unit] =
             Resource.makeCase(CIO.delay(effects += x).void) {
               case (_, Resource.ExitCase.Canceled) =>
                 CIO.delay(effects += x + 1).void
-              case (_, _)                          =>
-                CIO.unit
-            }
-
-          val testCase = {
-            val managed: ZManaged[Any, Throwable, Unit] = res(1).toManaged
-            Promise.make[Nothing, Unit].flatMap { latch =>
-              managed
-                .use(_ => latch.succeed(()) *> ZIO.never)
-                .forkDaemon
-                .flatMap(latch.await *> _.interrupt)
-            }
-          }
-
-          for {
-            _       <- testCase
-            effects <- ZIO.succeed(effects.toList)
-          } yield assert(effects)(equalTo(List(1, 2)))
-        },
-        test("calls finalizers correctly when use is internally interrupted") {
-          val effects                          = new mutable.ListBuffer[Int]
-          def res(x: Int): Resource[CIO, Unit] =
-            Resource.makeCase(CIO.delay(effects += x).void) {
-              case (_, Resource.ExitCase.Errored(_)) =>
-                CIO.delay(effects += x + 1).void
-              case (_, _)                            =>
-                CIO.unit
+              case _                               => CIO.unit
             }
 
           val testCase = {
@@ -154,37 +128,13 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
         }
       ),
       suite("toManagedZIO")(
-        test("calls finalizers correctly when use is externally interrupted") {
+        test("calls finalizers correctly when use is interrupted") {
           val effects                           = new mutable.ListBuffer[Int]
           def res(x: Int): Resource[Task, Unit] =
             Resource.makeCase(ZIO.attempt(effects += x).unit) {
               case (_, Resource.ExitCase.Canceled) =>
                 ZIO.attempt(effects += x + 1).unit
               case _                               => ZIO.unit
-            }
-
-          val testCase = {
-            val managed: ZManaged[Any, Throwable, Unit] = res(1).toManagedZIO
-            Promise.make[Nothing, Unit].flatMap { latch =>
-              managed
-                .use(_ => latch.succeed(()) *> ZIO.never)
-                .forkDaemon
-                .flatMap(latch.await *> _.interrupt)
-            }
-          }
-
-          for {
-            _       <- testCase
-            effects <- ZIO.succeed(effects.toList)
-          } yield assert(effects)(equalTo(List(1, 2)))
-        },
-        test("calls finalizers correctly when use is internally interrupted") {
-          val effects                           = new mutable.ListBuffer[Int]
-          def res(x: Int): Resource[Task, Unit] =
-            Resource.makeCase(ZIO.attempt(effects += x).unit) {
-              case (_, Resource.ExitCase.Errored(_)) =>
-                ZIO.attempt(effects += x + 1).unit
-              case _                                 => ZIO.unit
             }
 
           val testCase = {
@@ -318,23 +268,7 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
             effects <- ZIO.succeed(effects.toList)
           } yield assert(effects)(equalTo(List(1, 2)))
         },
-        test("calls finalizers when using resource is internally interrupted") {
-          val effects                                     = new mutable.ListBuffer[Int]
-          def man(x: Int): ZManaged[Any, Throwable, Unit] =
-            ZManaged.acquireReleaseExitWith(ZIO.succeed(effects += x).unit) {
-              case (_, Exit.Failure(c)) if !c.isInterrupted && c.failureOption.nonEmpty =>
-                ZIO.succeed(effects += x + 1)
-              case _                                                                    =>
-                ZIO.unit
-            }
-
-          val testCase = man(1).toResource[Task].use(_ => ZIO.interrupt)
-          for {
-            _       <- testCase.orElse(ZIO.unit)
-            effects <- ZIO.succeed(effects.toList)
-          } yield assert(effects)(equalTo(List(1, 2)))
-        },
-        test("calls finalizers when using resource is externally interrupted") {
+        test("calls finalizers when using resource is canceled") {
           val effects                                     = new mutable.ListBuffer[Int]
           def man(x: Int): ZManaged[Any, Throwable, Unit] =
             ZManaged.acquireReleaseExitWith(ZIO.succeed(effects += x).unit) {
@@ -344,17 +278,11 @@ object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
                 ZIO.unit
             }
 
-          val exception: Option[Throwable] =
-            try {
-              man(1).toResource[Task].use(_ => Concurrent[Task].canceled).toEffect[cats.effect.IO].unsafeRunSync()
-              None
-            } catch {
-              case t: Throwable => Some(t)
-            }
-
-          assert(effects.toList)(equalTo(List(1, 2))) && assertTrue(
-            exception.get.getMessage.contains("The fiber was canceled")
-          )
+          val testCase = man(1).toResource[Task].use(_ => ZIO.interrupt)
+          for {
+            _       <- testCase.orElse(ZIO.unit)
+            effects <- ZIO.succeed(effects.toList)
+          } yield assert(effects)(equalTo(List(1, 2)))
         },
         test("acquisition of Reservation preserves cancellability in new F") {
           for {
