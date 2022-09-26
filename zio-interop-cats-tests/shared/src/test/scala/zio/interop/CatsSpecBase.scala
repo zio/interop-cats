@@ -3,7 +3,6 @@ package zio.interop
 import cats.effect.testkit.TestInstances
 import cats.effect.kernel.Outcome
 import cats.effect.IO as CIO
-import cats.effect.kernel.Outcome.Succeeded
 import cats.syntax.all.*
 import cats.{ Eq, Id, Order }
 import org.scalacheck.{ Arbitrary, Cogen, Gen, Prop }
@@ -130,12 +129,9 @@ private[zio] trait CatsSpecBase
     val (exit2, i2) = unsafeRun(uio2)
     val out1        = toOutcomeCauseOtherFiber[Id, Nothing, Option[A]](i1)(identity, exit1)
     val out2        = toOutcomeCauseOtherFiber[Id, Nothing, Option[A]](i2)(identity, exit2)
-    (out1, out2) match {
-      case (Succeeded(Some(a)), Succeeded(Some(b)))          => a eqv b
-      case (Succeeded(Some(_)), _) | (_, Succeeded(Some(_))) =>
-        println(s"$out1 was not equal to $out2")
-        false
-      case _                                                 => true
+    (out1 eqv out2) || {
+      println(s"$out1 was not equal to $out2")
+      false
     }
   }
 
