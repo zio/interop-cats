@@ -14,7 +14,7 @@ trait CustomFunSuiteDiscipline extends FunSuiteDiscipline { self: AnyFunSuiteLik
     prettifier: Prettifier,
     pos: Position
   ): Unit =
-    // todo
+    // todo #617 Explore how this behavior can be supported and reenable this law test if possible
     for ((id, prop) <- ruleSet.all.properties if !id.contains("onCancel associates over uncancelable boundary"))
       test(s"$name.$id") {
         Checkers.check(prop)(convertConfiguration(config), prettifier, pos)
