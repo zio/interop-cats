@@ -1,8 +1,6 @@
 package zio.interop
 
 import cats.effect.IO as CIO
-import cats.effect.kernel.Outcome
-import cats.effect.kernel.Outcome.Succeeded
 import cats.effect.testkit.TestInstances
 import cats.syntax.all.*
 import cats.{ Eq, Id, Order }
@@ -10,7 +8,6 @@ import org.scalacheck.{ Arbitrary, Cogen, Gen, Prop }
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
-import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio.*
 import zio.Scheduler.CancelToken
 import zio.managed.*
@@ -25,13 +22,13 @@ import scala.language.implicitConversions
 
 private[zio] trait CatsSpecBase
     extends AnyFunSuite
-    with FunSuiteDiscipline
+    with CustomFunSuiteDiscipline
     with Configuration
     with TestInstances
     with CatsSpecBaseLowPriority {
 
   def checkAllAsync(name: String, f: Ticker => Laws#RuleSet): Unit =
-    checkAll(name, f(Ticker()))
+    checkAll_(name, f(Ticker()))
 
   val environment: ZEnvironment[Any] =
     ZEnvironment(())
@@ -145,12 +142,9 @@ private[zio] trait CatsSpecBase
     val (exit2, i2) = unsafeRun(uio2)
     val out1        = toOutcomeCauseOtherFiber[Id, Nothing, Option[A]](i1)(identity, exit1)
     val out2        = toOutcomeCauseOtherFiber[Id, Nothing, Option[A]](i2)(identity, exit2)
-    (out1, out2) match {
-      case (Succeeded(Some(a)), Succeeded(Some(b)))          => a eqv b
-      case (Succeeded(Some(_)), _) | (_, Succeeded(Some(_))) =>
-        println(s"$out1 was not equal to $out2")
-        false
-      case _                                                 => true
+    (out1 eqv out2) || {
+      println(s"$out1 was not equal to $out2")
+      false
     }
   }
 

@@ -27,8 +27,7 @@ import zio.{ Fiber, Ref as ZRef, ZEnvironment }
 import zio.*
 import zio.Clock.{ currentTime, nanoTime }
 import zio.Duration
-import zio.internal.stacktracer.InteropTracer
-import zio.internal.stacktracer.Tracer as CoreTracer
+import zio.internal.stacktracer.{ InteropTracer, Tracer as CoreTracer }
 
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{ ExecutionContext, Future }
@@ -245,11 +244,14 @@ private abstract class ZioConcurrent[R, E, E1]
     Promise.make[E, A].map(new ZioDeferred(_))
   }
 
-  override final def start[A](fa: F[A]): F[effect.Fiber[F, E1, A]] =
+  override final def start[A](fa: F[A]): F[effect.Fiber[F, E1, A]] = {
+    implicit def trace: Trace = CoreTracer.newTrace
+
     for {
       interrupted <- zio.Ref.make(true) // fiber could be interrupted before executing a single op
       fiber       <- signalOnNoExternalInterrupt(fa.interruptible)(interrupted.set(false)).forkDaemon
     } yield toFiber(interrupted)(fiber)
+  }
 
   override def never[A]: F[A] =
     ZIO.never(CoreTracer.newTrace)
@@ -331,6 +333,8 @@ private abstract class ZioConcurrent[R, E, E1]
   override final def bracketCase[A, B](acquire: ZIO[R, E, A])(use: A => ZIO[R, E, B])(
     release: (A, Outcome[ZIO[R, E, _], E1, B]) => ZIO[R, E, Unit]
   ): ZIO[R, E, B] = {
+    implicit def trace: Trace = InteropTracer.newTrace(use)
+
     def handleRelease(a: A, exit: Exit[E, B]): URIO[R, Any] =
       toOutcomeThisFiber(exit).flatMap(release(a, _)).orDieWith(toThrowableOrFiberFailure)
 
@@ -339,7 +343,9 @@ private abstract class ZioConcurrent[R, E, E1]
 
   override final def bracketFull[A, B](acquire: Poll[ZIO[R, E, _]] => ZIO[R, E, A])(use: A => ZIO[R, E, B])(
     release: (A, Outcome[ZIO[R, E, _], E1, B]) => ZIO[R, E, Unit]
-  ): ZIO[R, E, B] =
+  ): ZIO[R, E, B] = {
+    implicit def trace: Trace = InteropTracer.newTrace(use)
+
     ZIO.uninterruptibleMask[R, E, B] { restore =>
       acquire(toPoll(restore)).flatMap { a =>
         ZIO
@@ -357,6 +363,7 @@ private abstract class ZioConcurrent[R, E, E1]
           }
       }
     }
+  }
 
   override def unique: F[Unique.Token] =
     ZIO.succeed(new Unique.Token)(CoreTracer.newTrace)
