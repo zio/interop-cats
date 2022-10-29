@@ -1,6 +1,6 @@
 package zio.interop
 
-import cats.effect.IO as CIO
+import cats.effect.{ IO as CIO, Outcome }
 import cats.effect.testkit.TestInstances
 import cats.syntax.all.*
 import cats.{ Eq, Id, Order }
