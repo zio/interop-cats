@@ -8,3 +8,6 @@ addSbtPlugin("com.github.cb372"                  % "sbt-explicit-dependencies" %
 addSbtPlugin("de.heikoseeberger"                 % "sbt-header"                % "5.6.0")
 addSbtPlugin("ch.epfl.scala"                     % "sbt-bloop"                 % "1.4.8")
 addSbtPlugin("com.geirsson"                      % "sbt-ci-release"            % "1.5.7")
+addSbtPlugin("dev.zio"                           % "zio-sbt-website"           % "0.0.0+82-cb669346-SNAPSHOT")
+
+resolvers += Resolver.sonatypeRepo("public")
