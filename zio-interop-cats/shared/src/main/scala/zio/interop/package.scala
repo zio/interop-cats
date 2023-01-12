@@ -16,26 +16,175 @@
 
 package zio
 
-import cats.effect.kernel.{ Async, Outcome, Resource }
+import cats.effect.kernel.{ Async, Outcome, Poll, Resource }
 import cats.effect.std.Dispatcher
 import cats.syntax.all.*
 
-import scala.concurrent.Future
+import java.util.concurrent.atomic.AtomicBoolean
 
 package object interop {
 
-  @inline private[interop] def toOutcome[R, E, A](
-    exit: Exit[E, A]
-  )(implicit trace: Trace): Outcome[ZIO[R, E, _], E, A] =
+  @inline def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F]): Task[A] =
+    ZIO
+      .succeed(F.unsafeToFutureCancelable(fa))
+      .flatMap { case (future, cancel) =>
+        ZIO.fromFuture(_ => future).onInterrupt(ZIO.fromFuture(_ => cancel()).orDie)
+      }
+
+  @inline def toEffect[F[_], R, A](rio: RIO[R, A])(implicit R: Runtime[R], F: Async[F], trace: Trace): F[A] =
+    F.defer {
+      val interrupted = new AtomicBoolean(true)
+      F.async[Exit[Throwable, A]] { cb =>
+        Unsafe.unsafe { implicit unsafe =>
+          val fiber          = R.unsafe.fork {
+            signalOnNoExternalInterrupt {
+              rio
+            }(ZIO.succeed(interrupted.set(false)))
+          }
+          fiber.unsafe
+            .addObserver(exit => cb(Right(exit)))
+          val cancelerEffect = F.delay {
+            val _ = fiber.interrupt
+          }
+          F.pure(Some(cancelerEffect))
+        }
+
+      }.flatMap { exit =>
+        toOutcomeThrowableOtherFiber(interrupted.get())(F.pure(_: A), exit) match {
+          case Outcome.Succeeded(fa) =>
+            fa
+          case Outcome.Errored(e)    =>
+            F.raiseError(e)
+          case Outcome.Canceled()    =>
+            F.canceled.flatMap(_ => F.raiseError(exit.asInstanceOf[Exit.Failure[Throwable]].cause.squash))
+        }
+      }
+    }
+
+  implicit class ToEffectSyntax[R, A](private val rio: RIO[R, A]) extends AnyVal {
+    @inline def toEffect[F[_]: Async](implicit R: Runtime[R], trace: Trace): F[A] = interop.toEffect(rio)
+  }
+
+  @inline private[interop] def toOutcomeCauseOtherFiber[F[_], E, A](
+    actuallyInterrupted: Boolean
+  )(pure: A => F[A], exit: Exit[E, A]): Outcome[F, Cause[E], A] =
+    toOutcomeOtherFiber0(actuallyInterrupted)(pure, exit)((_, c) => c, identity)
+
+  @inline private[interop] def toOutcomeThrowableOtherFiber[F[_], A](
+    actuallyInterrupted: Boolean
+  )(pure: A => F[A], exit: Exit[Throwable, A]): Outcome[F, Throwable, A] =
+    toOutcomeOtherFiber0(actuallyInterrupted)(pure, exit)((e, _) => e, dieCauseToThrowable)
+
+  @inline private[interop] def toOutcomeOtherFiber0[F[_], E, E1, A](
+    actuallyInterrupted: Boolean
+  )(pure: A => F[A], exit: Exit[E, A])(
+    convertFail: (E, Cause[E]) => E1,
+    convertDie: Cause[Nothing] => E1
+  ): Outcome[F, E1, A] =
     exit match {
-      case Exit.Success(value)                        =>
-        Outcome.Succeeded(ZIO.succeed(value))
-      case Exit.Failure(cause) if cause.isInterrupted =>
-        Outcome.Canceled()
-      case Exit.Failure(cause)                        =>
-        cause.failureOrCause match {
-          case Left(error)  => Outcome.Errored(error)
-          case Right(cause) => Outcome.Succeeded(ZIO.failCause(cause))
+      case Exit.Success(value) =>
+        Outcome.Succeeded(pure(value))
+      case Exit.Failure(cause) =>
+        // ZIO 2, unlike ZIO 1, _does not_ guarantee that the presence of a typed failure
+        // means we're NOT interrupting, so we have to check for interruption to matter what
+        if (
+          (cause.isInterrupted || {
+            // deem empty cause to be interruption as well, due to occasional invalid ZIO states
+            // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
+            // NOTE: this line is for ZIO 1, it may not apply for ZIO 2, someone needs to debunk
+            // whether this is required
+            cause.isEmpty
+          }) && actuallyInterrupted
+        ) {
+          Outcome.Canceled()
+        } else {
+          cause.failureOrCause match {
+            case Left(error)  =>
+              Outcome.Errored(convertFail(error, cause))
+            case Right(cause) =>
+              Outcome.Errored(convertDie(cause))
+          }
+        }
+    }
+
+  @inline private[interop] def toOutcomeCauseThisFiber[R, E, A](
+    exit: Exit[E, A]
+  ): UIO[Outcome[ZIO[R, E, _], Cause[E], A]] =
+    toOutcomeThisFiber0(exit)((_, c) => c, identity)
+
+  @inline private[interop] def toOutcomeThrowableThisFiber[R, A](
+    exit: Exit[Throwable, A]
+  ): UIO[Outcome[ZIO[R, Throwable, _], Throwable, A]] =
+    toOutcomeThisFiber0(exit)((e, _) => e, dieCauseToThrowable)
+
+  @inline private def toOutcomeThisFiber0[R, E, E1, A](exit: Exit[E, A])(
+    convertFail: (E, Cause[E]) => E1,
+    convertDie: Cause[Nothing] => E1
+  ): UIO[Outcome[ZIO[R, E, _], E1, A]] = exit match {
+    case Exit.Success(value) =>
+      ZIO.succeedNow(Outcome.Succeeded(ZIO.succeedNow(value)))
+    case Exit.Failure(cause) =>
+      lazy val nonCanceledOutcome: UIO[Outcome[ZIO[R, E, _], E1, A]] = cause.failureOrCause match {
+        case Left(error)  =>
+          ZIO.succeedNow(Outcome.Errored(convertFail(error, cause)))
+        case Right(cause) =>
+          ZIO.succeedNow(Outcome.Errored(convertDie(cause)))
+      }
+      // ZIO 2, unlike ZIO 1, _does not_ guarantee that the presence of a typed failure
+      // means we're NOT interrupting, so we have to check for interruption to matter what
+      if (
+        cause.isInterrupted || {
+          // deem empty cause to be interruption as well, due to occasional invalid ZIO states
+          // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
+          // NOTE: this line is for ZIO 1, it may not apply for ZIO 2, someone needs to debunk
+          // whether this is required
+          cause.isEmpty
+        }
+      ) {
+        ZIO.descriptorWith { descriptor =>
+          if (descriptor.interrupters.nonEmpty)
+            ZIO.succeedNow(Outcome.Canceled())
+          else {
+            nonCanceledOutcome
+          }
+        }
+      } else {
+        nonCanceledOutcome
+      }
+  }
+
+  private[interop] def toExitCaseThisFiber(exit: Exit[Any, Any])(implicit trace: Trace): UIO[Resource.ExitCase] =
+    exit match {
+      case Exit.Success(_)     =>
+        ZIO.succeedNow(Resource.ExitCase.Succeeded)
+      case Exit.Failure(cause) =>
+        lazy val nonCanceledOutcome: UIO[Resource.ExitCase] = cause.failureOrCause match {
+          case Left(error: Throwable) =>
+            ZIO.succeedNow(Resource.ExitCase.Errored(error))
+          case Left(_)                =>
+            ZIO.succeedNow(Resource.ExitCase.Errored(FiberFailure(cause)))
+          case Right(cause)           =>
+            ZIO.succeedNow(Resource.ExitCase.Errored(dieCauseToThrowable(cause)))
+        }
+        // ZIO 2, unlike ZIO 1, _does not_ guarantee that the presence of a typed failure
+        // means we're NOT interrupting, so we have to check for interruption to matter what
+        if (
+          cause.isInterrupted || {
+            // deem empty cause to be interruption as well, due to occasional invalid ZIO states
+            // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
+            // NOTE: this line is for ZIO 1, it may not apply for ZIO 2, someone needs to debunk
+            // whether this is required
+            cause.isEmpty
+          }
+        ) {
+          ZIO.descriptorWith { descriptor =>
+            if (descriptor.interrupters.nonEmpty) {
+              ZIO.succeedNow(Resource.ExitCase.Canceled)
+            } else
+              nonCanceledOutcome
+          }
+        } else {
+          nonCanceledOutcome
         }
     }
 
@@ -46,39 +195,28 @@ package object interop {
       case Resource.ExitCase.Errored(error) => Exit.fail(error)
     }
 
-  @inline private[interop] def toExitCase(exit: Exit[Any, Any]): Resource.ExitCase =
-    exit match {
-      case Exit.Success(_)                            =>
-        Resource.ExitCase.Succeeded
-      case Exit.Failure(cause) if cause.isInterrupted =>
-        Resource.ExitCase.Canceled
-      case Exit.Failure(cause)                        =>
-        cause.failureOrCause match {
-          case Left(error: Throwable) => Resource.ExitCase.Errored(error)
-          case _                      => Resource.ExitCase.Errored(FiberFailure(cause))
-        }
+  @inline private[interop] def toPoll[R, E](restore: ZIO.InterruptibilityRestorer): Poll[ZIO[R, E, _]] =
+    new Poll[ZIO[R, E, _]] {
+      override def apply[T](fa: ZIO[R, E, T]): ZIO[R, E, T] = restore(fa)
     }
 
-  @inline def fromEffect[F[_], A](fa: F[A])(implicit F: Dispatcher[F], trace: Trace): Task[A] =
-    ZIO
-      .succeed(F.unsafeToFutureCancelable(fa))
-      .flatMap { case (future, cancel) =>
-        ZIO.fromFuture(_ => future).onInterrupt(ZIO.fromFuture(_ => cancel()).orDie).interruptible
-      }
-      .uninterruptible
-
-  @inline def toEffect[F[_], R, A](
-    rio: RIO[R, A]
-  )(implicit R: Runtime[R], F: Async[F], trace: Trace): F[A] =
-    F.uncancelable { poll =>
-      Unsafe.unsafeCompat { implicit u =>
-        F.delay(R.unsafe.runToFuture(rio)).flatMap { future =>
-          poll(F.onCancel(F.fromFuture(F.pure[Future[A]](future)), F.fromFuture(F.delay(future.cancel())).void))
-        }
-      }
+  @inline private[interop] def signalOnNoExternalInterrupt[R, E, A](
+    f: ZIO[R, E, A]
+  )(notInterrupted: UIO[Unit]): ZIO[R, E, A] =
+    f.onExit {
+      case Exit.Success(_) => ZIO.unit
+      case Exit.Failure(_) =>
+        // we don't check if cause is interrupted
+        // because we can get an invalid state Cause.empty
+        // due to this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
+        // if the last error was an uninterruptible typed error
+        ZIO.descriptorWith(d => if (d.interrupters.isEmpty) notInterrupted else ZIO.unit)
     }
 
-  implicit class ToEffectSyntax[R, A](private val rio: RIO[R, A]) extends AnyVal {
-    @inline def toEffect[F[_]: Async](implicit R: Runtime[R], trace: Trace): F[A] = interop.toEffect(rio)
-  }
+  @inline private[interop] def dieCauseToThrowable(cause: Cause[Nothing]): Throwable =
+    cause.defects match {
+      case one :: Nil => one
+      case _          => FiberFailure(cause)
+    }
+
 }
