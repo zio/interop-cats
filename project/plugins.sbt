@@ -1,6 +1,6 @@
 addSbtPlugin("org.scala-js"                      % "sbt-scalajs"               % "1.12.0")
 addSbtPlugin("org.portable-scala"                % "sbt-scalajs-crossproject"  % "1.2.0")
-addSbtPlugin("org.scalameta"                     % "sbt-scalafmt"              % "2.4.6")
+addSbtPlugin("org.scalameta"                     % "sbt-scalafmt"              % "2.5.0")
 addSbtPlugin("com.eed3si9n"                      % "sbt-buildinfo"             % "0.10.0")
 addSbtPlugin("org.scoverage"                     % "sbt-scoverage"             % "1.9.3")
 addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings"          % "3.0.0")
