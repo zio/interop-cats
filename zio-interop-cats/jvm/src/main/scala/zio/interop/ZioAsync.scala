@@ -37,7 +37,7 @@ private class ZioAsync[R]
   override def blocking[A](thunk: => A): F[A] =
     ZIO.attemptBlocking(thunk)
 
-  override def interruptible[A](many: Boolean)(thunk: => A): F[A] =
+  override def interruptible[A](thunk: => A): F[A] =
     ZIO.attemptBlockingInterrupt(thunk)
 
   override def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] =
