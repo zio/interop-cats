@@ -1,13 +1,17 @@
 package zio.interop
 
+import cats.effect.kernel.Outcome
 import org.scalacheck.{ Arbitrary, Cogen, Gen }
 import zio.*
+import zio.internal.stacktracer.Tracer
 import zio.managed.*
 
 private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPriority with GenIOInteropCats {
 
-  implicit def arbitraryUIO[A: Arbitrary]: Arbitrary[UIO[A]] =
+  implicit def arbitraryUIO[A: Arbitrary]: Arbitrary[UIO[A]] = {
+    import zio.interop.catz.generic.concurrentInstanceCause
     Arbitrary(genUIO[A])
+  }
 
   implicit def arbitraryURIO[R: Cogen: Tag, A: Arbitrary]: Arbitrary[URIO[R, A]] =
     Arbitrary(Arbitrary.arbitrary[ZEnvironment[R] => UIO[A]].map(ZIO.environment[R].flatMap))
@@ -17,6 +21,33 @@ private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPrior
 
   implicit def arbitraryURManaged[R: Cogen: Tag, A: Arbitrary]: Arbitrary[URManaged[R, A]] =
     zManagedArbitrary[R, Nothing, A]
+
+  implicit def arbitraryCause[E](implicit e: Arbitrary[E]): Arbitrary[Cause[E]] = {
+    lazy val self: Gen[Cause[E]] =
+      Gen.oneOf(
+        e.arbitrary.map(Cause.Fail(_, StackTrace.none)),
+        Arbitrary.arbitrary[Throwable].map(Cause.Die(_, StackTrace.none)),
+        Arbitrary
+          .arbitrary[Int]
+          .flatMap(l1 =>
+            Arbitrary.arbitrary[Int].map(l2 => Cause.Interrupt(FiberId(l1, l2, Tracer.instance.empty), StackTrace.none))
+          ),
+        Gen.delay(self.map(Cause.stack)),
+        Gen.delay(self.map(Cause.stackless)),
+        Gen.delay(self.flatMap(e1 => self.map(e2 => Cause.Both(e1, e2)))),
+        Gen.delay(self.flatMap(e1 => self.map(e2 => Cause.Then(e1, e2)))),
+        Gen.const(Cause.empty)
+      )
+    Arbitrary(self)
+  }
+
+  implicit def cogenCause[E: Cogen]: Cogen[Cause[E]] =
+    Cogen[Outcome[Option, Either[E, Int], Unit]].contramap { cause =>
+      toOutcomeOtherFiber0[Option, E, Either[E, Int], Unit](true)(Option(_), Exit.Failure(cause))(
+        (e, _) => Left(e),
+        c => Right(c.hashCode())
+      )
+    }
 }
 
 private[interop] trait ZioSpecBaseLowPriority { self: ZioSpecBase =>
@@ -29,17 +60,41 @@ private[interop] trait ZioSpecBaseLowPriority { self: ZioSpecBase =>
 
   implicit def arbitraryIO[E: CanFail: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[IO[E, A]] = {
     implicitly[CanFail[E]]
-    Arbitrary(Gen.oneOf(genIO[E, A], genLikeTrans(genIO[E, A]), genIdentityTrans(genIO[E, A])))
+    import zio.interop.catz.generic.concurrentInstanceCause
+    Arbitrary(
+      Gen.oneOf(
+        genIO[E, A],
+        genLikeTrans(genIO[E, A]),
+        genIdentityTrans(genIO[E, A])
+      )
+    )
   }
 
   implicit def arbitraryZIO[R: Cogen: Tag, E: CanFail: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZIO[R, E, A]] =
     Arbitrary(Gen.function1[ZEnvironment[R], IO[E, A]](arbitraryIO[E, A].arbitrary).map(ZIO.environment[R].flatMap))
 
-  implicit def arbitraryRIO[R: Cogen: Tag, A: Arbitrary: Cogen]: Arbitrary[RIO[R, A]] =
-    arbitraryZIO[R, Throwable, A]
+  implicit def arbitraryTask[A: Arbitrary: Cogen](implicit ticker: Ticker): Arbitrary[Task[A]] = {
+    val arbIO = arbitraryIO[Throwable, A]
+    if (catsConversionGenerator)
+      Arbitrary(Gen.oneOf(arbIO.arbitrary, genCatsConversionTask[A]))
+    else
+      arbIO
+  }
 
-  implicit def arbitraryTask[A: Arbitrary: Cogen]: Arbitrary[Task[A]] =
-    arbitraryIO[Throwable, A]
+  def genCatsConversionTask[A: Arbitrary: Cogen](implicit ticker: Ticker): Gen[Task[A]] =
+    arbitraryIO[A].arbitrary.map(liftIO(_))
+
+  def liftIO[A](io: cats.effect.IO[A])(implicit ticker: Ticker): zio.Task[A] =
+    ZIO.asyncInterrupt { k =>
+      val (result, cancel) = io.unsafeToFutureCancelable()
+      k(ZIO.fromFuture(_ => result).tapError {
+        case c: scala.concurrent.CancellationException if c.getMessage == "The fiber was canceled" =>
+          zio.interop.catz.concurrentInstance.canceled *> ZIO.interrupt
+        case _                                                                                     =>
+          ZIO.unit
+      })
+      Left(ZIO.fromFuture(_ => cancel()).orDie)
+    }
 
   def zManagedArbitrary[R, E, A](implicit zio: Arbitrary[ZIO[R, E, A]]): Arbitrary[ZManaged[R, E, A]] =
     Arbitrary(zio.arbitrary.map(ZManaged.fromZIO(_)))

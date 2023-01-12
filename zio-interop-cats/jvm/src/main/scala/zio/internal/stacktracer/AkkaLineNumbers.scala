@@ -172,11 +172,12 @@ private[stacktracer] object AkkaLineNumbers {
 
     } catch {
       case ex if NonFatal(ex) => UnknownSourceFormat(s"parse error: ${ex.getMessage}")
-    } finally try dis.close()
-    catch {
-      case ex: InterruptedException => throw ex
-      case NonFatal(_)              => // ignore
-    }
+    } finally
+      try dis.close()
+      catch {
+        case ex: InterruptedException => throw ex
+        case NonFatal(_)              => // ignore
+      }
   }
 
   private[this] def getStreamForClass(c: Class[?]): Option[(InputStream, String, None.type)] =
