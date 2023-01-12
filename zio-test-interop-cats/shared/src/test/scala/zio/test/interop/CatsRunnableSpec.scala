@@ -32,7 +32,7 @@ abstract class CatsRunnableSpec extends ZIOSpecDefault {
   Unsafe.unsafe { implicit u =>
     runtime.unsafe.runToFuture {
       ZIO.fromFuture { implicit ec =>
-        Dispatcher[CIO].allocated.unsafeToFuture().andThen { case Success((dispatcher, close)) =>
+        Dispatcher.parallel[CIO].allocated.unsafeToFuture().andThen { case Success((dispatcher, close)) =>
           openDispatcher = dispatcher
           closeDispatcher = close
         }
