@@ -71,7 +71,8 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
             stream
               .chunkLimit(queueSize)
               .evalTap(a => queue.offer(Take.chunk(zio.Chunk.fromIterable(a.toList))))
-              .unchunk ++ fs2.Stream.eval(queue.offer(Take.end))
+              .chunkLimit(1)
+              .unchunks ++ fs2.Stream.eval(queue.offer(Take.end))
           }.handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
             .compile[RIO[R, _], RIO[R, _], Any]
             .resource
