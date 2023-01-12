@@ -15,6 +15,7 @@ import zio.managed.*
 import java.time.temporal.ChronoUnit
 import java.time.{ Instant, LocalDateTime, OffsetDateTime, ZoneOffset }
 import java.util.concurrent.TimeUnit
+import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration.Infinite
 import scala.concurrent.duration.{ FiniteDuration, TimeUnit }
@@ -78,13 +79,22 @@ private[zio] trait CatsSpecBase
         }).asSome)
         fiber.unsafe.addObserver(exit = _)
       }
-      ticker.ctx.tickAll(FiniteDuration(1, TimeUnit.SECONDS))
+      tickAll(FiniteDuration(1, TimeUnit.SECONDS))
       (exit, interrupted)
     } catch {
       case error: Throwable =>
         error.printStackTrace()
         throw error
     }
+
+  @tailrec
+  private def tickAll(time: FiniteDuration)(implicit ticker: Ticker): Unit = {
+    ticker.ctx.advanceAndTick(time)
+
+    if (ticker.ctx.state.tasks.nonEmpty) {
+      tickAll(time)
+    }
+  }
 
   implicit def runtime(implicit ticker: Ticker): Runtime[Any] = {
     val executor         = Executor.fromExecutionContext(ticker.ctx)
