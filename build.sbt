@@ -47,12 +47,12 @@ lazy val root = project
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
-val zioVersion                 = "2.0.0"
-val catsVersion                = "2.8.0"
-val catsEffectVersion          = "3.2.9"
-val catsMtlVersion             = "1.2.1"
+val zioVersion                 = "2.0.1"
+val catsVersion                = "2.9.0"
+val catsEffectVersion          = "3.4.4"
+val catsMtlVersion             = "1.3.0"
 val disciplineScalaTestVersion = "2.2.0"
-val fs2Version                 = "3.0.6"
+val fs2Version                 = "3.4.0"
 val scalaJavaTimeVersion       = "2.3.0"
 
 lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
@@ -78,6 +78,7 @@ lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
 lazy val zioInteropCatsJVM = zioInteropCats.jvm.settings(dottySettings)
 
 lazy val zioInteropCatsJS = zioInteropCats.js
+  .settings(dottySettings)
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
 lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
@@ -112,6 +113,7 @@ lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
 lazy val zioInteropCatsTestsJVM = zioInteropCatsTests.jvm.settings(dottySettings)
 
 lazy val zioInteropCatsTestsJS = zioInteropCatsTests.js
+  .settings(dottySettings)
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
 lazy val zioTestInteropCats = crossProject(JSPlatform, JVMPlatform)
@@ -148,6 +150,7 @@ lazy val zioTestInteropCats = crossProject(JSPlatform, JVMPlatform)
 lazy val zioTestInteropCatsJVM = zioTestInteropCats.jvm.settings(dottySettings)
 
 lazy val zioTestInteropCatsJS = zioTestInteropCats.js
+  .settings(dottySettings)
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
 lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
@@ -167,4 +170,5 @@ lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
 lazy val coreOnlyTestJVM = coreOnlyTest.jvm.settings(dottySettings)
 
 lazy val coreOnlyTestJS = coreOnlyTest.js
+  .settings(dottySettings)
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
