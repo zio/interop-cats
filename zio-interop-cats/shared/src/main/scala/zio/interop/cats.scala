@@ -615,7 +615,8 @@ private abstract class ZioMonadError[R, E, E1] extends MonadError[ZIO[R, E, _], 
     fa.as(b)(CoreTracer.newTrace)
 
   override final def whenA[A](cond: Boolean)(f: => F[A]): F[Unit] = {
-    implicit def trace: Trace = InteropTracer.newTrace(f)
+    val byName: () => F[A]    = () => f
+    implicit def trace: Trace = InteropTracer.newTrace(byName)
 
     ZIO.when(cond)(f).unit
   }
