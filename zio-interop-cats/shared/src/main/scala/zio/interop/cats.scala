@@ -378,16 +378,16 @@ private abstract class ZioConcurrent[R, E, E1]
     raceFibersWith(left, right)(
       (winner, loser) =>
         winner.await.flatMap {
-          case exit: Exit.Success[_] =>
+          case exit: Exit.Success[A] =>
             winner.inheritAll.flatMap(_ => leftDone(exit, loser))
-          case exit: Exit.Failure[_] =>
+          case exit: Exit.Failure[E] =>
             leftDone(exit, loser)
         },
       (winner, loser) =>
         winner.await.flatMap {
-          case exit: Exit.Success[_] =>
+          case exit: Exit.Success[B] =>
             winner.inheritAll.flatMap(_ => rightDone(exit, loser))
-          case exit: Exit.Failure[_] =>
+          case exit: Exit.Failure[E2] =>
             rightDone(exit, loser)
         }
     )
