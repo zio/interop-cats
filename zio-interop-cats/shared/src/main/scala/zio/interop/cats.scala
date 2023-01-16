@@ -385,7 +385,7 @@ private abstract class ZioConcurrent[R, E, E1]
         },
       (winner, loser) =>
         winner.await.flatMap {
-          case exit: Exit.Success[B] =>
+          case exit: Exit.Success[B]  =>
             winner.inheritAll.flatMap(_ => rightDone(exit, loser))
           case exit: Exit.Failure[E2] =>
             rightDone(exit, loser)
