@@ -180,7 +180,7 @@ lazy val docs = project
     projectName                                := "ZIO 2.x Interop Cats 3.x",
     mainModuleName                             := (zioInteropCatsJVM / moduleName).value,
     projectStage                               := ProjectStage.ProductionReady,
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioInteropCatsJVM),
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(),
     docsPublishBranch                          := "main"
   )
   .enablePlugins(WebsitePlugin)
