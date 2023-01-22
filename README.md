@@ -2,7 +2,7 @@
 [//]: # (So please do not edit it manually. Instead, change "docs/index.md" file or sbt setting keys)
 [//]: # (e.g. "readmeDocumentation" and "readmeSupport".)
 
-# ZIO 2.x Interop Cats 3.x
+# ZIO Interop Cats
 
 ## Installation
 
@@ -154,7 +154,7 @@ object DoobieH2Example extends App {
 
 ## Documentation
 
-Learn more on the [ZIO 2.x Interop Cats 3.x homepage](https://zio.dev)!
+Learn more on the [ZIO Interop Cats homepage](https://zio.dev)!
 
 ## Contributing
 
