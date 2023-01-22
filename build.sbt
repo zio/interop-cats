@@ -177,7 +177,7 @@ lazy val coreOnlyTestJS = coreOnlyTest.js
 lazy val docs = project
   .in(file("zio-interop-cats-docs"))
   .settings(
-    projectName                                := "ZIO 2.x Interop Cats 3.x",
+    projectName                                := "ZIO Interop Cats",
     mainModuleName                             := (zioInteropCatsJVM / moduleName).value,
     projectStage                               := ProjectStage.ProductionReady,
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(),
