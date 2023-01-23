@@ -41,7 +41,8 @@ lazy val root = project
     zioInteropCatsTestsJVM,
     zioInteropCatsTestsJS,
     zioTestInteropCatsJVM,
-    zioTestInteropCatsJS
+    zioTestInteropCatsJS,
+    docs
   )
   .settings(
     publish / skip := true,
@@ -139,3 +140,14 @@ lazy val coreOnlyTestJS = coreOnlyTest.js
     libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.3.0" % Test
   )
   .settings(dottySettings)
+
+lazy val docs = project
+  .in(file("zio-interop-cats-docs"))
+  .settings(
+    projectName := "ZIO Interop Cats",
+    mainModuleName := (zioInteropCatsJVM / moduleName).value,
+    projectStage := ProjectStage.ProductionReady,
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(),
+    docsPublishBranch := "zio2-interop-ce2"
+  )
+  .enablePlugins(WebsitePlugin)
