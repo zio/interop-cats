@@ -1,6 +1,7 @@
 import BuildHelper._
 import explicitdeps.ExplicitDepsPlugin.autoImport.moduleFilterRemoveValue
 import sbtcrossproject.CrossPlugin.autoImport.crossProject
+import zio.sbt.WebsiteUtils.DocsVersioning.HashVersioning
 
 name := "interop-cats"
 
@@ -181,6 +182,7 @@ lazy val docs = project
     mainModuleName                             := (zioInteropCatsJVM / moduleName).value,
     projectStage                               := ProjectStage.ProductionReady,
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(),
-    docsPublishBranch                          := "main"
+    docsPublishBranch                          := "main",
+    docsVersioning                             := HashVersioning
   )
   .enablePlugins(WebsitePlugin)
