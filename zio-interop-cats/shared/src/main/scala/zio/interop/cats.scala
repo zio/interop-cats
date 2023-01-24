@@ -419,15 +419,6 @@ private abstract class ZioConcurrent[R, E, E1]
       val rightFiber =
         ZIO.unsafe.makeChildFiber(trace, right, parentFiber, parentRuntimeFlags, FiberScope.global)(Unsafe.unsafe)
 
-      leftFiber.setFiberRef(
-        FiberRef.forkScopeOverride,
-        parentFiber.getFiberRef(FiberRef.forkScopeOverride)(Unsafe.unsafe)
-      )(Unsafe.unsafe)
-      rightFiber.setFiberRef(
-        FiberRef.forkScopeOverride,
-        parentFiber.getFiberRef(FiberRef.forkScopeOverride)(Unsafe.unsafe)
-      )(Unsafe.unsafe)
-
       val startLeftFiber  = leftFiber.startSuspended()(Unsafe.unsafe)
       val startRightFiber = rightFiber.startSuspended()(Unsafe.unsafe)
 
@@ -449,11 +440,6 @@ private abstract class ZioConcurrent[R, E, E1]
             ()
           },
           leftFiber.id <> rightFiber.id
-        )
-        .onInterrupt(
-          leftFiber.interruptAsFork(parentFiber.id) *> rightFiber.interruptAsFork(
-            parentFiber.id
-          ) *> leftFiber.await *> rightFiber.await
         )
     }
 }
