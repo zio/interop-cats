@@ -371,6 +371,10 @@ private abstract class ZioConcurrent[R, E, E1]
   override def unique: F[Unique.Token] =
     ZIO.succeed(new Unique.Token)(CoreTracer.newTrace)
 
+  /**
+   * An implementation of `raceWith` that forks the left and right fibers in
+   * the global scope instead of the scope of the parent fiber.
+   */
   private final def raceWith[R, E, E2, E3, A, B, C](left: ZIO[R, E, A], right: => ZIO[R, E2, B])(
     leftDone: (Exit[E, A], Fiber[E2, B]) => ZIO[R, E3, C],
     rightDone: (Exit[E2, B], Fiber[E, A]) => ZIO[R, E3, C]
@@ -392,6 +396,10 @@ private abstract class ZioConcurrent[R, E, E1]
         }
     )
 
+  /**
+   * An implementation of `raceFibersWith` that forks the left and right fibers
+   * in the global scope instead of the scope of the parent fiber.
+   */
   private final def raceFibersWith[R, E, E2, E3, A, B, C](left: ZIO[R, E, A], right: ZIO[R, E2, B])(
     leftWins: (Fiber.Runtime[E, A], Fiber.Runtime[E2, B]) => ZIO[R, E3, C],
     rightWins: (Fiber.Runtime[E2, B], Fiber.Runtime[E, A]) => ZIO[R, E3, C]
