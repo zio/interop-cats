@@ -27,6 +27,7 @@ import zio.{ Fiber, Ref as ZRef, ZEnvironment }
 import zio.*
 import zio.Clock.{ currentTime, nanoTime }
 import zio.Duration
+import zio.internal.FiberScope
 import zio.internal.stacktracer.{ InteropTracer, Tracer as CoreTracer }
 
 import java.util.concurrent.atomic.AtomicBoolean
@@ -300,8 +301,10 @@ private abstract class ZioConcurrent[R, E, E1]
     for {
       interruptedA <- zio.Ref.make(true)
       interruptedB <- zio.Ref.make(true)
-      res          <- (signalOnNoExternalInterrupt(fa.interruptible)(interruptedA.set(false)) raceWith
-                        signalOnNoExternalInterrupt(fb.interruptible)(interruptedB.set(false)))(
+      res          <- raceWith(
+                        signalOnNoExternalInterrupt(fa.interruptible)(interruptedA.set(false)),
+                        signalOnNoExternalInterrupt(fb.interruptible)(interruptedB.set(false))
+                      )(
                         (exit, fiber) =>
                           toOutcomeOtherFiber(interruptedA)(exit).map(outcome => Left((outcome, toFiber(interruptedB)(fiber)))),
                         (exit, fiber) =>
@@ -367,6 +370,86 @@ private abstract class ZioConcurrent[R, E, E1]
 
   override def unique: F[Unique.Token] =
     ZIO.succeed(new Unique.Token)(CoreTracer.newTrace)
+
+  /**
+   * An implementation of `raceWith` that forks the left and right fibers in
+   * the global scope instead of the scope of the parent fiber.
+   */
+  private final def raceWith[R, E, E2, E3, A, B, C](left: ZIO[R, E, A], right: => ZIO[R, E2, B])(
+    leftDone: (Exit[E, A], Fiber[E2, B]) => ZIO[R, E3, C],
+    rightDone: (Exit[E2, B], Fiber[E, A]) => ZIO[R, E3, C]
+  )(implicit trace: Trace): ZIO[R, E3, C] =
+    raceFibersWith(left, right)(
+      (winner, loser) =>
+        winner.await.flatMap {
+          case exit: Exit.Success[A] =>
+            winner.inheritAll.flatMap(_ => leftDone(exit, loser))
+          case exit: Exit.Failure[E] =>
+            leftDone(exit, loser)
+        },
+      (winner, loser) =>
+        winner.await.flatMap {
+          case exit: Exit.Success[B]  =>
+            winner.inheritAll.flatMap(_ => rightDone(exit, loser))
+          case exit: Exit.Failure[E2] =>
+            rightDone(exit, loser)
+        }
+    )
+
+  /**
+   * An implementation of `raceFibersWith` that forks the left and right fibers
+   * in the global scope instead of the scope of the parent fiber.
+   */
+  private final def raceFibersWith[R, E, E2, E3, A, B, C](left: ZIO[R, E, A], right: ZIO[R, E2, B])(
+    leftWins: (Fiber.Runtime[E, A], Fiber.Runtime[E2, B]) => ZIO[R, E3, C],
+    rightWins: (Fiber.Runtime[E2, B], Fiber.Runtime[E, A]) => ZIO[R, E3, C]
+  )(implicit trace: Trace): ZIO[R, E3, C] =
+    ZIO.withFiberRuntime[R, E3, C] { (parentFiber, parentStatus) =>
+      import java.util.concurrent.atomic.AtomicBoolean
+
+      val parentRuntimeFlags = parentStatus.runtimeFlags
+
+      @inline def complete[E, E2, A, B](
+        winner: Fiber.Runtime[E, A],
+        loser: Fiber.Runtime[E2, B],
+        cont: (Fiber.Runtime[E, A], Fiber.Runtime[E2, B]) => ZIO[R, E3, C],
+        ab: AtomicBoolean,
+        cb: ZIO[R, E3, C] => Any
+      ): Any =
+        if (ab.compareAndSet(true, false)) {
+          cb(cont(winner, loser))
+        }
+
+      val raceIndicator = new AtomicBoolean(true)
+
+      val leftFiber  =
+        ZIO.unsafe.makeChildFiber(trace, left, parentFiber, parentRuntimeFlags, FiberScope.global)(Unsafe.unsafe)
+      val rightFiber =
+        ZIO.unsafe.makeChildFiber(trace, right, parentFiber, parentRuntimeFlags, FiberScope.global)(Unsafe.unsafe)
+
+      val startLeftFiber  = leftFiber.startSuspended()(Unsafe.unsafe)
+      val startRightFiber = rightFiber.startSuspended()(Unsafe.unsafe)
+
+      ZIO
+        .async[R, E3, C](
+          { cb =>
+            leftFiber.addObserver { _ =>
+              complete(leftFiber, rightFiber, leftWins, raceIndicator, cb)
+              ()
+            }(Unsafe.unsafe)
+
+            rightFiber.addObserver { _ =>
+              complete(rightFiber, leftFiber, rightWins, raceIndicator, cb)
+              ()
+            }(Unsafe.unsafe)
+
+            startLeftFiber(left)
+            startRightFiber(right)
+            ()
+          },
+          leftFiber.id <> rightFiber.id
+        )
+    }
 }
 
 private final class ZioDeferred[R, E, A](promise: Promise[E, A]) extends Deferred[ZIO[R, E, _], A] {
