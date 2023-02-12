@@ -122,13 +122,13 @@ package object interop {
     convertDie: Cause[Nothing] => E1
   ): UIO[Outcome[ZIO[R, E, _], E1, A]] = exit match {
     case Exit.Success(value) =>
-      ZIO.succeedNow(Outcome.Succeeded(ZIO.succeedNow(value)))
+      ZIO.succeed(Outcome.Succeeded(ZIO.succeed(value)))
     case Exit.Failure(cause) =>
       lazy val nonCanceledOutcome: UIO[Outcome[ZIO[R, E, _], E1, A]] = cause.failureOrCause match {
         case Left(error)  =>
-          ZIO.succeedNow(Outcome.Errored(convertFail(error, cause)))
+          ZIO.succeed(Outcome.Errored(convertFail(error, cause)))
         case Right(cause) =>
-          ZIO.succeedNow(Outcome.Errored(convertDie(cause)))
+          ZIO.succeed(Outcome.Errored(convertDie(cause)))
       }
       // ZIO 2, unlike ZIO 1, _does not_ guarantee that the presence of a typed failure
       // means we're NOT interrupting, so we have to check for interruption to matter what
@@ -143,7 +143,7 @@ package object interop {
       ) {
         ZIO.descriptorWith { descriptor =>
           if (descriptor.interrupters.nonEmpty)
-            ZIO.succeedNow(Outcome.Canceled())
+            ZIO.succeed(Outcome.Canceled())
           else {
             nonCanceledOutcome
           }
@@ -156,15 +156,15 @@ package object interop {
   private[interop] def toExitCaseThisFiber(exit: Exit[Any, Any])(implicit trace: Trace): UIO[Resource.ExitCase] =
     exit match {
       case Exit.Success(_)     =>
-        ZIO.succeedNow(Resource.ExitCase.Succeeded)
+        ZIO.succeed(Resource.ExitCase.Succeeded)
       case Exit.Failure(cause) =>
         lazy val nonCanceledOutcome: UIO[Resource.ExitCase] = cause.failureOrCause match {
           case Left(error: Throwable) =>
-            ZIO.succeedNow(Resource.ExitCase.Errored(error))
+            ZIO.succeed(Resource.ExitCase.Errored(error))
           case Left(_)                =>
-            ZIO.succeedNow(Resource.ExitCase.Errored(FiberFailure(cause)))
+            ZIO.succeed(Resource.ExitCase.Errored(FiberFailure(cause)))
           case Right(cause)           =>
-            ZIO.succeedNow(Resource.ExitCase.Errored(dieCauseToThrowable(cause)))
+            ZIO.succeed(Resource.ExitCase.Errored(dieCauseToThrowable(cause)))
         }
         // ZIO 2, unlike ZIO 1, _does not_ guarantee that the presence of a typed failure
         // means we're NOT interrupting, so we have to check for interruption to matter what
@@ -179,7 +179,7 @@ package object interop {
         ) {
           ZIO.descriptorWith { descriptor =>
             if (descriptor.interrupters.nonEmpty) {
-              ZIO.succeedNow(Resource.ExitCase.Canceled)
+              ZIO.succeed(Resource.ExitCase.Canceled)
             } else
               nonCanceledOutcome
           }

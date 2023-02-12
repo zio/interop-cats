@@ -84,7 +84,7 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
           eval.fa
 
         case pure: Resource.Pure[F, B] =>
-          ZIO.succeedNow(pure.a)
+          ZIO.succeed(pure.a)
       }
 
     go(resource)
@@ -115,7 +115,7 @@ final class ScopedSyntax(private val self: Resource.type) extends AnyVal {
         Resource.suspend(
           scope.extend[R] {
             zio.map { case a =>
-              Resource.applyCase[F, A](ZIO.succeedNow((a, _ => ZIO.unit)))
+              Resource.applyCase[F, A](ZIO.succeed((a, _ => ZIO.unit)))
             }
           }
         )
@@ -186,7 +186,7 @@ private class ZManagedMonadError[R, E] extends MonadError[ZManaged[R, E, _], E] 
   type F[A] = ZManaged[R, E, A]
 
   override final def pure[A](a: A): F[A] =
-    ZManaged.succeedNow(a)
+    ZManaged.succeed(a)
 
   override final def map[A, B](fa: F[A])(f: A => B): F[B] =
     fa.map(f)(InteropTracer.newTrace(f))
@@ -235,7 +235,7 @@ private class ZManagedMonadError[R, E] extends MonadError[ZManaged[R, E, _], E] 
 
     ZManaged.suspend(f(a)).flatMap {
       case Left(a)  => tailRecM(a)(f)
-      case Right(b) => ZManaged.succeedNow(b)
+      case Right(b) => ZManaged.succeed(b)
     }
   }
 }
@@ -252,7 +252,7 @@ private class ZManagedMonoid[R, E, A](implicit monoid: Monoid[A])
     with Monoid[ZManaged[R, E, A]] {
 
   override final val empty: T =
-    ZManaged.succeedNow(monoid.empty)
+    ZManaged.succeed(monoid.empty)
 }
 
 private class ZManagedSemigroupK[R, E] extends SemigroupK[ZManaged[R, E, _]] {
@@ -292,7 +292,7 @@ private class ZManagedParMonoid[R, E, A](implicit monoid: CommutativeMonoid[A])
     with CommutativeMonoid[ParallelF[ZManaged[R, E, _], A]] {
 
   override final val empty: T =
-    ParallelF[ZManaged[R, E, _], A](ZManaged.succeedNow(monoid.empty))
+    ParallelF[ZManaged[R, E, _], A](ZManaged.succeed(monoid.empty))
 }
 
 private class ZManagedBifunctor[R] extends Bifunctor[ZManaged[R, _, _]] {
@@ -325,7 +325,7 @@ private class ZManagedParApplicative[R, E] extends CommutativeApplicative[Parall
   type F[A] = ParallelF[G, A]
 
   final override def pure[A](x: A): F[A] =
-    ParallelF[G, A](ZManaged.succeedNow(x))
+    ParallelF[G, A](ZManaged.succeed(x))
 
   final override def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z] = {
     implicit val tracer: Trace = InteropTracer.newTrace(f)
