@@ -48,7 +48,7 @@ jobs:
         if: ${{ !startsWith(matrix.scala, '3.') }}
         run: sbt ++${{ matrix.scala }}! test${{ matrix.platform }}
       - name: Run dotty tests
-        if: ${{ startsWith(matrix.scala, '3.') }}
+        if: ${{ startsWith(matrix.scala, '3.') && matrix.platform == 'JVM' }}
         run: sbt ++${{ matrix.scala }} test${{ matrix.platform }}
 
   publish:
