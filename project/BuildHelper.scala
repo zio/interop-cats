@@ -11,7 +11,7 @@ object BuildHelper {
 
   val Scala212 = "2.12.14"
   val Scala213 = "2.13.6"
-  val Scala3   = "3.3.0-RC3"
+  val Scala3   = "3.2.2"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -80,9 +80,9 @@ object BuildHelper {
     }
 
   def stdSettings(prjName: String) = Seq(
-    name := s"$prjName",
+    name                     := s"$prjName",
     scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value),
-    crossScalaVersions := Seq(Scala213, Scala212, Scala3),
+    crossScalaVersions       := Seq(Scala213, Scala212, Scala3),
     ThisBuild / scalaVersion := crossScalaVersions.value.head,
     libraryDependencies ++= testDeps ++ {
       if (scalaVersion.value.startsWith("3"))
