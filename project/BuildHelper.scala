@@ -1,7 +1,6 @@
 import sbt._
 import Keys._
 
-import dotty.tools.sbtplugin.DottyPlugin.autoImport._
 import explicitdeps.ExplicitDepsPlugin.autoImport._
 import sbtcrossproject.CrossPlugin.autoImport.CrossType
 import sbtbuildinfo._
@@ -36,7 +35,8 @@ object BuildHelper {
 
   private val std3xOptions = Seq(
     "-Xfatal-warnings",
-    "-Ykind-projector"
+    "-Ykind-projector",
+    "-noindent"
   )
 
   val buildInfoSettings = Seq(
@@ -81,12 +81,11 @@ object BuildHelper {
 
   def stdSettings(prjName: String) = Seq(
     name := s"$prjName",
-    scalacOptions := stdOptions,
-    crossScalaVersions := Seq(Scala213, Scala212),
+    scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value),
+    crossScalaVersions := Seq(Scala213, Scala212, Scala3),
     ThisBuild / scalaVersion := crossScalaVersions.value.head,
-    scalacOptions := stdOptions ++ extraOptions(scalaVersion.value),
     libraryDependencies ++= testDeps ++ {
-      if (isDotty.value)
+      if (scalaVersion.value.startsWith("3"))
         Seq.empty
       else
         Seq(
@@ -129,27 +128,4 @@ object BuildHelper {
     }
   )
 
-  val dottySettings = Seq(
-    crossScalaVersions += Scala3,
-    scalacOptions ++= {
-      if (isDotty.value)
-        Seq("-noindent")
-      else
-        Seq()
-    },
-    scalacOptions --= {
-      if (isDotty.value)
-        Seq("-Xfatal-warnings")
-      else
-        Seq()
-    },
-    Test / parallelExecution := {
-      val old = (Test / parallelExecution).value
-      if (isDotty.value) {
-        false
-      } else {
-        old
-      }
-    }
-  )
 }

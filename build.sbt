@@ -64,13 +64,12 @@ lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
     )
   )
 
-lazy val zioInteropCatsJVM = zioInteropCats.jvm.settings(dottySettings)
+lazy val zioInteropCatsJVM = zioInteropCats.jvm
 
 lazy val zioInteropCatsJS = zioInteropCats.js
   .settings(
     libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.3.0" % Test
   )
-  .settings(dottySettings)
 
 lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-interop-cats-tests"))
@@ -90,13 +89,12 @@ lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
 
-lazy val zioInteropCatsTestsJVM = zioInteropCatsTests.jvm.settings(dottySettings)
+lazy val zioInteropCatsTestsJVM = zioInteropCatsTests.jvm
 
 lazy val zioInteropCatsTestsJS = zioInteropCatsTests.js
   .settings(
     libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.3.0" % Test
   )
-  .settings(dottySettings)
 
 lazy val zioTestInteropCats = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-test-interop-cats"))
@@ -107,7 +105,7 @@ lazy val zioTestInteropCats = crossProject(JSPlatform, JVMPlatform)
   .settings(libraryDependencies += "dev.zio" %%% "zio-test" % zioVersion)
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
 
-lazy val zioTestInteropCatsJVM = zioTestInteropCats.jvm.settings(dottySettings)
+lazy val zioTestInteropCatsJVM = zioTestInteropCats.jvm
 
 lazy val zioTestInteropCatsJS = zioTestInteropCats.js
 
@@ -124,10 +122,9 @@ lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
 
-lazy val coreOnlyTestJVM = coreOnlyTest.jvm.settings(dottySettings)
+lazy val coreOnlyTestJVM = coreOnlyTest.jvm
 
 lazy val coreOnlyTestJS = coreOnlyTest.js
   .settings(
     libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.3.0" % Test
   )
-  .settings(dottySettings)
