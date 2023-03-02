@@ -482,7 +482,7 @@ private final class ZioRef[R, E, A](ref: ZRef[A]) extends effect.Ref[ZIO[R, E, _
       def setter(a: A): F[Boolean] =
         ZIO.suspendSucceed {
           if (called.getAndSet(true)) {
-            ZIO.succeedNow(false)
+            ZIO.succeed(false)
           } else {
             ref.modify { updated =>
               if (current == updated) (true, a)
@@ -665,7 +665,7 @@ private abstract class ZioMonadError[R, E, E1] extends MonadError[ZIO[R, E, _], 
   type F[A] = ZIO[R, E, A]
 
   override final def pure[A](a: A): F[A] =
-    ZIO.succeedNow(a)
+    ZIO.succeed(a)
 
   override final def map[A, B](fa: F[A])(f: A => B): F[B] = {
     implicit def trace: Trace = InteropTracer.newTrace(f)
@@ -710,7 +710,7 @@ private abstract class ZioMonadError[R, E, E1] extends MonadError[ZIO[R, E, _], 
   override final def tailRecM[A, B](a: A)(f: A => F[Either[A, B]]): F[B] = {
     def loop(a: A): F[B] = f(a).flatMap {
       case Left(a)  => loop(a)
-      case Right(b) => ZIO.succeedNow(b)
+      case Right(b) => ZIO.succeed(b)
     }
 
     ZIO.suspendSucceed(loop(a))
@@ -783,7 +783,7 @@ private trait ZioMonadErrorExitThrowable[R]
   protected final def toOutcomeOtherFiber[A](interruptedHandle: zio.Ref[Boolean])(
     exit: Exit[Throwable, A]
   ): UIO[Outcome[F, Throwable, A]] =
-    interruptedHandle.get.map(toOutcomeThrowableOtherFiber(_)(ZIO.succeedNow, exit))
+    interruptedHandle.get.map(toOutcomeThrowableOtherFiber(_)(ZIO.succeed(_), exit))
 }
 
 private trait ZioMonadErrorExitCause[R, E] extends ZioMonadErrorExit[R, E, Cause[E]] with ZioMonadErrorCause[R, E] {
@@ -794,7 +794,7 @@ private trait ZioMonadErrorExitCause[R, E] extends ZioMonadErrorExit[R, E, Cause
   protected final def toOutcomeOtherFiber[A](interruptedHandle: zio.Ref[Boolean])(
     exit: Exit[E, A]
   ): UIO[Outcome[F, Cause[E], A]] =
-    interruptedHandle.get.map(toOutcomeCauseOtherFiber(_)(ZIO.succeedNow, exit))
+    interruptedHandle.get.map(toOutcomeCauseOtherFiber(_)(ZIO.succeed(_), exit))
 }
 
 private class ZioSemigroupK[R, E] extends SemigroupK[ZIO[R, E, _]] {
@@ -851,7 +851,7 @@ private class ZioParApplicative[R, E] extends CommutativeApplicative[ParallelF[Z
   type F[A] = ParallelF[G, A]
 
   final override def pure[A](x: A): F[A] =
-    ParallelF[G, A](ZIO.succeedNow(x))
+    ParallelF[G, A](ZIO.succeed(x))
 
   final override def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z] = {
     implicit def trace: Trace = InteropTracer.newTrace(f)
@@ -890,7 +890,7 @@ private class ZioSemigroup[R, E, A](implicit semigroup: Semigroup[A]) extends Se
 
 private class ZioMonoid[R, E, A](implicit monoid: Monoid[A]) extends ZioSemigroup[R, E, A] with Monoid[ZIO[R, E, A]] {
   override final val empty: T =
-    ZIO.succeedNow(monoid.empty)
+    ZIO.succeed(monoid.empty)
 }
 
 private class ZioParSemigroup[R, E, A](implicit semigroup: CommutativeSemigroup[A])
@@ -910,7 +910,7 @@ private class ZioParMonoid[R, E, A](implicit monoid: CommutativeMonoid[A])
     with CommutativeMonoid[ParallelF[ZIO[R, E, _], A]] {
 
   override final val empty: T =
-    ParallelF[ZIO[R, E, _], A](ZIO.succeedNow(monoid.empty))
+    ParallelF[ZIO[R, E, _], A](ZIO.succeed(monoid.empty))
 }
 
 private class ZioLiftIO[R](implicit runtime: IORuntime) extends LiftIO[RIO[R, _]] {
