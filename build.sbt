@@ -22,7 +22,7 @@ inThisBuild(
     pgpSecretRing := file("/tmp/secret.asc"),
     scmInfo       := Some(
       ScmInfo(url("https://github.com/zio/interop-cats/"), "scm:git:git@github.com:zio/interop-cats.git")
-    ),
+    )
   )
 )
 
