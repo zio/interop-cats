@@ -1,7 +1,6 @@
 import sbt._
 import Keys._
 
-import dotty.tools.sbtplugin.DottyPlugin.autoImport._
 import explicitdeps.ExplicitDepsPlugin.autoImport._
 import sbtcrossproject.CrossPlugin.autoImport.CrossType
 import sbtbuildinfo._
@@ -12,7 +11,7 @@ object BuildHelper {
 
   val Scala212 = "2.12.13"
   val Scala213 = "2.13.6"
-  val Scala3   = "3.0.0"
+  val Scala3   = "3.2.2"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -36,7 +35,8 @@ object BuildHelper {
 
   private val std3xOptions = Seq(
     "-Xfatal-warnings",
-    "-Ykind-projector"
+    "-Ykind-projector",
+    "-noindent"
   )
 
   val buildInfoSettings = Seq(
@@ -54,7 +54,7 @@ object BuildHelper {
 
   def extraOptions(scalaVersion: String) =
     CrossVersion.partialVersion(scalaVersion) match {
-      case Some((3, 0)) =>
+      case Some((3, _)) =>
         std3xOptions
       case Some((2, 13)) =>
         Seq(
@@ -81,12 +81,11 @@ object BuildHelper {
 
   def stdSettings(prjName: String) = Seq(
     name := s"$prjName",
-    scalacOptions := stdOptions,
-    crossScalaVersions := Seq(Scala213, Scala212),
+    scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value),
+    crossScalaVersions := Seq(Scala213, Scala212, Scala3),
     ThisBuild / scalaVersion := crossScalaVersions.value.head,
-    scalacOptions := stdOptions ++ extraOptions(scalaVersion.value),
     libraryDependencies ++= testDeps ++ {
-      if (isDotty.value)
+      if (scalaVersion.value.startsWith("3"))
         Seq.empty
       else
         Seq(
@@ -109,7 +108,7 @@ object BuildHelper {
             CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-2.12+")) ++
             CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2")) ++
             CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-2.12+"))
-        case Some((3, 0)) =>
+        case Some((3, _)) =>
           CrossType.Full.sharedSrcDir(baseDirectory.value, "main").toList.map(f => file(f.getPath + "-3")) ++
             CrossType.Full.sharedSrcDir(baseDirectory.value, "test").toList.map(f => file(f.getPath + "-3"))
         case _ => Nil
@@ -129,27 +128,4 @@ object BuildHelper {
     }
   )
 
-  val dottySettings = Seq(
-    crossScalaVersions += Scala3,
-    scalacOptions ++= {
-      if (isDotty.value)
-        Seq("-noindent")
-      else
-        Seq()
-    },
-    scalacOptions --= {
-      if (isDotty.value)
-        Seq("-Xfatal-warnings")
-      else
-        Seq()
-    },
-    Test / parallelExecution := {
-      val old = (Test / parallelExecution).value
-      if (isDotty.value) {
-        false
-      } else {
-        old
-      }
-    }
-  )
 }
