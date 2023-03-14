@@ -11,7 +11,7 @@ object BuildHelper {
 
   val Scala212 = "2.12.14"
   val Scala213 = "2.13.6"
-  val Scala3   = "3.1.2"
+  val Scala3   = "3.2.2"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -36,7 +36,8 @@ object BuildHelper {
 
   private val std3xOptions = Seq(
     "-Xfatal-warnings",
-    "-Ykind-projector:underscores"
+    "-Ykind-projector:underscores",
+    "-noindent"
   )
 
   val buildInfoSettings = Seq(
@@ -81,11 +82,15 @@ object BuildHelper {
   def stdSettings(prjName: String) = Seq(
     name                     := s"$prjName",
     scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value),
-    crossScalaVersions       := Seq(Scala213, Scala212),
+    crossScalaVersions       := Seq(Scala213, Scala212, Scala3),
     ThisBuild / scalaVersion := crossScalaVersions.value.head,
     libraryDependencies ++= testDeps ++ {
-      if (isDotty(scalaVersion.value)) Seq.empty
-      else Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.2") cross CrossVersion.full)
+      if (scalaVersion.value.startsWith("3"))
+        Seq.empty
+      else
+        Seq(
+          compilerPlugin("org.typelevel" % "kind-projector" % "0.13.2") cross CrossVersion.full
+        )
     },
     Test / parallelExecution := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
@@ -123,35 +128,4 @@ object BuildHelper {
     }
   )
 
-  def isDotty(scalaVersion: String): Boolean =
-    CrossVersion.partialVersion(scalaVersion).forall { case (major, _) =>
-      major >= 3
-    }
-
-  val dottySettings = Seq(
-    crossScalaVersions += Scala3,
-    scalacOptions ++= {
-      if (isDotty(scalaVersion.value)) Seq("-noindent")
-      else Seq()
-    },
-    scalacOptions --= {
-      if (isDotty(scalaVersion.value)) Seq("-Xfatal-warnings")
-      else Seq()
-    },
-    Compile / doc / sources  := {
-      val old = (Compile / doc / sources).value
-      if (isDotty(scalaVersion.value)) Nil
-      else {
-        old
-      }
-    },
-    Test / parallelExecution := {
-      val old = (Test / parallelExecution).value
-      if (isDotty(scalaVersion.value)) {
-        false
-      } else {
-        old
-      }
-    }
-  )
 }
