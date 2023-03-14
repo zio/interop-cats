@@ -23,24 +23,6 @@ inThisBuild(
     scmInfo       := Some(
       ScmInfo(url("https://github.com/zio/interop-cats/"), "scm:git:git@github.com:zio/interop-cats.git")
     ),
-    // FIXME
-    //   Adding silencer dependency as a workaround for DottyDoc error on Scala 3.2.2, error was:
-    //     [error] -- Error: core/shared/src/main/scala/zio/stm/ZTRef.scala:529:4 -----------------
-    //     [error] undefined: new com.github.ghik.silencer.silent # -1: TermRef(TypeRef(TermRef(ThisType(TypeRef(NoPrefix,module class ghik)),object silencer),silent),<init>) at readTasty
-    //   Arising from linking to [[zio.stm.ZTRef.UnifiedSyntax#modify]] method which has a silencer
-    //   annotation on it.
-    libraryDependencies ++= {
-      if (scalaVersion.value.startsWith("3"))
-        Seq(
-          "com.github.ghik" % s"silencer-lib_$Scala213" % SilencerVersion % Provided
-        )
-      else
-        Seq(
-          "com.github.ghik" % "silencer-lib"            % SilencerVersion % Provided cross CrossVersion.full,
-          compilerPlugin("com.github.ghik" % "silencer-plugin" % SilencerVersion cross CrossVersion.full)
-        )
-    }
-    //
   )
 )
 
