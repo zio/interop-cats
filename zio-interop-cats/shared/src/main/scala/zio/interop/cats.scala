@@ -27,6 +27,7 @@ import zio.{ Fiber, Ref as ZRef, ZEnvironment }
 import zio.*
 import zio.Clock.{ currentTime, nanoTime }
 import zio.Duration
+import zio.internal.FiberScope
 import zio.internal.stacktracer.{ InteropTracer, Tracer as CoreTracer }
 
 import java.util.concurrent.atomic.AtomicBoolean
@@ -300,8 +301,10 @@ private abstract class ZioConcurrent[R, E, E1]
     for {
       interruptedA <- zio.Ref.make(true)
       interruptedB <- zio.Ref.make(true)
-      res          <- (signalOnNoExternalInterrupt(fa.interruptible)(interruptedA.set(false)) raceWith
-                        signalOnNoExternalInterrupt(fb.interruptible)(interruptedB.set(false)))(
+      res          <- raceWith(
+                        signalOnNoExternalInterrupt(fa.interruptible)(interruptedA.set(false)),
+                        signalOnNoExternalInterrupt(fb.interruptible)(interruptedB.set(false))
+                      )(
                         (exit, fiber) =>
                           toOutcomeOtherFiber(interruptedA)(exit).map(outcome => Left((outcome, toFiber(interruptedB)(fiber)))),
                         (exit, fiber) =>
@@ -367,6 +370,86 @@ private abstract class ZioConcurrent[R, E, E1]
 
   override def unique: F[Unique.Token] =
     ZIO.succeed(new Unique.Token)(CoreTracer.newTrace)
+
+  /**
+   * An implementation of `raceWith` that forks the left and right fibers in
+   * the global scope instead of the scope of the parent fiber.
+   */
+  private final def raceWith[R, E, E2, E3, A, B, C](left: ZIO[R, E, A], right: => ZIO[R, E2, B])(
+    leftDone: (Exit[E, A], Fiber[E2, B]) => ZIO[R, E3, C],
+    rightDone: (Exit[E2, B], Fiber[E, A]) => ZIO[R, E3, C]
+  )(implicit trace: Trace): ZIO[R, E3, C] =
+    raceFibersWith(left, right)(
+      (winner, loser) =>
+        winner.await.flatMap {
+          case exit: Exit.Success[A] =>
+            winner.inheritAll.flatMap(_ => leftDone(exit, loser))
+          case exit: Exit.Failure[E] =>
+            leftDone(exit, loser)
+        },
+      (winner, loser) =>
+        winner.await.flatMap {
+          case exit: Exit.Success[B]  =>
+            winner.inheritAll.flatMap(_ => rightDone(exit, loser))
+          case exit: Exit.Failure[E2] =>
+            rightDone(exit, loser)
+        }
+    )
+
+  /**
+   * An implementation of `raceFibersWith` that forks the left and right fibers
+   * in the global scope instead of the scope of the parent fiber.
+   */
+  private final def raceFibersWith[R, E, E2, E3, A, B, C](left: ZIO[R, E, A], right: ZIO[R, E2, B])(
+    leftWins: (Fiber.Runtime[E, A], Fiber.Runtime[E2, B]) => ZIO[R, E3, C],
+    rightWins: (Fiber.Runtime[E2, B], Fiber.Runtime[E, A]) => ZIO[R, E3, C]
+  )(implicit trace: Trace): ZIO[R, E3, C] =
+    ZIO.withFiberRuntime[R, E3, C] { (parentFiber, parentStatus) =>
+      import java.util.concurrent.atomic.AtomicBoolean
+
+      val parentRuntimeFlags = parentStatus.runtimeFlags
+
+      @inline def complete[E, E2, A, B](
+        winner: Fiber.Runtime[E, A],
+        loser: Fiber.Runtime[E2, B],
+        cont: (Fiber.Runtime[E, A], Fiber.Runtime[E2, B]) => ZIO[R, E3, C],
+        ab: AtomicBoolean,
+        cb: ZIO[R, E3, C] => Any
+      ): Any =
+        if (ab.compareAndSet(true, false)) {
+          cb(cont(winner, loser))
+        }
+
+      val raceIndicator = new AtomicBoolean(true)
+
+      val leftFiber  =
+        ZIO.unsafe.makeChildFiber(trace, left, parentFiber, parentRuntimeFlags, FiberScope.global)(Unsafe.unsafe)
+      val rightFiber =
+        ZIO.unsafe.makeChildFiber(trace, right, parentFiber, parentRuntimeFlags, FiberScope.global)(Unsafe.unsafe)
+
+      val startLeftFiber  = leftFiber.startSuspended()(Unsafe.unsafe)
+      val startRightFiber = rightFiber.startSuspended()(Unsafe.unsafe)
+
+      ZIO
+        .async[R, E3, C](
+          { cb =>
+            leftFiber.addObserver { _ =>
+              complete(leftFiber, rightFiber, leftWins, raceIndicator, cb)
+              ()
+            }(Unsafe.unsafe)
+
+            rightFiber.addObserver { _ =>
+              complete(rightFiber, leftFiber, rightWins, raceIndicator, cb)
+              ()
+            }(Unsafe.unsafe)
+
+            startLeftFiber(left)
+            startRightFiber(right)
+            ()
+          },
+          leftFiber.id <> rightFiber.id
+        )
+    }
 }
 
 private final class ZioDeferred[R, E, A](promise: Promise[E, A]) extends Deferred[ZIO[R, E, _], A] {
@@ -399,7 +482,7 @@ private final class ZioRef[R, E, A](ref: ZRef[A]) extends effect.Ref[ZIO[R, E, _
       def setter(a: A): F[Boolean] =
         ZIO.suspendSucceed {
           if (called.getAndSet(true)) {
-            ZIO.succeedNow(false)
+            ZIO.succeed(false)
           } else {
             ref.modify { updated =>
               if (current == updated) (true, a)
@@ -549,11 +632,11 @@ private class ZioRuntimeAsync(implicit runtime: Runtime[Any]) extends ZioAsync[A
     super.blocking(thunk).provideEnvironment(environment)
   }
 
-  override final def interruptible[A](many: Boolean)(thunk: => A): F[A] = {
+  override final def interruptible[A](thunk: => A): F[A] = {
     val byName: () => A       = () => thunk
     implicit def trace: Trace = InteropTracer.newTrace(byName)
 
-    super.interruptible(many)(thunk).provideEnvironment(environment)
+    super.interruptible(thunk).provideEnvironment(environment)
   }
 
   override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] = {
@@ -582,7 +665,7 @@ private abstract class ZioMonadError[R, E, E1] extends MonadError[ZIO[R, E, _], 
   type F[A] = ZIO[R, E, A]
 
   override final def pure[A](a: A): F[A] =
-    ZIO.succeedNow(a)
+    ZIO.succeed(a)
 
   override final def map[A, B](fa: F[A])(f: A => B): F[B] = {
     implicit def trace: Trace = InteropTracer.newTrace(f)
@@ -615,7 +698,8 @@ private abstract class ZioMonadError[R, E, E1] extends MonadError[ZIO[R, E, _], 
     fa.as(b)(CoreTracer.newTrace)
 
   override final def whenA[A](cond: Boolean)(f: => F[A]): F[Unit] = {
-    implicit def trace: Trace = InteropTracer.newTrace(f)
+    val byName: () => F[A]    = () => f
+    implicit def trace: Trace = InteropTracer.newTrace(byName)
 
     ZIO.when(cond)(f).unit
   }
@@ -626,7 +710,7 @@ private abstract class ZioMonadError[R, E, E1] extends MonadError[ZIO[R, E, _], 
   override final def tailRecM[A, B](a: A)(f: A => F[Either[A, B]]): F[B] = {
     def loop(a: A): F[B] = f(a).flatMap {
       case Left(a)  => loop(a)
-      case Right(b) => ZIO.succeedNow(b)
+      case Right(b) => ZIO.succeed(b)
     }
 
     ZIO.suspendSucceed(loop(a))
@@ -699,7 +783,7 @@ private trait ZioMonadErrorExitThrowable[R]
   protected final def toOutcomeOtherFiber[A](interruptedHandle: zio.Ref[Boolean])(
     exit: Exit[Throwable, A]
   ): UIO[Outcome[F, Throwable, A]] =
-    interruptedHandle.get.map(toOutcomeThrowableOtherFiber(_)(ZIO.succeedNow, exit))
+    interruptedHandle.get.map(toOutcomeThrowableOtherFiber(_)(ZIO.succeed(_), exit))
 }
 
 private trait ZioMonadErrorExitCause[R, E] extends ZioMonadErrorExit[R, E, Cause[E]] with ZioMonadErrorCause[R, E] {
@@ -710,7 +794,7 @@ private trait ZioMonadErrorExitCause[R, E] extends ZioMonadErrorExit[R, E, Cause
   protected final def toOutcomeOtherFiber[A](interruptedHandle: zio.Ref[Boolean])(
     exit: Exit[E, A]
   ): UIO[Outcome[F, Cause[E], A]] =
-    interruptedHandle.get.map(toOutcomeCauseOtherFiber(_)(ZIO.succeedNow, exit))
+    interruptedHandle.get.map(toOutcomeCauseOtherFiber(_)(ZIO.succeed(_), exit))
 }
 
 private class ZioSemigroupK[R, E] extends SemigroupK[ZIO[R, E, _]] {
@@ -767,7 +851,7 @@ private class ZioParApplicative[R, E] extends CommutativeApplicative[ParallelF[Z
   type F[A] = ParallelF[G, A]
 
   final override def pure[A](x: A): F[A] =
-    ParallelF[G, A](ZIO.succeedNow(x))
+    ParallelF[G, A](ZIO.succeed(x))
 
   final override def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z] = {
     implicit def trace: Trace = InteropTracer.newTrace(f)
@@ -806,7 +890,7 @@ private class ZioSemigroup[R, E, A](implicit semigroup: Semigroup[A]) extends Se
 
 private class ZioMonoid[R, E, A](implicit monoid: Monoid[A]) extends ZioSemigroup[R, E, A] with Monoid[ZIO[R, E, A]] {
   override final val empty: T =
-    ZIO.succeedNow(monoid.empty)
+    ZIO.succeed(monoid.empty)
 }
 
 private class ZioParSemigroup[R, E, A](implicit semigroup: CommutativeSemigroup[A])
@@ -826,7 +910,7 @@ private class ZioParMonoid[R, E, A](implicit monoid: CommutativeMonoid[A])
     with CommutativeMonoid[ParallelF[ZIO[R, E, _], A]] {
 
   override final val empty: T =
-    ParallelF[ZIO[R, E, _], A](ZIO.succeedNow(monoid.empty))
+    ParallelF[ZIO[R, E, _], A](ZIO.succeed(monoid.empty))
 }
 
 private class ZioLiftIO[R](implicit runtime: IORuntime) extends LiftIO[RIO[R, _]] {

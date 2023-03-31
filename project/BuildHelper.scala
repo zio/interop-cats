@@ -7,11 +7,11 @@ import sbtbuildinfo._
 import BuildInfoKeys._
 
 object BuildHelper {
-  val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.15.4" % Test)
+  val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.17.0" % Test)
 
-  val Scala212 = "2.12.14"
-  val Scala213 = "2.13.6"
-  val Scala3   = "3.1.0"
+  val Scala212 = "2.12.17"
+  val Scala213 = "2.13.10"
+  val Scala3   = "3.2.1"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -55,7 +55,7 @@ object BuildHelper {
 
   def extraOptions(scalaVersion: String, optimize: Boolean) =
     CrossVersion.partialVersion(scalaVersion) match {
-      case Some((3, 1))  =>
+      case Some((3, 2))  =>
         std3xOptions
       case Some((2, 13)) =>
         Seq(

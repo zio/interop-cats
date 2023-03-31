@@ -1,6 +1,7 @@
 import BuildHelper._
 import explicitdeps.ExplicitDepsPlugin.autoImport.moduleFilterRemoveValue
 import sbtcrossproject.CrossPlugin.autoImport.crossProject
+import zio.sbt.WebsiteUtils.DocsVersioning.HashVersioning
 
 name := "interop-cats"
 
@@ -40,20 +41,21 @@ lazy val root = project
     zioInteropCatsTestsJVM,
     zioInteropCatsTestsJS,
     zioTestInteropCatsJVM,
-    zioTestInteropCatsJS
+    zioTestInteropCatsJS,
+    docs
   )
   .settings(
     publish / skip := true,
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
-val zioVersion                 = "2.0.5"
-val catsVersion                = "2.8.0"
-val catsEffectVersion          = "3.2.9"
-val catsMtlVersion             = "1.2.1"
+val zioVersion                 = "2.0.10"
+val catsVersion                = "2.9.0"
+val catsEffectVersion          = "3.4.4"
+val catsMtlVersion             = "1.3.0"
 val disciplineScalaTestVersion = "2.2.0"
-val fs2Version                 = "3.0.6"
-val scalaJavaTimeVersion       = "2.3.0"
+val fs2Version                 = "3.4.0"
+val scalaJavaTimeVersion       = "2.5.0"
 
 lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-interop-cats"))
@@ -172,3 +174,15 @@ lazy val coreOnlyTestJVM = coreOnlyTest.jvm.settings(dottySettings)
 lazy val coreOnlyTestJS = coreOnlyTest.js
   .settings(dottySettings)
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
+
+lazy val docs = project
+  .in(file("zio-interop-cats-docs"))
+  .settings(
+    projectName                                := "ZIO Interop Cats",
+    mainModuleName                             := (zioInteropCatsJVM / moduleName).value,
+    projectStage                               := ProjectStage.ProductionReady,
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(),
+    docsPublishBranch                          := "main",
+    docsVersioning                             := HashVersioning
+  )
+  .enablePlugins(WebsitePlugin)
