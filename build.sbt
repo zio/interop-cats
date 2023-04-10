@@ -49,12 +49,12 @@ lazy val root = project
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
-val zioVersion                 = "2.0.10"
+val zioVersion                 = "2.0.11"
 val catsVersion                = "2.9.0"
-val catsEffectVersion          = "3.4.4"
+val catsEffectVersion          = "3.4.8"
 val catsMtlVersion             = "1.3.0"
 val disciplineScalaTestVersion = "2.2.0"
-val fs2Version                 = "3.4.0"
+val fs2Version                 = "3.6.1"
 val scalaJavaTimeVersion       = "2.5.0"
 
 lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
