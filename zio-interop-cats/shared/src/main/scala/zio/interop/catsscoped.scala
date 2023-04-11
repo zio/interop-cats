@@ -82,7 +82,7 @@ object CatsResourceObjectSyntax {
             Resource.suspend(
               closeable.extend[R] {
                 scoped.map { a =>
-                  Resource.applyCase(ZIO.succeedNow((a, (_: ExitCase[Throwable]) => ZIO.unit)))
+                  Resource.applyCase(ZIO.succeed((a, (_: ExitCase[Throwable]) => ZIO.unit)))
                 }
               }
             )
