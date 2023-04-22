@@ -239,12 +239,21 @@ private class CatsConcurrent[R] extends CatsMonadError[R, Throwable] with Concur
   ): RIO[R, Either[(A, effect.Fiber[RIO[R, *], B]), (effect.Fiber[RIO[R, *], A], B)]] = {
     implicit def trace: Trace = CoreTracer.newTrace
 
-    def run[C](fc: RIO[R, C]): ZIO[R, Throwable, C] =
-      fc.interruptible
+    def run[C](fc: RIO[R, C]): URIO[R, Exit[Throwable, C]] =
+      fc.exit.interruptible
 
     (run(fa) raceWith run(fb))(
-      { case (l, f) => l.foldExit(f.interrupt *> ZIO.failCause(_), ZIO.succeed(_)).map(lv => Left((lv, toFiber(f)))) },
-      { case (r, f) => r.foldExit(f.interrupt *> ZIO.failCause(_), ZIO.succeed(_)).map(rv => Right((toFiber(f), rv))) }
+      {
+        case (l, f) =>
+          l.flattenExit
+            .foldExit(f.interrupt *> ZIO.failCause(_), ZIO.succeed(_))
+            .map(lv => Left((lv, toFiber(f.mapZIO(ZIO.done(_))))))
+      }, {
+        case (r, f) =>
+          r.flattenExit
+            .foldExit(f.interrupt *> ZIO.failCause(_), ZIO.succeed(_))
+            .map(rv => Right((toFiber(f.mapZIO(ZIO.done(_))), rv)))
+      }
     )
   }
 
