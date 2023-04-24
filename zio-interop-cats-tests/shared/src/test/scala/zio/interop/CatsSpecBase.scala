@@ -264,4 +264,7 @@ private[interop] sealed trait CatsSpecBaseLowPriority { this: CatsSpecBase =>
 
   implicit def arbitraryZEnvironment[R: Arbitrary: Tag]: Arbitrary[ZEnvironment[R]] =
     Arbitrary(Arbitrary.arbitrary[R].map(ZEnvironment(_)))
+
+  implicit def eqForZEnvironment[R]: Eq[ZEnvironment[R]] =
+    Eq.fromUniversalEquals
 }
