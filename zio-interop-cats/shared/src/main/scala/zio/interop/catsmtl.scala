@@ -18,7 +18,7 @@ package zio.interop
 
 import cats.Applicative
 import cats.mtl.*
-import zio.{ CanFail, ZEnvironment, ZIO }
+import zio.{CanFail, FiberRef, ZEnvironment, ZIO}
 import zio.internal.stacktracer.InteropTracer
 
 abstract class CatsMtlPlatform extends CatsMtlInstances
@@ -46,5 +46,18 @@ abstract class CatsMtlInstances {
       override def handleWith[A](fa: ZIO[R, E, A])(f: E => ZIO[R, E, A]): ZIO[R, E, A] =
         fa.catchAll(f)(implicitly[CanFail[E]], InteropTracer.newTrace(f))
     }
+
+  implicit def fiberRefLocal[R, E](implicit fiberRef: FiberRef[R], ev: Applicative[ZIO[R, E, _]]): Local[ZIO[R, E, _], R] = new Local[ZIO[R, E, _], R] {
+    override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] = fiberRef.locallyWith(f)(fa)
+
+    override def applicative: Applicative[ZIO[R, E, *]] = ev
+
+    override def ask[E2 >: R]: ZIO[R, E, E2] = fiberRef.get
+  }
+
+  implicit def fiberRefAsk[R, E](implicit fiberRef: FiberRef[R], ev: Applicative[ZIO[R, E, _]]): Ask[ZIO[R, E, _], R] = new Ask[ZIO[R, E, _], R] {
+    override def applicative: Applicative[ZIO[R, E, *]] = ev
+    override def ask[E2 >: R]: ZIO[R, E, E2] = fiberRef.get
+  }
 
 }
