@@ -70,7 +70,8 @@ lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
         "dev.zio"       %%% "zio-stacktracer" % zioVersion,
         "org.typelevel" %%% "cats-effect-std" % catsEffectVersion,
         "org.typelevel" %%% "cats-mtl"        % catsMtlVersion,
-        "co.fs2"        %%% "fs2-core"        % fs2Version
+        "co.fs2"        %%% "fs2-core"        % fs2Version,
+        "co.fs2"        %%% "fs2-io"          % fs2Version
       )
       val optLibraries  = if (scalaVersion.value.startsWith("3")) optLibraries0 else optLibraries0.map(_ % Optional)
       ("dev.zio" %%% "zio" % zioVersion) :: optLibraries
