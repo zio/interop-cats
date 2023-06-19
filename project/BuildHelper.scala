@@ -45,6 +45,12 @@ object BuildHelper {
     buildInfoObject  := "BuildInfoInteropCats"
   )
 
+  val buildInfoSettingsInteropTracer = Seq(
+    buildInfoKeys    := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
+    buildInfoPackage := "zio.internal.stacktracer",
+    buildInfoObject  := "BuildInfoInteropTracer"
+  )
+
   def optimizerOptions(optimize: Boolean) =
     if (optimize) {
       Seq(
