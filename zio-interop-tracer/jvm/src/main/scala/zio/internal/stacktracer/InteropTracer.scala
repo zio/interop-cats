@@ -15,10 +15,7 @@
  */
 package zio.internal.stacktracer
 
-import zio.Trace
-
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 import scala.util.matching.Regex
 
 object InteropTracer {
@@ -27,9 +24,9 @@ object InteropTracer {
     val cachedTrace = cache.get(clazz)
     if (cachedTrace == null) {
       val computedTrace = AkkaLineNumbers(f) match {
-        case AkkaLineNumbers.NoSourceInfo => Trace.empty
+        case AkkaLineNumbers.NoSourceInfo => Tracer.instance.empty
 
-        case AkkaLineNumbers.UnknownSourceFormat(_) => Trace.empty
+        case AkkaLineNumbers.UnknownSourceFormat(_) => Tracer.instance.empty
 
         case AkkaLineNumbers.SourceFile(filename) =>
           createTrace("<unknown>", filename.intern(), 0, 0).asInstanceOf[Trace]
@@ -53,4 +50,6 @@ object InteropTracer {
     s"$location($file:$line:$column)".intern
 
   private final val lambdaNamePattern: Regex = """\$anonfun\$(.+?)\$\d""".r
+
+  private type Trace = Tracer.instance.Type with Tracer.Traced
 }

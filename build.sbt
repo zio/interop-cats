@@ -36,6 +36,8 @@ lazy val root = project
   .in(file("."))
   .enablePlugins(ScalaJSPlugin)
   .aggregate(
+    zioInteropTracerJVM,
+    zioInteropTracerJS,
     zioInteropCatsJVM,
     zioInteropCatsJS,
     zioInteropCatsTestsJVM,
@@ -57,17 +59,33 @@ val disciplineScalaTestVersion = "2.2.0"
 val fs2Version                 = "3.6.1"
 val scalaJavaTimeVersion       = "2.5.0"
 
+lazy val zioInteropTracer = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-interop-tracer"))
+  .enablePlugins(BuildInfoPlugin)
+  .settings(stdSettings("zio-interop-tracer"))
+  .settings(dottySettings)
+  .settings(buildInfoSettingsInteropTracer)
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio" %%% "zio-stacktracer" % zioVersion
+    )
+  )
+
+lazy val zioInteropTracerJVM = zioInteropTracer.jvm
+lazy val zioInteropTracerJS = zioInteropTracer.js
+
 lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-interop-cats"))
+  .dependsOn(zioInteropTracer)
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-interop-cats"))
   .settings(buildInfoSettings)
+  .settings(dottySettings)
   .settings(
     libraryDependencies ++= {
       val optLibraries0 = List(
         "dev.zio"       %%% "zio-managed"     % zioVersion,
         "dev.zio"       %%% "zio-streams"     % zioVersion,
-        "dev.zio"       %%% "zio-stacktracer" % zioVersion,
         "org.typelevel" %%% "cats-effect-std" % catsEffectVersion,
         "org.typelevel" %%% "cats-mtl"        % catsMtlVersion,
         "co.fs2"        %%% "fs2-core"        % fs2Version,
@@ -78,10 +96,9 @@ lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
     }
   )
 
-lazy val zioInteropCatsJVM = zioInteropCats.jvm.settings(dottySettings)
+lazy val zioInteropCatsJVM = zioInteropCats.jvm
 
 lazy val zioInteropCatsJS = zioInteropCats.js
-  .settings(dottySettings)
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
 lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
@@ -90,6 +107,7 @@ lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-interop-cats-tests"))
   .settings(buildInfoSettings)
+  .settings(dottySettings)
   .settings(
     libraryDependencies ++= {
       val optLibraries0 = List(
@@ -113,10 +131,9 @@ lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
 
-lazy val zioInteropCatsTestsJVM = zioInteropCatsTests.jvm.settings(dottySettings)
+lazy val zioInteropCatsTestsJVM = zioInteropCatsTests.jvm
 
 lazy val zioInteropCatsTestsJS = zioInteropCatsTests.js
-  .settings(dottySettings)
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
 lazy val zioTestInteropCats = crossProject(JSPlatform, JVMPlatform)
@@ -125,6 +142,7 @@ lazy val zioTestInteropCats = crossProject(JSPlatform, JVMPlatform)
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-test-interop-cats"))
   .settings(buildInfoSettings)
+  .settings(dottySettings)
   .settings(publish / skip := true)
   .settings(
     libraryDependencies ++= {
@@ -150,16 +168,16 @@ lazy val zioTestInteropCats = crossProject(JSPlatform, JVMPlatform)
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
 
-lazy val zioTestInteropCatsJVM = zioTestInteropCats.jvm.settings(dottySettings)
+lazy val zioTestInteropCatsJVM = zioTestInteropCats.jvm
 
 lazy val zioTestInteropCatsJS = zioTestInteropCats.js
-  .settings(dottySettings)
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
 lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   .in(file("core-only-test"))
   .dependsOn(zioInteropCats)
   .settings(stdSettings("core-only-test"))
+  .settings(dottySettings)
   .settings(publish / skip := true)
   .settings(
     libraryDependencies ++= Seq(
@@ -170,10 +188,9 @@ lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
 
-lazy val coreOnlyTestJVM = coreOnlyTest.jvm.settings(dottySettings)
+lazy val coreOnlyTestJVM = coreOnlyTest.jvm
 
 lazy val coreOnlyTestJS = coreOnlyTest.js
-  .settings(dottySettings)
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
 lazy val docs = project

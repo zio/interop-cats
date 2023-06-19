@@ -16,8 +16,7 @@
 
 package zio.internal.stacktracer
 
-import java.io.DataInputStream
-import java.io.InputStream
+import java.io.{DataInputStream, InputStream}
 import java.lang.invoke.SerializedLambda
 import scala.annotation.switch
 import scala.util.control.NonFatal
