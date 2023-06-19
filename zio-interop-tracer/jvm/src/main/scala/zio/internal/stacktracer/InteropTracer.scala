@@ -15,7 +15,7 @@
  */
 package zio.internal.stacktracer
 
-import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
+import java.util.concurrent.{ ConcurrentHashMap, ConcurrentMap }
 import scala.util.matching.Regex
 
 object InteropTracer {

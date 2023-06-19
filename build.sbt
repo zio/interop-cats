@@ -72,7 +72,7 @@ lazy val zioInteropTracer = crossProject(JSPlatform, JVMPlatform)
   )
 
 lazy val zioInteropTracerJVM = zioInteropTracer.jvm
-lazy val zioInteropTracerJS = zioInteropTracer.js
+lazy val zioInteropTracerJS  = zioInteropTracer.js
 
 lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-interop-cats"))
