@@ -25,52 +25,43 @@ Therefore, we provide Cats Effect instances based on this specific datatype.
 
 ## `Concurrent`
 
-In order to get a `Concurrent[Task]` or `Concurrent[RIO[R, *]]` (note `*` is kind-projector notation) we need an
-implicit `Runtime[R]` in scope. The easiest way to get it is using `ZIO.runtime`:
+In order to get a `Concurrent[Task]` or `Concurrent[RIO[R, *]]` (note `*` is kind-projector notation) we need to import `zio.interop.catz._`:
 
 ```scala
 import cats.effect._
 import zio._
 import zio.interop.catz._
 
-def ceConcurrentForTaskExample = 
-  ZIO.runtime.flatMap { implicit r: Runtime[Any] =>
-    // the presence of a runtime allows you to summon Cats Effect Typeclasses
-    val F: cats.effect.Concurrent[Task] = implicitly
-    F.racePair(F.unit, F.unit)
-  }
+def ceConcurrentForTaskExample = {
+  val F: cats.effect.Concurrent[Task] = implicitly
+  F.racePair(F.unit, F.unit)
+}
 ```
 
 ## `Temporal`
 
-`Temporal` requires a `Runtime` with `Clock`.
-
 ```scala
 import cats.effect._
 import zio._
 import zio.interop.catz._
 
-def ceTemporal =
-  ZIO.runtime.flatMap { implicit r: Runtime[Clock] =>
-    val F: cats.effect.Temporal[Task] = implicitly
-    F.sleep(1.second) *> F.unit
-  }
+def ceTemporal = {
+  val F: cats.effect.Temporal[Task] = implicitly
+  F.sleep(1.second) *> F.unit
+}
 ```
 
 ## `Async`
 
-Similar to the other examples, we require a `Runtime` with the `Clock` layer.
-
 ```scala
 import cats.effect._
 import zio._
 import zio.interop.catz._
 
-def ceAsync =
-  ZIO.runtime.flatMap { implicit r: Runtime[Clock] =>
-    val F: cats.effect.Async[Task] = implicitly
-    F.racePair(F.unit, F.sleep(1.second) *> F.unit)
-  }
+def ceAsync = {
+  val F: cats.effect.Async[Task] = implicitly
+  F.racePair(F.unit, F.sleep(1.second) *> F.unit)
+}
 ```
 
 ## Other typeclasses
@@ -82,34 +73,34 @@ There are many other typeclasses and useful conversions that this library provid
 
 ## Easier imports (at a cost)
 
-In the examples above, we had to bring the `Runtime[Clock]` via the `ZIO.runtime` combinator. This may
-not be ideal since everywhere you use these typeclasses, you will now be required to feed in the `Runtime`.
-For example, with FS2:
+To use ZIO data structures in cats-effect code we may need to bring the `Runtime[Any]` via the `ZIO.runtime` combinator. This may
+not be ideal since everywhere you use these data structures, you will now be required to feed in the `Runtime`.
+For example, with ZIO STM TRef:
 
 ```scala
-def example(implicit rts: Runtime[Clock]): Task[Unit] =
-  fs2.Stream
-    .awakeDelay[Task](10.seconds) // this type annotation is mandatory
-    .evalTap(in => cats.effect.std.Console.make[Task].println(s"Hello $in"))
-    .compile
-    .drain
+import cats.effect._
+import zio.Runtime
+import zio.interop.stm.TRef
+
+def example(implicit rts: Runtime[Any]): IO[TRef[IO, Int]] = {
+  zio.interop.stm.TRef.makeCommit(1)
+}
 ```
 
 Rather than requiring the runtime implicit, we can add an import (if we don't mind depending on `Runtime.default`):
 ```scala
-import zio.interop.catz._
+import cats.effect._
+import zio.Runtime
+import zio.interop.stm.TRef
+
 import zio.interop.catz.implicits._
 
-val example: Task[Unit] =
-  fs2.Stream
-    .awakeDelay[Task](10.seconds)
-    .evalTap(in => cats.effect.std.Console.make[Task].println(s"Hello $in"))
-    .compile
-    .drain
+def example: IO[TRef[IO, Int]] = {
+  zio.interop.stm.TRef.makeCommit(1)
+}
 ```
 
-The major downside to doing this is you rely on live implementations of `Clock` to summon instances which
-makes testing much more difficult for any Cats Effect code that you use.
+The major downside to doing this is you will rely on `Runtime.default` which might make testing more difficult in certain scenarios, e.g. with custom execution contexts.
 
 ### cats-core
 
