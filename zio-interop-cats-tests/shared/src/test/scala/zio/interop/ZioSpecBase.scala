@@ -52,12 +52,6 @@ private[interop] trait ZioSpecBase extends CatsSpecBase with ZioSpecBaseLowPrior
 
 private[interop] trait ZioSpecBaseLowPriority { self: ZioSpecBase =>
 
-  implicit def arbitraryClock(implicit ticker: Ticker): Arbitrary[Clock] =
-    Arbitrary(Gen.const(testClock))
-
-  implicit val cogenForClock: Cogen[Clock] =
-    Cogen(_.hashCode.toLong)
-
   implicit def arbitraryIO[E: CanFail: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[IO[E, A]] = {
     implicitly[CanFail[E]]
     import zio.interop.catz.generic.concurrentInstanceCause

@@ -97,16 +97,16 @@ private[zio] trait CatsSpecBase
   }
 
   implicit def runtime(implicit ticker: Ticker): Runtime[Any] = {
-    val executor         = Executor.fromExecutionContext(ticker.ctx)
-    val blockingExecutor = Executor.fromExecutionContext(ticker.ctx)
-    val fiberId          = Unsafe.unsafe(implicit u => FiberId.make(Trace.empty))
-    val fiberRefs        = FiberRefs(
+    val tickerExecutor = Executor.fromExecutionContext(ticker.ctx)
+    val fiberId        = Unsafe.unsafe(implicit u => FiberId.make(Trace.empty))
+    val fiberRefs      = FiberRefs(
       Map(
-        FiberRef.overrideExecutor        -> ::(fiberId -> Some(executor), Nil),
-        FiberRef.currentBlockingExecutor -> ::(fiberId -> blockingExecutor, Nil)
+        FiberRef.overrideExecutor        -> ::(fiberId -> Some(tickerExecutor), Nil),
+        FiberRef.currentBlockingExecutor -> ::(fiberId -> tickerExecutor, Nil),
+        DefaultServices.currentServices  -> ::(fiberId -> DefaultServices.live.add[Clock](testClock), Nil)
       )
     )
-    val runtimeFlags     = RuntimeFlags.default
+    val runtimeFlags   = RuntimeFlags.default
     Runtime(ZEnvironment.empty, fiberRefs, runtimeFlags)
   }
 
@@ -118,9 +118,6 @@ private[zio] trait CatsSpecBase
 
   implicit val cogenForAny: Cogen[Any] =
     Cogen(_.hashCode.toLong)
-
-  implicit val arbitraryEnvironment: Arbitrary[ZEnvironment[Any]] =
-    Arbitrary(Gen.const(environment))
 
   implicit val eqForNothing: Eq[Nothing] =
     Eq.allEqual
@@ -178,14 +175,6 @@ private[zio] trait CatsSpecBase
     (x, y) =>
       Arbitrary.arbitrary[ZEnvironment[R]].sample.fold(0)(r => x.provideEnvironment(r) compare y.provideEnvironment(r))
   }
-
-  implicit def eqForUManaged[A: Eq](implicit ticker: Ticker): Eq[UManaged[A]] =
-    zManagedEq[Any, Nothing, A]
-
-  implicit def eqForURManaged[R: Arbitrary: Tag, A: Eq](implicit
-    ticker: Ticker
-  ): Eq[URManaged[R, A]] =
-    zManagedEq[R, Nothing, A]
 
   implicit def cogenZIO[R: Arbitrary: Tag, E: Cogen, A: Cogen](implicit
     ticker: Ticker

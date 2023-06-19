@@ -4,11 +4,11 @@ import cats.effect.ParallelF
 import cats.effect.laws.*
 import cats.effect.unsafe.IORuntime
 import cats.laws.discipline.*
-import zio.{ durationInt => _, _ }
+import zio.{ durationInt as _, * }
 import zio.interop.catz.*
 import zio.managed.*
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class CatsSpec extends ZioSpecBase {
 
@@ -64,17 +64,17 @@ class CatsSpec extends ZioSpecBase {
   object summoningInstancesTest {
     import cats.*
     import cats.effect.*
-    import zio.Clock as ZClock
 
-    Async[RIO[ZClock, _]]
-    Sync[RIO[ZClock, _]]
+    Async[RIO[String, _]]
+    Sync[RIO[String, _]]
     locally {
       import zio.interop.catz.generic.*
 
-      GenTemporal[ZIO[ZClock, Int, _], Cause[Int]]
+      GenTemporal[ZIO[String, Int, _], Cause[Int]]
       GenConcurrent[ZIO[String, Int, _], Cause[Int]]
     }
-    Temporal[RIO[ZClock, _]]
+    Temporal[Task]
+    Temporal[RIO[String, _]]
     Concurrent[RIO[String, _]]
     MonadError[RIO[String, _], Throwable]
     Monad[RIO[String, _]]
@@ -90,13 +90,12 @@ class CatsSpec extends ZioSpecBase {
     Functor[ZManaged[String, Throwable, _]]
     SemigroupK[ZManaged[String, Throwable, _]]
 
-    def liftRIO(implicit runtime: IORuntime)                  = LiftIO[RIO[String, _]]
-    def liftZManaged(implicit runtime: IORuntime)             = LiftIO[ZManaged[String, Throwable, _]]
-    def runtimeGenTemporal(implicit runtime: Runtime[ZClock]) = {
+    def liftRIO(implicit runtime: IORuntime)      = LiftIO[RIO[String, _]]
+    def liftZManaged(implicit runtime: IORuntime) = LiftIO[ZManaged[String, Throwable, _]]
+    def GenTemporalCause                          = {
       import zio.interop.catz.generic.*
       GenTemporal[ZIO[Any, Int, _], Cause[Int]]
     }
-    def runtimeTemporal(implicit runtime: Runtime[ZClock])    = Temporal[Task]
   }
 
   object syntaxTest {
