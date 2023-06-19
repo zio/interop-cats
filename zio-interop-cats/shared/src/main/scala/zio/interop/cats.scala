@@ -23,7 +23,7 @@ import cats.effect.{ IO as CIO, LiftIO }
 import cats.kernel.{ CommutativeMonoid, CommutativeSemigroup }
 import cats.effect
 import cats.*
-import zio.{ Fiber, Ref as ZRef, ZEnvironment }
+import zio.{ Fiber, Ref as ZRef }
 import zio.*
 import zio.Clock.{ currentTime, nanoTime }
 import zio.Duration
@@ -31,7 +31,6 @@ import zio.internal.FiberScope
 import zio.internal.stacktracer.{ InteropTracer, Tracer as CoreTracer }
 
 import java.util.concurrent.atomic.AtomicBoolean
-import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration.*
 
 object catz extends CatsEffectPlatform {
@@ -40,11 +39,11 @@ object catz extends CatsEffectPlatform {
 
   /**
    * `import zio.interop.catz.implicits._` brings in the default Runtime in order to
-   * summon Cats Effect typeclasses without the ceremony of
+   * convert ZIO to Cats Effect without the ceremony of
    *
    * {{{
    * ZIO.runtime[Any].flatMap { implicit runtime =>
-   *  implicit val asyncTask: Async[Task] = implicitly
+   *  val cio: cats.effect.IO[Unit] = ZIO.debug("Hello world").toEffect[cats.effect.IO]
    *  ...
    * }
    * }}}
@@ -101,28 +100,28 @@ abstract class CatsEffectInstances extends CatsZioInstances {
   implicit final def asyncInstance[R]: Async[RIO[R, _]] =
     asyncInstance0.asInstanceOf[Async[RIO[R, _]]]
 
-  implicit final def temporalInstance[R]: GenTemporal[ZIO[R, Throwable, _], Throwable] =
-    temporalInstance0.asInstanceOf[GenTemporal[ZIO[R, Throwable, _], Throwable]]
+  implicit final def temporalInstance[R]: GenTemporal[ZIO[R, Throwable, _], Throwable] = asyncInstance[R]
 
-  implicit final def concurrentInstance[R]: GenConcurrent[ZIO[R, Throwable, _], Throwable] =
-    concurrentInstance0.asInstanceOf[GenConcurrent[ZIO[R, Throwable, _], Throwable]]
-
-  implicit final def asyncRuntimeInstance[E](implicit runtime: Runtime[Any]): Async[Task] =
-    new ZioRuntimeAsync
-
-  implicit final def temporalRuntimeInstance(implicit
-    runtime: Runtime[Any]
-  ): GenTemporal[IO[Throwable, _], Throwable] =
-    new ZioRuntimeTemporal[Throwable, Throwable] with ZioMonadErrorExitThrowable[Any]
+  implicit final def concurrentInstance[R]: GenConcurrent[ZIO[R, Throwable, _], Throwable] = asyncInstance[R]
 
   private[this] val asyncInstance0: Async[Task] =
     new ZioAsync
 
-  private[this] val temporalInstance0: Temporal[Task] =
-    new ZioTemporal[Any, Throwable, Throwable] with ZioMonadErrorExitThrowable[Any]
+  // bincompat only
+  private[CatsEffectInstances] implicit final def asyncRuntimeInstance[E](implicit
+    runtime: Runtime[Any]
+  ): Async[Task] = {
+    val _ = runtime
+    asyncInstance[Any]
+  }
 
-  private[this] val concurrentInstance0: Concurrent[Task] =
-    new ZioConcurrent[Any, Throwable, Throwable] with ZioMonadErrorExitThrowable[Any]
+  private[CatsEffectInstances] implicit final def temporalRuntimeInstance(implicit
+    runtime: Runtime[Any]
+  ): GenTemporal[IO[Throwable, _], Throwable] = {
+    val _ = runtime
+    temporalInstance[Any]
+  }
+
 }
 
 sealed abstract class CatsEffectInstancesCause extends CatsZioInstances {
@@ -130,19 +129,18 @@ sealed abstract class CatsEffectInstancesCause extends CatsZioInstances {
   implicit final def temporalInstanceCause[R, E]: GenTemporal[ZIO[R, E, _], Cause[E]] =
     temporalInstance1.asInstanceOf[GenTemporal[ZIO[R, E, _], Cause[E]]]
 
-  implicit final def concurrentInstanceCause[R, E]: GenConcurrent[ZIO[R, E, _], Cause[E]] =
-    concurrentInstance1.asInstanceOf[GenConcurrent[ZIO[R, E, _], Cause[E]]]
-
-  implicit final def temporalRuntimeInstanceCause[E](implicit
-    runtime: Runtime[Any]
-  ): GenTemporal[IO[E, _], Cause[E]] =
-    new ZioRuntimeTemporal[E, Cause[E]] with ZioMonadErrorExitCause[Any, E]
+  implicit final def concurrentInstanceCause[R, E]: GenConcurrent[ZIO[R, E, _], Cause[E]] = temporalInstanceCause[R, E]
 
   private[this] val temporalInstance1: GenTemporal[ZIO[Any, Any, _], Cause[Any]] =
     new ZioTemporal[Any, Any, Cause[Any]] with ZioMonadErrorExitCause[Any, Any]
 
-  private[this] val concurrentInstance1: GenConcurrent[ZIO[Any, Any, _], Cause[Any]] =
-    new ZioConcurrent[Any, Any, Cause[Any]] with ZioMonadErrorExitCause[Any, Any]
+  // bincompat only
+  private[CatsEffectInstancesCause] implicit final def temporalRuntimeInstanceCause[E](implicit
+    runtime: Runtime[Any]
+  ): GenTemporal[IO[E, _], Cause[E]] = {
+    val _ = runtime
+    temporalInstanceCause[Any, E]
+  }
 }
 
 abstract class CatsZioInstances extends CatsZioInstances1 {
@@ -554,111 +552,6 @@ private abstract class ZioTemporal[R, E, E1] extends ZioConcurrent[R, E, E1] wit
 
     currentTime(MILLISECONDS).map(FiniteDuration(_, MILLISECONDS))
   }
-}
-
-private abstract class ZioRuntimeTemporal[E, E1](implicit runtime: Runtime[Any]) extends ZioTemporal[Any, E, E1] {
-
-  private[this] val clock: ZEnvironment[Any] = runtime.environment
-
-  override final def sleep(time: FiniteDuration): F[Unit] = {
-    implicit def trace: Trace = CoreTracer.newTrace
-
-    super.sleep(time).provideEnvironment(clock)
-  }
-
-  override final val monotonic: F[FiniteDuration] = {
-    implicit def trace: Trace = CoreTracer.newTrace
-
-    super.monotonic.provideEnvironment(clock)
-  }
-
-  override final val realTime: F[FiniteDuration] = {
-    implicit def trace: Trace = CoreTracer.newTrace
-
-    super.realTime.provideEnvironment(clock)
-  }
-}
-
-private class ZioRuntimeAsync(implicit runtime: Runtime[Any]) extends ZioAsync[Any] {
-
-  private[this] val environment: ZEnvironment[Any] = runtime.environment
-
-  override final def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] = {
-    implicit def trace: Trace = CoreTracer.newTrace
-
-    super.evalOn(fa, ec).provideEnvironment(environment)
-  }
-
-  override final val executionContext: F[ExecutionContext] = {
-    implicit def trace: Trace = CoreTracer.newTrace
-
-    super.executionContext.provideEnvironment(environment)
-  }
-
-  override final val unique: F[Unique.Token] = {
-    implicit def trace: Trace = CoreTracer.newTrace
-
-    super.unique.provideEnvironment(environment)
-  }
-
-  override final def cont[K, Q](body: Cont[F, K, Q]): F[Q] =
-    Async.defaultCont(body)(this)
-
-  override final def suspend[A](hint: Sync.Type)(thunk: => A): F[A] = {
-    val byName: () => A       = () => thunk
-    implicit def trace: Trace = InteropTracer.newTrace(byName)
-
-    super.suspend(hint)(thunk).provideEnvironment(environment)
-  }
-
-  override final def delay[A](thunk: => A): F[A] = {
-    val byName: () => A       = () => thunk
-    implicit def trace: Trace = InteropTracer.newTrace(byName)
-
-    super.delay(thunk).provideEnvironment(environment)
-  }
-
-  override final def defer[A](thunk: => F[A]): F[A] = {
-    val byName: () => F[A]    = () => thunk
-    implicit def trace: Trace = InteropTracer.newTrace(byName)
-
-    super.defer(thunk).provideEnvironment(environment)
-  }
-
-  override final def blocking[A](thunk: => A): F[A] = {
-    val byName: () => A       = () => thunk
-    implicit def trace: Trace = InteropTracer.newTrace(byName)
-
-    super.blocking(thunk).provideEnvironment(environment)
-  }
-
-  override final def interruptible[A](thunk: => A): F[A] = {
-    val byName: () => A       = () => thunk
-    implicit def trace: Trace = InteropTracer.newTrace(byName)
-
-    super.interruptible(thunk).provideEnvironment(environment)
-  }
-
-  override final def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] = {
-    implicit def trace: Trace = InteropTracer.newTrace(k)
-
-    super.async(k).provideEnvironment(environment)
-  }
-
-  override final def async_[A](k: (Either[Throwable, A] => Unit) => Unit): F[A] = {
-    implicit def trace: Trace = InteropTracer.newTrace(k)
-
-    super.async_(k).provideEnvironment(environment)
-  }
-
-  override final def fromFuture[A](fut: F[Future[A]]): F[A] = {
-    implicit def trace: Trace = CoreTracer.newTrace
-
-    super.fromFuture(fut).provideEnvironment(environment)
-  }
-
-  override final def never[A]: F[A] =
-    ZIO.never(CoreTracer.newTrace)
 }
 
 private abstract class ZioMonadError[R, E, E1] extends MonadError[ZIO[R, E, _], E1] with StackSafeMonad[ZIO[R, E, _]] {
