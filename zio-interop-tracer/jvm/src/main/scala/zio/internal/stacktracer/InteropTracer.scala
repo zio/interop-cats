@@ -30,7 +30,7 @@ object InteropTracer {
         case AkkaLineNumbers.UnknownSourceFormat(_) => Tracer.instance.empty
 
         case AkkaLineNumbers.SourceFile(filename) =>
-          createTrace("<unknown>", filename, 0, 0).asInstanceOf[Trace]
+          createTrace("<unknown>", filename, 0).asInstanceOf[Trace]
 
         case AkkaLineNumbers.SourceFileLines(filename, from, _, classNameSlashes, methodAnonfun) =>
           val className  = classNameSlashes.replace('/', '.')
@@ -39,7 +39,7 @@ object InteropTracer {
             .flatMap(Option apply _.group(1))
             .getOrElse(methodAnonfun)
 
-          createTrace(className + "." + methodName, filename, from, 0).asInstanceOf[Trace]
+          createTrace(className + "." + methodName, filename, from).asInstanceOf[Trace]
       }
       cache.put(clazz, computedTrace)
       computedTrace
@@ -48,8 +48,8 @@ object InteropTracer {
 
   private val cache: ConcurrentMap[Class[?], Trace] = new ConcurrentHashMap[Class[?], Trace](10000)
 
-  private def createTrace(location: String, file: String, line: Int, column: Int): String =
-    s"$location($file:$line:$column)".intern()
+  private def createTrace(location: String, file: String, line: Int): String =
+    s"$location($file:$line)".intern()
 
   private final val lambdaNamePattern: Regex = """\$anonfun\$(.+?)\$\d""".r
 

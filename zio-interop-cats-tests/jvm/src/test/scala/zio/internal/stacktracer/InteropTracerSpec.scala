@@ -13,7 +13,7 @@ object InteropTracerSpec extends ZIOSpecDefault {
         val result = InteropTracer.newTrace(myLambda)
 
         assertTrue(
-          result == "zio.internal.stacktracer.InteropTracerSpec$.myLambda(InteropTracerSpec.scala:8:0)"
+          result == "zio.internal.stacktracer.InteropTracerSpec$.myLambda(InteropTracerSpec.scala:8)"
             .asInstanceOf[Trace]
         )
       },
@@ -27,7 +27,7 @@ object InteropTracerSpec extends ZIOSpecDefault {
         val result = check(42)
 
         assertTrue(
-          result == "zio.internal.stacktracer.InteropTracerSpec$.spec(InteropTracerSpec.scala:27:0)".asInstanceOf[Trace]
+          result == "zio.internal.stacktracer.InteropTracerSpec$.spec(InteropTracerSpec.scala:27)".asInstanceOf[Trace]
         )
       }
     ).@@(TestAspect.exceptScala3)
