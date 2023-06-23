@@ -46,7 +46,7 @@ object InteropTracer {
     } else cachedTrace
   }
 
-  private val cache: ConcurrentMap[Class[?], Trace] = new ConcurrentHashMap[Class[?], Trace]()
+  private val cache: ConcurrentMap[Class[?], Trace] = new ConcurrentHashMap[Class[?], Trace](10000)
 
   private def createTrace(location: String, file: String, line: Int, column: Int): String =
     s"$location($file:$line:$column)".intern()
