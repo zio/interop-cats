@@ -32,6 +32,8 @@ object InteropTracer {
           createTrace("<unknown>", filename.intern(), 0, 0).asInstanceOf[Trace]
 
         case AkkaLineNumbers.SourceFileLines(filename, from, _, _, methodAnonfun) =>
+        case AkkaLineNumbers.SourceFileLines(filename, from, _, classNameSlashes, methodAnonfun) =>
+          val className  = classNameSlashes.replace('/', '.')
           val methodName = lambdaNamePattern
             .findFirstMatchIn(methodAnonfun)
             .flatMap(Option apply _.group(1))
