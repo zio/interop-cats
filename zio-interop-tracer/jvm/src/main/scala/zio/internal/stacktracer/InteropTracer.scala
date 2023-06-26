@@ -20,7 +20,8 @@ import scala.util.matching.Regex
 
 object InteropTracer {
   final def newTrace(f: AnyRef): Trace = {
-    val clazz       = f.getClass()
+    val clazz = f.getClass
+
     val cachedTrace = cache.get(clazz)
     if (cachedTrace == null) {
       val computedTrace = AkkaLineNumbers(f) match {
@@ -29,25 +30,26 @@ object InteropTracer {
         case AkkaLineNumbers.UnknownSourceFormat(_) => Tracer.instance.empty
 
         case AkkaLineNumbers.SourceFile(filename) =>
-          createTrace("<unknown>", filename.intern(), 0, 0).asInstanceOf[Trace]
+          createTrace("<unknown>", filename, 0).asInstanceOf[Trace]
 
-        case AkkaLineNumbers.SourceFileLines(filename, from, _, _, methodAnonfun) =>
+        case AkkaLineNumbers.SourceFileLines(filename, from, _, classNameSlashes, methodAnonfun) =>
+          val className  = classNameSlashes.replace('/', '.')
           val methodName = lambdaNamePattern
             .findFirstMatchIn(methodAnonfun)
             .flatMap(Option apply _.group(1))
             .getOrElse(methodAnonfun)
 
-          createTrace(methodName.intern(), filename.intern(), from, 0).asInstanceOf[Trace]
+          createTrace(className + "." + methodName, filename, from).asInstanceOf[Trace]
       }
       cache.put(clazz, computedTrace)
       computedTrace
     } else cachedTrace
   }
 
-  private val cache: ConcurrentMap[Class[?], Trace] = new ConcurrentHashMap[Class[?], Trace]()
+  private val cache: ConcurrentMap[Class[?], Trace] = new ConcurrentHashMap[Class[?], Trace](10000)
 
-  private def createTrace(location: String, file: String, line: Int, column: Int): String =
-    s"$location($file:$line:$column)".intern
+  private def createTrace(location: String, file: String, line: Int): String =
+    s"$location($file:$line)".intern()
 
   private final val lambdaNamePattern: Regex = """\$anonfun\$(.+?)\$\d""".r
 
