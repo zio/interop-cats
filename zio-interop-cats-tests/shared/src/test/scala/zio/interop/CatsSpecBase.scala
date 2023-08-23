@@ -98,14 +98,11 @@ private[zio] trait CatsSpecBase
 
   implicit def runtime(implicit ticker: Ticker): Runtime[Any] = {
     val tickerExecutor = Executor.fromExecutionContext(ticker.ctx)
-    val fiberId        = Unsafe.unsafe(implicit u => FiberId.make(Trace.empty))
-    val fiberRefs      = FiberRefs(
-      Map(
-        FiberRef.overrideExecutor        -> ::(fiberId -> Some(tickerExecutor), Nil),
-        FiberRef.currentBlockingExecutor -> ::(fiberId -> tickerExecutor, Nil),
-        DefaultServices.currentServices  -> ::(fiberId -> DefaultServices.live.add[Clock](testClock), Nil)
-      )
-    )
+    val fiberId        = FiberId.make(Trace.empty)(Unsafe.unsafe)
+    val fiberRefs      = FiberRefs.empty
+      .updatedAs(fiberId)(FiberRef.overrideExecutor, Some(tickerExecutor))
+      .updatedAs(fiberId)(FiberRef.currentBlockingExecutor, tickerExecutor)
+      .updatedAs(fiberId)(DefaultServices.currentServices, DefaultServices.live.add[Clock](testClock))
     val runtimeFlags   = RuntimeFlags.default
     Runtime(ZEnvironment.empty, fiberRefs, runtimeFlags)
   }
