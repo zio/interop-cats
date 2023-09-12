@@ -11,7 +11,7 @@ object BuildHelper {
 
   val Scala212 = "2.12.17"
   val Scala213 = "2.13.10"
-  val Scala3   = "3.2.1"
+  val Scala3   = "3.3.0"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -61,7 +61,7 @@ object BuildHelper {
 
   def extraOptions(scalaVersion: String, optimize: Boolean) =
     CrossVersion.partialVersion(scalaVersion) match {
-      case Some((3, 2))  =>
+      case Some((3, 3))  =>
         std3xOptions
       case Some((2, 13)) =>
         Seq(
