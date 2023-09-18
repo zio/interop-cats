@@ -18,7 +18,7 @@ package zio.interop
 
 import cats.Applicative
 import cats.mtl.*
-import zio.{ CanFail, FiberRef, ZEnvironment, ZIO }
+import zio.{ CanFail, FiberRef, Tag, ZEnvironment, ZIO }
 import zio.internal.stacktracer.InteropTracer
 
 abstract class CatsMtlPlatform extends CatsMtlInstances
@@ -33,10 +33,12 @@ abstract class CatsMtlInstances {
         fa.provideSomeEnvironment(f)(InteropTracer.newTrace(f))
     }
 
-  implicit def zioAsk[R1, R <: R1, E](implicit ev: Applicative[ZIO[R, E, _]]): Ask[ZIO[R, E, _], ZEnvironment[R1]] =
-    new Ask[ZIO[R, E, _], ZEnvironment[R1]] {
-      override def applicative: Applicative[ZIO[R, E, _]]     = ev
-      override def ask[R2 >: ZEnvironment[R1]]: ZIO[R, E, R2] = ZIO.environment
+  implicit def zioAsk[R1: Tag, R <: R1, E](implicit
+    ev: Applicative[ZIO[R, E, _]]
+  ): Ask[ZIO[R, E, _], R1] =
+    new Ask[ZIO[R, E, _], R1] {
+      override def applicative: Applicative[ZIO[R, E, _]] = ev
+      override def ask[R2 >: R1]: ZIO[R, E, R2]           = ZIO.environment[R1].map(_.get)
     }
 
   implicit def zioHandle[R, E](implicit ev: Applicative[ZIO[R, E, _]]): Handle[ZIO[R, E, _], E] =
