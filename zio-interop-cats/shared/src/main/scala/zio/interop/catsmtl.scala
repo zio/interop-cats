@@ -25,12 +25,14 @@ abstract class CatsMtlPlatform extends CatsMtlInstances
 
 abstract class CatsMtlInstances {
 
-  implicit def zioLocal[R, E](implicit ev: Applicative[ZIO[R, E, _]]): Local[ZIO[R, E, _], ZEnvironment[R]] =
-    new Local[ZIO[R, E, _], ZEnvironment[R]] {
-      override def applicative: Applicative[ZIO[R, E, _]]                                          = ev
-      override def ask[E2 >: ZEnvironment[R]]: ZIO[R, E, E2]                                       = ZIO.environment
-      override def local[A](fa: ZIO[R, E, A])(f: ZEnvironment[R] => ZEnvironment[R]): ZIO[R, E, A] =
-        fa.provideSomeEnvironment(f)(InteropTracer.newTrace(f))
+  implicit def zioLocal[R: Tag, E](implicit ev: Applicative[ZIO[R, E, _]]): Local[ZIO[R, E, _], R] =
+    new Local[ZIO[R, E, _], R] {
+      override def applicative: Applicative[ZIO[R, E, _]]              = ev
+      override def ask[R1 >: R]: ZIO[R, E, R1]                         = ZIO.environment[R].map(_.get)
+      override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] =
+        fa.provideSomeEnvironment({ (env: ZEnvironment[R]) =>
+          env.update(f)
+        })(InteropTracer.newTrace(f))
     }
 
   implicit def zioAsk[R1: Tag, R <: R1, E](implicit
