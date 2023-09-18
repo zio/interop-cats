@@ -23,26 +23,7 @@ import zio.internal.stacktracer.InteropTracer
 
 abstract class CatsMtlPlatform extends CatsMtlInstances
 
-abstract class CatsMtlInstances {
-
-  implicit def zioLocal[R: Tag, E](implicit ev: Applicative[ZIO[R, E, _]]): Local[ZIO[R, E, _], R] =
-    new Local[ZIO[R, E, _], R] {
-      override def applicative: Applicative[ZIO[R, E, _]]              = ev
-      override def ask[R1 >: R]: ZIO[R, E, R1]                         = ZIO.environment[R].map(_.get)
-      override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] =
-        fa.provideSomeEnvironment({ (env: ZEnvironment[R]) =>
-          env.update(f)
-        })(InteropTracer.newTrace(f))
-    }
-
-  implicit def zioAsk[R1: Tag, R <: R1, E](implicit
-    ev: Applicative[ZIO[R, E, _]]
-  ): Ask[ZIO[R, E, _], R1] =
-    new Ask[ZIO[R, E, _], R1] {
-      override def applicative: Applicative[ZIO[R, E, _]] = ev
-      override def ask[R2 >: R1]: ZIO[R, E, R2]           = ZIO.environment[R1].map(_.get)
-    }
-
+abstract class CatsMtlInstances extends CatsMtlInstances1 {
   implicit def zioHandle[R, E](implicit ev: Applicative[ZIO[R, E, _]]): Handle[ZIO[R, E, _], E] =
     new Handle[ZIO[R, E, _], E] {
       override def applicative: Applicative[ZIO[R, E, _]]                              = ev
@@ -68,4 +49,27 @@ abstract class CatsMtlInstances {
       override def ask[E2 >: R]: ZIO[R, E, E2]            = fiberRef.get
     }
 
+}
+
+trait CatsMtlInstances1 {
+  implicit def zioLocal[R: Tag, E](implicit ev: Applicative[ZIO[R, E, _]]): Local[ZIO[R, E, _], R] =
+    new Local[ZIO[R, E, _], R] {
+      override def applicative: Applicative[ZIO[R, E, _]] = ev
+
+      override def ask[R1 >: R]: ZIO[R, E, R1] = ZIO.environment[R].map(_.get)
+
+      override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] =
+        fa.provideSomeEnvironment({ (env: ZEnvironment[R]) =>
+          env.update(f)
+        })(InteropTracer.newTrace(f))
+    }
+
+  implicit def zioAsk[R1: Tag, R <: R1, E](implicit
+    ev: Applicative[ZIO[R, E, _]]
+  ): Ask[ZIO[R, E, _], R1] =
+    new Ask[ZIO[R, E, _], R1] {
+      override def applicative: Applicative[ZIO[R, E, _]] = ev
+
+      override def ask[R2 >: R1]: ZIO[R, E, R2] = ZIO.environment[R1].map(_.get)
+    }
 }

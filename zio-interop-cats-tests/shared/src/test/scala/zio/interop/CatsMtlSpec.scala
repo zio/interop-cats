@@ -13,12 +13,12 @@ class CatsMtlSpec extends ZioSpecBase {
 
   checkAllAsync(
     "Ask[ZIO[Ctx, Error, _]]",
-    implicit tc => AskTests[ZIO[Ctx, Error, _], ZEnvironment[Ctx]].ask[Ctx]
+    implicit tc => AskTests[ZIO[Ctx, Error, _], Ctx].ask[Ctx]
   )
 
   checkAllAsync(
     "Local[ZIO[Ctx, Error, _]]",
-    implicit tc => LocalTests[ZIO[Ctx, Error, _], ZEnvironment[Ctx]].local[ZEnvironment[Ctx], Int]
+    implicit tc => LocalTests[ZIO[Ctx, Error, _], Ctx].local[Ctx, Int]
   )
 
   Unsafe.unsafe { implicit unsafe =>
