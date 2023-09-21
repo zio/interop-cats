@@ -32,6 +32,23 @@ abstract class CatsMtlInstances extends CatsMtlInstances1 {
         fa.catchAll(f)(implicitly[CanFail[E]], InteropTracer.newTrace(f))
     }
 
+  implicit def zioZEnvLocal[R, E](implicit ev: Applicative[ZIO[R, E, _]]): Local[ZIO[R, E, _], ZEnvironment[R]] =
+    new Local[ZIO[R, E, _], ZEnvironment[R]] {
+      override def applicative: Applicative[ZIO[R, E, _]] = ev
+
+      override def ask[E2 >: ZEnvironment[R]]: ZIO[R, E, E2] = ZIO.environment
+
+      override def local[A](fa: ZIO[R, E, A])(f: ZEnvironment[R] => ZEnvironment[R]): ZIO[R, E, A] =
+        fa.provideSomeEnvironment(f)(InteropTracer.newTrace(f))
+    }
+
+  implicit def zioZEnvAsk[R1, R <: R1, E](implicit ev: Applicative[ZIO[R, E, _]]): Ask[ZIO[R, E, _], ZEnvironment[R1]] =
+    new Ask[ZIO[R, E, _], ZEnvironment[R1]] {
+      override def applicative: Applicative[ZIO[R, E, _]] = ev
+
+      override def ask[R2 >: ZEnvironment[R1]]: ZIO[R, E, R2] = ZIO.environment
+    }
+
   implicit def fiberRefLocal[R, E](implicit
     fiberRef: FiberRef[R],
     ev: Applicative[ZIO[R, E, _]]
