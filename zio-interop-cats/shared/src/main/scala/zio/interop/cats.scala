@@ -447,6 +447,11 @@ private abstract class ZioConcurrent[R, E, E1]
           },
           leftFiber.id <> rightFiber.id
         )
+        .onInterrupt(
+          leftFiber.interruptAsFork(parentFiber.id) *> rightFiber.interruptAsFork(
+            parentFiber.id
+          ) *> leftFiber.await *> rightFiber.await
+        )
     }
 }
 
