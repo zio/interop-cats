@@ -25,7 +25,7 @@ class ZStreamSyntax[R, E, A](private val stream: ZStream[R, E, A]) extends AnyVa
 
     fs2.Stream.resource(Resource.scopedZIO[R, E, ZIO[R, Option[E], Chunk[A]]](stream.toPull)).flatMap { pull =>
       fs2.Stream.repeatEval(pull.unsome).unNoneTerminate.flatMap { chunk =>
-        fs2.Stream.chunk(fs2.Chunk.indexedSeq(chunk))
+        fs2.Stream.chunk(fs2.Chunk.from(chunk))
       }
     }
   }
