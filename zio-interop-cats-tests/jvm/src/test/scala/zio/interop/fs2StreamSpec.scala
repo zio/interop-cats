@@ -14,7 +14,7 @@ object fs2StreamSpec extends ZIOSpecDefault {
   val exception: Throwable = new Exception("Failed")
 
   def fs2StreamFromChunk[A](chunk: Chunk[A]) =
-    fs2.Stream.chunk[Task, A](fs2.Chunk.indexedSeq(chunk))
+    fs2.Stream.chunk[Task, A](fs2.Chunk.from(chunk))
 
   def assertEqual[A](actual: fs2.Stream[Task, A], expected: fs2.Stream[Task, A]) =
     for {
