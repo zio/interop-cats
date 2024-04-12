@@ -7,7 +7,7 @@ import zio.test.*
 import zio.*
 
 object CatsInteropSpec extends CatsRunnableSpec {
-  def spec = suite("Cats interop")(
+  def spec: Spec[Any, Throwable] = suite("Cats interop")(
     test("cats fiber wrapped in Resource can be canceled") {
       for {
         promise <- Promise.make[Nothing, Int]

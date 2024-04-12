@@ -10,7 +10,7 @@ import zio.stream.{ Stream, ZStream }
 import zio.test.*
 
 object CoreSummonSpec extends ZIOSpecDefault {
-  override def spec =
+  override def spec: Spec[Any, Throwable] =
     suite("summons from catz.core work with only a cats-core dependency")(
       test("ZIO instances") {
         val monad      = implicitly[Monad[UIO]]

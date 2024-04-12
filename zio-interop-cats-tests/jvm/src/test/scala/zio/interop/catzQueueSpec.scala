@@ -40,7 +40,7 @@ object catzQueueSpec extends CatsRunnableSpec {
       actual  <- q.takeAll
     } yield assert(actual)(equalTo(expected.toList))
 
-  def spec = suite("catzQueueSpec")(
+  def spec: Spec[Any, Throwable] = suite("catzQueueSpec")(
     testF("can use a bounded queue from Cats Effect IO")(boundedQueueTest[CIO]),
     testF("can use a dropping queue from Cats Effect IO")(droppingQueueTest[CIO]),
     testF("can use a sliding queue from Cats Effect IO")(slidingQueueTest[CIO]),

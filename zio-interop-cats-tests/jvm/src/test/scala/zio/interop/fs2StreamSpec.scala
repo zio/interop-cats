@@ -28,7 +28,7 @@ object fs2StreamSpec extends ZIOSpecDefault {
       y <- expected.runCollect
     } yield assert(x)(equalTo(y))
 
-  def spec = suite("zio.stream.ZStream <-> fs2.Stream")(
+  def spec: Spec[Any, Throwable] = suite("zio.stream.ZStream <-> fs2.Stream")(
     suite("test toFs2Stream conversion")(
       test("simple stream")(check(Gen.chunkOf(Gen.int)) { (chunk: Chunk[Int]) =>
         assertEqual(ZStream.fromChunk(chunk).toFs2Stream, fs2StreamFromChunk(chunk))
