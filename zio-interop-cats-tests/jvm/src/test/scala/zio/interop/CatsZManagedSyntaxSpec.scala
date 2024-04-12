@@ -12,7 +12,7 @@ import scala.collection.mutable
 
 object CatsZManagedSyntaxSpec extends CatsRunnableSpec {
 
-  def spec =
+  def spec: Spec[Any, Throwable] =
     suite("CatsZManagedSyntaxSpec")(
       suite("toManaged")(
         test("calls finalizers correctly when use is externally interrupted") {

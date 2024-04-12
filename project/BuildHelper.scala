@@ -9,9 +9,9 @@ import BuildInfoKeys._
 object BuildHelper {
   val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.17.0" % Test)
 
-  val Scala212 = "2.12.17"
-  val Scala213 = "2.13.10"
-  val Scala3   = "3.3.0"
+  val Scala212 = "2.12.19"
+  val Scala213 = "2.13.13"
+  val Scala3   = "3.3.3"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -92,7 +92,7 @@ object BuildHelper {
     scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
     libraryDependencies ++= testDeps ++ {
       if (isDotty(scalaVersion.value)) Seq.empty
-      else Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.2") cross CrossVersion.full)
+      else Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.3") cross CrossVersion.full)
     },
     Test / parallelExecution := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),

@@ -32,15 +32,15 @@ abstract class CatsRunnableSpec extends ZIOSpecDefault {
   Unsafe.unsafe { implicit u =>
     runtime.unsafe.runToFuture {
       ZIO.fromFuture { implicit ec =>
-        Dispatcher.parallel[CIO].allocated.unsafeToFuture().andThen { case Success((dispatcher, close)) =>
-          openDispatcher = dispatcher
+        Dispatcher.parallel[CIO].allocated.unsafeToFuture().andThen { case Success((disp, close)) =>
+          openDispatcher = disp
           closeDispatcher = close
         }
       }.orDie
     }
   }
 
-  override val aspects = Chunk(
+  override val aspects: Chunk[TestAspect[Nothing, Any, Nothing, Any]] = Chunk(
     TestAspect.timeout(1.minute),
     TestAspect.afterAll(ZIO.fromFuture(_ => closeDispatcher.unsafeToFuture()).orDie)
   )

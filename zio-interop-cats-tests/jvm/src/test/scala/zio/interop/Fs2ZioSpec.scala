@@ -10,7 +10,7 @@ import zio.test.*
 import zio.test.interop.catz.test.*
 
 object Fs2ZioSpec extends CatsRunnableSpec {
-  def spec =
+  def spec: Spec[Any, Throwable] =
     suite("ZIO with Fs2")(
       suite("fs2 parJoin")(
         testF("works if F is cats.effect.IO") {

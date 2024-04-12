@@ -5,8 +5,8 @@ import zio.Trace
 
 object InteropTracerSpec extends ZIOSpecDefault {
 
-  private val myLambda: () => Any = () => ()
-  override def spec               =
+  private val myLambda: () => Any         = () => ()
+  override def spec: Spec[Any, Throwable] =
     suite("InteropTracerSpec")(
       test("lambda tracing") {
 
