@@ -431,12 +431,12 @@ private abstract class ZioConcurrent[R, E, E1]
       ZIO
         .async[R, E3, C](
           { cb =>
-            leftFiber.addObserver { _ =>
+            leftFiber.unsafe.addObserver { _ =>
               complete(leftFiber, rightFiber, leftWins, raceIndicator, cb)
               ()
             }(Unsafe.unsafe)
 
-            rightFiber.addObserver { _ =>
+            rightFiber.unsafe.addObserver { _ =>
               complete(rightFiber, leftFiber, rightWins, raceIndicator, cb)
               ()
             }(Unsafe.unsafe)
