@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: ['adopt@1.11', 'adopt@1.21']
+        java: ['adopt@1.11', 'graalvm@21.1.0']
         scala: ['2.12.19', '2.13.13', '3.3.3']
         platform: ['JVM', 'JS']
     steps:
