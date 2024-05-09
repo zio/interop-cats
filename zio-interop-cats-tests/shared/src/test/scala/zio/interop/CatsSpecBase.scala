@@ -98,7 +98,7 @@ private[zio] trait CatsSpecBase
 
   implicit def runtime(implicit ticker: Ticker): Runtime[Any] = {
     val tickerExecutor = Executor.fromExecutionContext(ticker.ctx)
-    val fiberId        = FiberId.make(Trace.empty)(Unsafe.unsafe)
+    val fiberId        = FiberId.generate(FiberRefs.empty)(Trace.empty)(Unsafe.unsafe)
     val fiberRefs      = FiberRefs.empty
       .updatedAs(fiberId)(FiberRef.overrideExecutor, Some(tickerExecutor))
       .updatedAs(fiberId)(FiberRef.currentBlockingExecutor, tickerExecutor)
