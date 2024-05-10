@@ -1,4 +1,6 @@
 lazy val zioSbtVersion = "0.4.0-alpha.26"
+addSbtPlugin("dev.zio" % "zio-sbt-website" % zioSbtVersion)
+addSbtPlugin("dev.zio" % "zio-sbt-ci"      % zioSbtVersion)
 
 addSbtPlugin("org.scala-js"                      % "sbt-scalajs"               % "1.16.0")
 addSbtPlugin("org.portable-scala"                % "sbt-scalajs-crossproject"  % "1.3.2")
@@ -11,6 +13,3 @@ addSbtPlugin("de.heikoseeberger"                 % "sbt-header"                %
 addSbtPlugin("ch.epfl.scala"                     % "sbt-bloop"                 % "1.5.6")
 addSbtPlugin("com.geirsson"                      % "sbt-ci-release"            % "1.5.7")
 addSbtPlugin("com.timushev.sbt"                  % "sbt-updates"               % "0.6.3")
-
-addSbtPlugin("dev.zio" % "zio-sbt-website" % zioSbtVersion)
-addSbtPlugin("dev.zio" % "zio-sbt-ci"      % zioSbtVersion)
