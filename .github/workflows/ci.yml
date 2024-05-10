@@ -73,9 +73,13 @@ jobs:
         - '11'
         - '17'
         - '21'
+        scala-project:
+        - ++2.12 testJVM
+        - ++2.13 testJVM
+        - ++3.3 testJVM
+        - ++2.13 testJS
+        - ++3.3 testJS
     steps:
-    - name: Install libuv
-      run: sudo apt-get update && sudo apt-get install -y libuv1-dev
     - name: Setup Scala
       uses: actions/setup-java@v4
       with:
@@ -89,7 +93,7 @@ jobs:
       with:
         fetch-depth: '0'
     - name: Test
-      run: sbt +test
+      run: sbt ${{ matrix.scala-project }}/test
   update-readme:
     name: Update README
     runs-on: ubuntu-latest
