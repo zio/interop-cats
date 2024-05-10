@@ -93,7 +93,7 @@ jobs:
       with:
         fetch-depth: '0'
     - name: Test
-      run: sbt ${{ matrix.scala-project }}/test
+      run: sbt ${{ matrix.scala-project }}
   update-readme:
     name: Update README
     runs-on: ubuntu-latest

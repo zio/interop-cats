@@ -251,7 +251,7 @@ ThisBuild / ciTestJobs := Seq(
       ),
       Step.SingleStep(
         name = "Test",
-        run = Some("sbt ${{ matrix.scala-project }}/test")
+        run = Some("sbt ${{ matrix.scala-project }}")
       )
     )
   )
