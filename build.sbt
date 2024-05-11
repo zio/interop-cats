@@ -51,7 +51,7 @@ lazy val root = project
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
-val zioVersion                 = "2.1.0"
+val zioVersion                 = "2.1.1"
 val catsVersion                = "2.10.0"
 val catsEffectVersion          = "3.5.4"
 val catsMtlVersion             = "1.4.0"
@@ -202,57 +202,3 @@ lazy val docs = project
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects()
   )
   .enablePlugins(WebsitePlugin)
-
-// Temporary, until zio-test issue with ScalaJS 2.12 is resolved
-import zio.sbt.githubactions.*
-import _root_.io.circe.syntax.*
-ThisBuild / ciTestJobs := Seq(
-  Job(
-    id = "test",
-    name = "Test",
-    runsOn = "ubuntu-latest",
-    timeoutMinutes = 15,
-    continueOnError = false,
-    strategy = Some(
-      Strategy(
-        matrix = Map(
-          "java"          -> List("11", "17", "21"),
-          "scala-project" -> List(
-            "++2.12 testJVM",
-            "++2.13 testJVM",
-            "++3.3 testJVM",
-            "++2.13 testJS",
-            "++3.3 testJS"
-          )
-        ),
-        failFast = false
-      )
-    ),
-    steps = List(
-      Step.SingleStep(
-        name = "Setup Scala",
-        uses = Some(ActionRef("actions/setup-java@v4")),
-        parameters = Map(
-          "distribution" -> "corretto".asJson,
-          "java-version" -> "${{ matrix.java }}".asJson,
-          "check-latest" -> true.asJson
-        )
-      ),
-      Step.SingleStep(
-        name = "Cache Dependencies",
-        uses = Some(ActionRef("coursier/cache-action@v6"))
-      ),
-      Step.SingleStep(
-        name = "Git Checkout",
-        uses = Some(ActionRef("actions/checkout@v4")),
-        parameters = Map(
-          "fetch-depth" -> "0".asJson
-        )
-      ),
-      Step.SingleStep(
-        name = "Test",
-        run = Some("sbt ${{ matrix.scala-project }}")
-      )
-    )
-  )
-)
