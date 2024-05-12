@@ -7,7 +7,7 @@
 ## Installation
 
 ```sbt
-libraryDependencies += "dev.zio" %% "zio-interop-cats" % "23.0.x"
+libraryDependencies += "dev.zio" %% "zio-interop-cats" % "<latest-version>"
 ```
 
 ## `ZIO` Cats Effect 3 instances
@@ -71,36 +71,6 @@ There are many other typeclasses and useful conversions that this library provid
 * See `zio/stream/interop/cats.scala` for ZStream typeclass implementations
 * See `zio/stream/interop/FS2StreamSyntax.scala` for FS2 <-> ZStream conversions
 
-## Easier imports (at a cost)
-
-To use ZIO data structures in cats-effect code we may need to bring the `Runtime[Any]` via the `ZIO.runtime` combinator. This may
-not be ideal since everywhere you use these data structures, you will now be required to feed in the `Runtime`.
-For example, with ZIO STM TRef:
-
-```scala
-import cats.effect._
-import zio.Runtime
-import zio.interop.stm.TRef
-
-def example(implicit rts: Runtime[Any]): IO[TRef[IO, Int]] = {
-  zio.interop.stm.TRef.makeCommit(1)
-}
-```
-
-Rather than requiring the runtime implicit, we can add an import (if we don't mind depending on `Runtime.default`):
-```scala
-import cats.effect._
-import zio.Runtime
-import zio.interop.stm.TRef
-
-import zio.interop.catz.implicits._
-
-def example: IO[TRef[IO, Int]] = {
-  zio.interop.stm.TRef.makeCommit(1)
-}
-```
-
-The major downside to doing this is you will rely on `Runtime.default` which might make testing more difficult in certain scenarios, e.g. with custom execution contexts.
 
 ### cats-core
 
@@ -117,30 +87,27 @@ Note that this library only has an `Optional` dependency on cats-effect – if y
 The following example shows how to use ZIO with Doobie (a library for JDBC access) and FS2 (a streaming library), which both rely on Cats Effect instances (`cats.effect.Async` and `cats.effect.Temporal`):
 
 ```scala
-import zio._
-import zio.interop.catz._
-import doobie._
-import doobie.implicits._
-import zio.clock.Clock
-import scala.concurrent.duration._
+import zio.{durationInt as _, *}
+import zio.interop.catz.*
+import doobie.*
+import doobie.implicits.*
+import scala.concurrent.duration.*
 
-object DoobieH2Example extends App {
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
-    ZIO.runtime.flatMap { implicit r: Runtime[Clock] =>
-      val xa: Transactor[Task] =
-        Transactor.fromDriverManager[Task]("org.h2.Driver", "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", "user", "")
+object Example extends ZIOAppDefault:
+  val run = {
+    val xa: Transactor[Task] =
+      Transactor.fromDriverManager[Task]("org.h2.Driver", "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", "user", "", None)
 
-      sql"SELECT 42"
-        .query[Int]
-        .stream
-        .transact(xa)
-        .delayBy(1.second)
-        .evalTap(i => ZIO.succeedBlocking(println(s"Data $i"))))
-        .compile
-        .drain
-        .exitCode
-    }
-}
+    sql"SELECT 42"
+      .query[Int]
+      .stream
+      .transact(xa)
+      .delayBy(1.second)
+      .evalTap(i => Console.printLine(i))
+      .compile
+      .drain
+      .exitCode
+  }
 ```
 
 ## Documentation
@@ -149,11 +116,11 @@ Learn more on the [ZIO Interop Cats homepage](https://zio.dev)!
 
 ## Contributing
 
-For the general guidelines, see ZIO [contributor's guide](https://zio.dev/about/contributing).
+For the general guidelines, see ZIO [contributor's guide](https://zio.dev/contributor-guidelines).
 
 ## Code of Conduct
 
-See the [Code of Conduct](https://zio.dev/about/code-of-conduct)
+See the [Code of Conduct](https://zio.dev/code-of-conduct)
 
 ## Support
 

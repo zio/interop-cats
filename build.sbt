@@ -1,12 +1,12 @@
 import BuildHelper._
 import explicitdeps.ExplicitDepsPlugin.autoImport.moduleFilterRemoveValue
 import sbtcrossproject.CrossPlugin.autoImport.crossProject
-import zio.sbt.WebsiteUtils.DocsVersioning.HashVersioning
 
 name := "interop-cats"
 
 inThisBuild(
   List(
+    name          := "interop-cats",
     organization  := "dev.zio",
     homepage      := Some(url("https://zio.dev")),
     licenses      := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
@@ -28,7 +28,7 @@ inThisBuild(
 )
 
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
-addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
+addCommandAlias("lint", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
 addCommandAlias("testJVM", ";zioInteropCatsTestsJVM/test;zioTestInteropCatsJVM/test;coreOnlyTestJVM/test")
 addCommandAlias("testJS", ";zioInteropCatsTestsJS/test;zioTestInteropCatsJS/test;coreOnlyTestJS/test")
 
@@ -51,10 +51,10 @@ lazy val root = project
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
-val zioVersion                 = "2.0.22"
-val catsVersion                = "2.9.0"
+val zioVersion                 = "2.1.1"
+val catsVersion                = "2.10.0"
 val catsEffectVersion          = "3.5.4"
-val catsMtlVersion             = "1.3.0"
+val catsMtlVersion             = "1.4.0"
 val disciplineScalaTestVersion = "2.2.0"
 val fs2Version                 = "3.10.2"
 val scalaJavaTimeVersion       = "2.5.0"
@@ -199,8 +199,6 @@ lazy val docs = project
     projectName                                := "ZIO Interop Cats",
     mainModuleName                             := (zioInteropCatsJVM / moduleName).value,
     projectStage                               := ProjectStage.ProductionReady,
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(),
-    docsPublishBranch                          := "main",
-    docsVersioning                             := HashVersioning
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects()
   )
   .enablePlugins(WebsitePlugin)
