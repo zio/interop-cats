@@ -35,23 +35,23 @@ package object interop {
     F.defer {
       val interrupted = new AtomicBoolean(true)
       F.asyncCheckAttempt[Exit[Throwable, A]] { cb =>
-        Unsafe.unsafe { implicit unsafe =>
-          val fiber = R.unsafe.runOrFork {
+        F.delay {
+          implicit val unsafe: Unsafe = Unsafe.unsafe
+
+          val out = R.unsafe.runOrFork {
             signalOnNoExternalInterrupt {
               rio
             }(ZIO.succeed(interrupted.set(false)))
           }
-          val out   = fiber match {
-            case Left(fib) =>
-              fib.unsafe.addObserver(exit => cb(Right(exit)))
+          out match {
+            case Left(fiber) =>
+              fiber.unsafe.addObserver(exit => cb(Right(exit)))
               Left(Some(F.async_[Unit] { cb =>
-                fib.unsafe.addObserver(_ => cb(Right(())))
-                fib.tellInterrupt(Cause.interrupt(fib.id))
+                fiber.unsafe.addObserver(_ => cb(Right(())))
+                fiber.tellInterrupt(Cause.interrupt(fiber.id))
               }))
-            case Right(v)  => Right(v) // No need to invoke the callback, sync resumption will take place
+            case Right(v)    => Right(v) // No need to invoke the callback, sync resumption will take place
           }
-
-          F.pure(out)
         }
       }.flatMap { exit =>
         toOutcomeThrowableOtherFiber(interrupted.get())(F.pure(_: A), exit) match {
