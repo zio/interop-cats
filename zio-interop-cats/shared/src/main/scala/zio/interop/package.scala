@@ -45,10 +45,17 @@ package object interop {
           }
           out match {
             case Left(fiber) =>
-              fiber.unsafe.addObserver(exit => cb(Right(exit)))
-              Left(Some(F.async_[Unit] { cb =>
-                fiber.unsafe.addObserver(_ => cb(Right(())))
-                fiber.tellInterrupt(Cause.interrupt(fiber.id))
+              val completeCb = (exit: Exit[Throwable, A]) => cb(Right(exit))
+              fiber.unsafe.addObserver(completeCb)
+              Left(Some(F.async[Unit] { cb =>
+                F.delay {
+                  val interruptCb = (_: Exit[Throwable, A]) => cb(Right(()))
+                  fiber.unsafe.addObserver(interruptCb)
+                  fiber.unsafe.removeObserver(completeCb)
+                  fiber.tellInterrupt(Cause.interrupt(fiber.id))
+                  // Allow the interruption to be interrupted
+                  Some(fiber.unsafe.removeObserver(interruptCb))
+                }
               }))
             case Right(v)    => Right(v) // No need to invoke the callback, sync resumption will take place
           }
