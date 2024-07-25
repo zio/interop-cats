@@ -6,6 +6,9 @@ import zio.interop.catz.*
 import zio.test.*
 import zio.*
 
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicBoolean
+
 object CatsInteropSpec extends CatsRunnableSpec {
   def spec: Spec[Any, Throwable] = suite("Cats interop")(
     test("cats fiber wrapped in Resource can be canceled") {
@@ -203,6 +206,25 @@ object CatsInteropSpec extends CatsRunnableSpec {
         !exception.get.getMessage.contains("Boxed Exception") &&
           exception.get.getMessage.contains("The fiber was canceled")
       )
-    }
+    },
+    test("CIO propagates interruption to ZIO") {
+      ZIO.succeedBlocking {
+        val latch              = new CompletableFuture[Unit]()
+        val ref                = new AtomicBoolean(false)
+        val zioF: CIO[Nothing] =
+          (ZIO.yieldNow.as(latch.complete(())) *> ZIO.never)
+            .onInterrupt(ZIO.succeed(ref.set(true)))
+            .toEffect[CIO]
+
+        val value = zioF.start
+          .productL(CIO.fromCompletableFuture(CIO(latch)))
+          .flatMap { (fib: cats.effect.FiberIO[Nothing]) =>
+            fib.cancel *> CIO(ref.get())
+          }
+          .unsafeRunSync()
+
+        assertTrue(value)
+      }
+    } @@ TestAspect.nonFlaky(1000)
   )
 }
