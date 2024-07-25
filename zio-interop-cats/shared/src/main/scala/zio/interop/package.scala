@@ -54,7 +54,7 @@ package object interop {
                   fiber.unsafe.removeObserver(completeCb)
                   fiber.tellInterrupt(Cause.interrupt(fiber.id))
                   // Allow the interruption to be interrupted
-                  Some(fiber.unsafe.removeObserver(interruptCb))
+                  Some(F.delay(fiber.unsafe.removeObserver(interruptCb)))
                 }
               }))
             case Right(v)    => Right(v) // No need to invoke the callback, sync resumption will take place
