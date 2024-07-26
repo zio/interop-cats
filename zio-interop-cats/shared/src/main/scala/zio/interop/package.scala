@@ -47,18 +47,10 @@ package object interop {
             case Left(fiber) =>
               val completeCb = (exit: Exit[Throwable, A]) => cb(Right(exit))
               fiber.unsafe.addObserver(completeCb)
-              Left(Some(F.async[Unit] { cb =>
-                F.delay {
-                  val interruptCb = (_: Exit[Throwable, A]) => cb(Right(()))
-                  fiber.unsafe.addObserver(interruptCb)
-                  fiber.unsafe.removeObserver(completeCb)
-                  fiber.tellInterrupt(Cause.interrupt(fiber.id))
-                  // Allow the interruption to be interrupted
-                  Some(F.delay {
-                    fiber.unsafe.removeObserver(interruptCb)
-                    interruptCb(null)
-                  })
-                }
+              Left(Some(F.async_ { cb =>
+                fiber.unsafe.addObserver(_ => cb(Right(())))
+                fiber.unsafe.removeObserver(completeCb)
+                fiber.tellInterrupt(Cause.interrupt(fiber.id))
               }))
             case Right(v)    => Right(v) // No need to invoke the callback, sync resumption will take place
           }
