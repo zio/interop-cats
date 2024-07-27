@@ -34,21 +34,27 @@ package object interop {
   @inline def toEffect[F[_], R, A](rio: RIO[R, A])(implicit R: Runtime[R], F: Async[F], trace: Trace): F[A] =
     F.defer {
       val interrupted = new AtomicBoolean(true)
-      F.async[Exit[Throwable, A]] { cb =>
-        Unsafe.unsafe { implicit unsafe =>
-          val fiber          = R.unsafe.fork {
+      F.asyncCheckAttempt[Exit[Throwable, A]] { cb =>
+        F.delay {
+          implicit val unsafe: Unsafe = Unsafe.unsafe
+
+          val out = R.unsafe.runOrFork {
             signalOnNoExternalInterrupt {
               rio
             }(ZIO.succeed(interrupted.set(false)))
           }
-          fiber.unsafe
-            .addObserver(exit => cb(Right(exit)))
-          val cancelerEffect = F.delay {
-            val _ = fiber.interrupt
+          out match {
+            case Left(fiber) =>
+              val completeCb = (exit: Exit[Throwable, A]) => cb(Right(exit))
+              fiber.unsafe.addObserver(completeCb)
+              Left(Some(F.async_ { cb =>
+                fiber.unsafe.addObserver(_ => cb(Right(())))
+                fiber.unsafe.removeObserver(completeCb)
+                fiber.tellInterrupt(Cause.interrupt(fiber.id))
+              }))
+            case Right(v)    => Right(v) // No need to invoke the callback, sync resumption will take place
           }
-          F.pure(Some(cancelerEffect))
         }
-
       }.flatMap { exit =>
         toOutcomeThrowableOtherFiber(interrupted.get())(F.pure(_: A), exit) match {
           case Outcome.Succeeded(fa) =>
