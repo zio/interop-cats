@@ -65,7 +65,11 @@ private[interop] trait ZioSpecBaseLowPriority { self: ZioSpecBase =>
   }
 
   implicit def arbitraryZIO[R: Cogen: Tag, E: CanFail: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[ZIO[R, E, A]] =
-    Arbitrary(Gen.function1[ZEnvironment[R], IO[E, A]](arbitraryIO[E, A].arbitrary).map(ZIO.environment[R].flatMap))
+    Arbitrary(Gen.function1[ZEnvironment[R], IO[E, A]](arbitraryIO[E, A].arbitrary).map { f =>
+      // TODO: Remove this once it's fixed in ZIO
+      if (Tag[R] =:= Tag[Any]) f(ZEnvironment(()).asInstanceOf[ZEnvironment[R]])
+      else ZIO.environment[R].flatMap(f)
+    })
 
   implicit def arbitraryTask[A: Arbitrary: Cogen](implicit ticker: Ticker): Arbitrary[Task[A]] = {
     val arbIO = arbitraryIO[Throwable, A]
