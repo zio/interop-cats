@@ -359,7 +359,7 @@ private abstract class ZioConcurrent[R, E, E1]
               )
               .foldCauseZIO(
                 cause2 => ZIO.failCause(e.foldExit(_ ++ cause2, _ => cause2)),
-                _ => ZIO.done(e)
+                _ => e
               )
           }
       }
