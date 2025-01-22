@@ -556,7 +556,7 @@ private abstract class ZioTemporal[R, E, E1] extends ZioConcurrent[R, E, E1] wit
   override def realTime: F[FiniteDuration] = {
     implicit def trace: Trace = CoreTracer.newTrace
 
-    currentTime(MILLISECONDS).map(FiniteDuration(_, MILLISECONDS))
+    currentTime(NANOSECONDS).map(FiniteDuration(_, NANOSECONDS))
   }
 }
 
