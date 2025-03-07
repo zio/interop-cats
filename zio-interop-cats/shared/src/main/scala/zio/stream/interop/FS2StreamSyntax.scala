@@ -50,7 +50,7 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
       if (useChunkedImpl) {
         stream
           .chunkLimit(queueSize)
-          .evalTap(a => queue.offer(Take.chunk(zio.Chunk.fromIterable(a.toArraySeqUntagged))))
+          .evalTap(a => queue.offer(Take.chunk(zio.Chunk.fromArray(a.toArray))))
       } else {
         stream.evalTap(a => queue.offer(Take.single(a)))
       }
