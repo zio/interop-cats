@@ -1,12 +1,12 @@
 package zio.interop
 
 import fs2.Stream
-import zio.{ Chunk, Ref, Task }
-import zio.stream.ZStream
-import zio.test.Assertion.{ equalTo, fails }
-import zio.test.*
-import zio.interop.catz.*
 import zio.Random.nextIntBetween
+import zio.interop.catz.*
+import zio.stream.ZStream
+import zio.test.*
+import zio.test.Assertion.*
+import zio.{ Chunk, Ref, Task }
 
 object fs2StreamSpec extends ZIOSpecDefault {
   import zio.stream.interop.fs2z.*
@@ -42,6 +42,11 @@ object fs2StreamSpec extends ZIOSpecDefault {
       test("error propagation") {
         val result = ZStream.fail(exception).toFs2Stream.compile.drain.exit
         assertZIO(result)(fails(equalTo(exception)))
+      },
+      test("unguarded throw propagation") {
+        val stream: ZStream[Any, Throwable, Int] = ZStream(1, 2, 3) ++ (throw exception)
+        val result                               = stream.toFs2Stream.compile.drain.exit
+        assertZIO(result)(dies(equalTo(exception)))
       }
     ),
     suite("test toZStream conversion")(
@@ -56,6 +61,10 @@ object fs2StreamSpec extends ZIOSpecDefault {
       }),
       test("error propagation") {
         val result = Stream.raiseError[Task](exception).toZStream().runDrain.exit
+        assertZIO(result)(fails(equalTo(exception)))
+      },
+      test("unguarded throw propagation") {
+        val result = (Stream[Task, Int](1, 2, 3) ++ (throw exception)).toZStream().runDrain.exit
         assertZIO(result)(fails(equalTo(exception)))
       },
       test("releases all resources by the time the failover stream has started") {

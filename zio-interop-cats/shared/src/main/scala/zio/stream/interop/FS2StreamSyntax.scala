@@ -2,8 +2,9 @@ package zio
 package stream.interop
 
 import cats.effect.Resource
+import cats.effect.kernel.Resource.ExitCase
 import fs2.Stream
-import zio.interop.catz.{ concurrentInstance, scopedSyntax, zioResourceSyntax }
+import zio.interop.catz.{ concurrentInstance, scopedSyntax }
 import zio.stream.{ Take, ZStream }
 
 import scala.language.implicitConversions
@@ -41,45 +42,35 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
    *
    * @note when possible use only power of 2 queue sizes; this will provide better performance of the queue.
    */
-  def toZStream[R1 <: R](queueSize: Int = 16)(implicit trace: Trace): ZStream[R1, Throwable, A] =
-    if (queueSize > 1) toZStreamChunk(queueSize) else toZStreamSingle
+  def toZStream[R1 <: R](queueSize: Int = 16)(implicit trace: Trace): ZStream[R1, Throwable, A] = {
+    val useChunkedImpl = queueSize > 1
+    val realQueueSize  = if (useChunkedImpl) queueSize else 1
 
-  private def toZStreamSingle[R1 <: R](implicit trace: Trace): ZStream[R1, Throwable, A] =
+    def streamToQueue(queue: Enqueue[Take[Throwable, A]]): Stream[RIO[R, _], Any] =
+      if (useChunkedImpl) {
+        stream
+          .chunkLimit(queueSize)
+          .evalTap(a => queue.offer(Take.chunk(zio.Chunk.fromIterator(a.iterator))))
+      } else {
+        stream.evalTap(a => queue.offer(Take.single(a)))
+      }
+
     ZStream
       .scoped[R1] {
         for {
-          queue <- ZIO.acquireRelease(Queue.bounded[Take[Throwable, A]](1))(_.shutdown)
-          _     <-
-            (stream.evalTap(a => queue.offer(Take.single(a))) ++ fs2.Stream
-              .eval(queue.offer(Take.end)))
-              .handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
-              .compile[RIO[R, _], RIO[R, _], Any]
-              .resource
-              .drain
-              .toScopedZIO
-              .forkScoped
+          queue <- ZIO.acquireRelease(Queue.bounded[Take[Throwable, A]](realQueueSize))(_.shutdown)
+          _     <- streamToQueue(queue)
+                     .onFinalizeCase[RIO[R, _]] {
+                       case ExitCase.Succeeded  => queue.offer(Take.end).unit
+                       case ExitCase.Errored(e) => queue.offer(Take.fail(e)).unit
+                       case ExitCase.Canceled   => queue.offer(Take.done(Exit.interrupt(FiberId.None))).unit
+                     }
+                     .compile[RIO[R, _], RIO[R, _], Any]
+                     .drain
+                     .forkScoped
         } yield ZStream.fromQueue(queue).flattenTake
       }
       .flatten
+  }
 
-  private def toZStreamChunk[R1 <: R](queueSize: Int)(implicit trace: Trace): ZStream[R1, Throwable, A] =
-    ZStream
-      .scoped[R1] {
-        for {
-          queue <- ZIO.acquireRelease(Queue.bounded[Take[Throwable, A]](queueSize))(_.shutdown)
-          _     <- {
-            stream
-              .chunkLimit(queueSize)
-              .evalTap(a => queue.offer(Take.chunk(zio.Chunk.fromIterable(a.toList))))
-              .chunkLimit(1)
-              .unchunks ++ fs2.Stream.eval(queue.offer(Take.end))
-          }.handleErrorWith(e => fs2.Stream.eval(queue.offer(Take.fail(e))).drain)
-            .compile[RIO[R, _], RIO[R, _], Any]
-            .resource
-            .drain
-            .toScopedZIO
-            .forkScoped
-        } yield ZStream.fromQueue(queue).flattenTake
-      }
-      .flatten
 }
