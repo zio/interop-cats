@@ -65,7 +65,7 @@ object fs2StreamSpec extends ZIOSpecDefault {
       },
       test("unguarded throw propagation") {
         val result = (Stream[Task, Int](1, 2, 3) ++ (throw exception)).toZStream().runDrain.exit
-        assertZIO(result)(fails(equalTo(exception)))
+        assertZIO(result)(dies(equalTo(exception)))
       },
       test("releases all resources by the time the failover stream has started") {
         for {
