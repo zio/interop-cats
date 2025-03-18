@@ -2,7 +2,6 @@ package zio
 package stream.interop
 
 import cats.effect.Resource
-import cats.effect.kernel.Resource.ExitCase
 import fs2.Stream
 import zio.interop.catz.{ concurrentInstance, scopedSyntax }
 import zio.stream.{ Take, ZStream }
@@ -60,13 +59,12 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
         for {
           queue <- ZIO.acquireRelease(Queue.bounded[Take[Throwable, A]](realQueueSize))(_.shutdown)
           _     <- streamToQueue(queue)
-                     .onFinalizeCase[RIO[R, _]] {
-                       case ExitCase.Succeeded  => queue.offer(Take.end).unit
-                       case ExitCase.Errored(e) => queue.offer(Take.fail(e)).unit
-                       case ExitCase.Canceled   => queue.offer(Take.done(Exit.interrupt(FiberId.None))).unit
-                     }
                      .compile[RIO[R, _], RIO[R, _], Any]
                      .drain
+                     .onExit {
+                       case Exit.Success(_)           => queue.offer(Take.end)
+                       case failure @ Exit.Failure(_) => queue.offer(Take.done(failure))
+                     }
                      .forkScoped
         } yield ZStream.fromQueue(queue).flattenTake
       }
