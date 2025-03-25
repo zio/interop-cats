@@ -112,7 +112,10 @@ object Example extends ZIOAppDefault:
 
 ## Documentation
 
-Learn more on the [ZIO Interop Cats homepage](https://zio.dev)!
+Learn more on the ZIO Interop Cats homepage!
+- [ZIO 2.x Interoperation with Cats 2.X homepage](https://zio.dev/zio2-interop-cats2/)
+- [ZIO 2.x Interoperation with Cats 3.x homepage](https://zio.dev/zio2-interop-cats3/)!
+- [Guide: How to Interop with Cats Effect?](https://zio.dev/guides/interop/with-cats-effect)
 
 ## Contributing
 
