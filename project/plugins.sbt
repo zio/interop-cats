@@ -10,6 +10,6 @@ addSbtPlugin("org.scoverage"                     % "sbt-scoverage"             %
 addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings"          % "3.0.2")
 addSbtPlugin("com.github.cb372"                  % "sbt-explicit-dependencies" % "0.3.1")
 addSbtPlugin("de.heikoseeberger"                 % "sbt-header"                % "5.10.0")
-addSbtPlugin("ch.epfl.scala"                     % "sbt-bloop"                 % "2.0.5")
+addSbtPlugin("ch.epfl.scala"                     % "sbt-bloop"                 % "2.0.14")
 addSbtPlugin("com.github.sbt"                    % "sbt-ci-release"            % "1.9.0")
 addSbtPlugin("com.timushev.sbt"                  % "sbt-updates"               % "0.6.4")
