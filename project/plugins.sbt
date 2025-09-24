@@ -1,4 +1,4 @@
-lazy val zioSbtVersion = "0.4.0-alpha.28"
+lazy val zioSbtVersion = "0.4.0-alpha.35"
 addSbtPlugin("dev.zio" % "zio-sbt-website" % zioSbtVersion)
 addSbtPlugin("dev.zio" % "zio-sbt-ci"      % zioSbtVersion)
 
