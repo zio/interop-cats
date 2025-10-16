@@ -23,6 +23,7 @@ import cats.effect.{ IO as CIO, LiftIO }
 import cats.kernel.{ CommutativeMonoid, CommutativeSemigroup }
 import cats.effect
 import cats.*
+import cats.effect.std.SecureRandom as CSecureRandom
 import zio.{ Fiber, Ref as ZRef }
 import zio.*
 import zio.Clock.{ currentTime, nanoTime }
@@ -103,6 +104,10 @@ abstract class CatsEffectInstances extends CatsZioInstances {
   implicit final def temporalInstance[R]: GenTemporal[ZIO[R, Throwable, _], Throwable] = asyncInstance[R]
 
   implicit final def concurrentInstance[R]: GenConcurrent[ZIO[R, Throwable, _], Throwable] = asyncInstance[R]
+
+  implicit final def secureRandomInstance[R](implicit
+    runtime: Runtime[Any]
+  ): CSecureRandom[ZIO[R, Throwable, _]] = SecureRandom[ZIO[R, Throwable, _]]
 
   private[this] val asyncInstance0: Async[Task] =
     new ZioAsync
