@@ -101,7 +101,25 @@ object fs2StreamSpec extends ZIOSpecDefault {
                          ZStream.fromChunk(chunk)
                        )
         } yield result
-      })
+      }),
+      test("regression https://github.com/zio/interop-cats/issues/709") {
+        val stream = fs2.Stream(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).toZStream(1)
+        for {
+          result <- stream.take(2).runSum
+        } yield assert(result)(equalTo(3))
+      },
+      test("regression https://github.com/zio/interop-cats/issues/709 #2") {
+        val stream = fs2.Stream(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).toZStream(2)
+        for {
+          result <- stream.take(2).runSum
+        } yield assert(result)(equalTo(3))
+      },
+      test("regression https://github.com/zio/interop-cats/issues/709 #3") {
+        val stream = fs2.Stream(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).toZStream(9)
+        for {
+          result <- stream.take(2).runSum
+        } yield assert(result)(equalTo(3))
+      }
     )
   )
 }
