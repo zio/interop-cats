@@ -109,3 +109,7 @@ object Example extends ZIOAppDefault:
       .exitCode
   }
 ```
+
+## Links
+
+- [Guide: How to Interop with Cats Effect?](https://zio.dev/guides/interop/with-cats-effect)
