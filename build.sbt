@@ -8,7 +8,6 @@ inThisBuild(
   List(
     name          := "interop-cats",
     organization  := "dev.zio",
-    homepage      := Some(url("https://zio.dev")),
     licenses      := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
     developers    := List(
       Developer(
@@ -62,7 +61,7 @@ val scalaJavaTimeVersion       = "2.6.0"
 lazy val zioInteropTracer = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-interop-tracer"))
   .enablePlugins(BuildInfoPlugin)
-  .settings(stdSettings("zio-interop-tracer"))
+  .settings(BuildHelper.stdSettings("zio-interop-tracer"))
   .settings(buildInfoSettingsInteropTracer)
   .settings(
     libraryDependencies ++= Seq(
@@ -77,8 +76,8 @@ lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-interop-cats"))
   .dependsOn(zioInteropTracer)
   .enablePlugins(BuildInfoPlugin)
-  .settings(stdSettings("zio-interop-cats"))
-  .settings(buildInfoSettings)
+  .settings(BuildHelper.stdSettings("zio-interop-cats"))
+  .settings(BuildHelper.buildInfoSettings)
   .settings(
     libraryDependencies ++= {
       val optLibraries0 = List(
@@ -103,8 +102,8 @@ lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-interop-cats-tests"))
   .dependsOn(zioTestInteropCats % "test->test;compile->compile")
   .enablePlugins(BuildInfoPlugin)
-  .settings(stdSettings("zio-interop-cats-tests"))
-  .settings(buildInfoSettings)
+  .settings(BuildHelper.stdSettings("zio-interop-cats-tests"))
+  .settings(BuildHelper.buildInfoSettings)
   .settings(
     libraryDependencies ++= {
       val optLibraries0 = List(
@@ -137,8 +136,8 @@ lazy val zioTestInteropCats = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-test-interop-cats"))
   .dependsOn(zioInteropCats)
   .enablePlugins(BuildInfoPlugin)
-  .settings(stdSettings("zio-test-interop-cats"))
-  .settings(buildInfoSettings)
+  .settings(BuildHelper.stdSettings("zio-test-interop-cats"))
+  .settings(BuildHelper.buildInfoSettings)
   .settings(publish / skip := true)
   .settings(
     libraryDependencies ++= {
@@ -172,7 +171,7 @@ lazy val zioTestInteropCatsJS = zioTestInteropCats.js
 lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   .in(file("core-only-test"))
   .dependsOn(zioInteropCats)
-  .settings(stdSettings("core-only-test"))
+  .settings(BuildHelper.stdSettings("core-only-test"))
   .settings(publish / skip := true)
   .settings(
     libraryDependencies ++= Seq(
@@ -191,6 +190,7 @@ lazy val coreOnlyTestJS = coreOnlyTest.js
 lazy val docs = project
   .in(file("zio-interop-cats-docs"))
   .settings(
+    moduleName                                 := "zio-interop-cats-docs",
     projectName                                := "ZIO Interop Cats",
     mainModuleName                             := (zioInteropCatsJVM / moduleName).value,
     projectStage                               := ProjectStage.ProductionReady,

@@ -116,7 +116,7 @@ object Example extends ZIOAppDefault:
 
 ## Documentation
 
-Learn more on the [ZIO Interop Cats homepage](https://zio.dev)!
+Learn more on the [ZIO Interop Cats homepage](https://zio.dev/interop-cats)!
 
 ## Contributing
 

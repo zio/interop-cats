@@ -1,5 +1,5 @@
 {
-  "name": "@zio.dev/zio2-interop-cats3",
+  "name": "@zio.dev/interop-cats",
   "description": "ZIO 2.x Interop Cats 3.x Documentation",
   "license": "Apache-2.0"
 }
