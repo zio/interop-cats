@@ -114,11 +114,6 @@ object Example extends ZIOAppDefault:
 
 Learn more on the [ZIO Interop Cats homepage](https://zio.dev)!
 
-Links:
-- [ZIO 2.x Interoperation with Cats 3.x homepage](https://zio.dev/zio2-interop-cats3/)!
-- [ZIO 2.x Interoperation with Cats 2.X homepage](https://zio.dev/zio2-interop-cats2/)
-- [Guide: How to Interop with Cats Effect?](https://zio.dev/guides/interop/with-cats-effect)
-
 ## Contributing
 
 For the general guidelines, see ZIO [contributor's guide](https://zio.dev/contributor-guidelines).
