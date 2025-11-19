@@ -35,6 +35,7 @@ object BuildHelper {
   )
 
   private val std3xOptions = Seq(
+    "-no-indent",
     "-Xfatal-warnings",
     "-Ykind-projector:underscores"
   )
@@ -51,7 +52,7 @@ object BuildHelper {
     buildInfoObject  := "BuildInfoInteropTracer"
   )
 
-  def optimizerOptions(optimize: Boolean) =
+  def optimizerOptions(optimize: Boolean): Seq[String] =
     if (optimize) {
       Seq(
         "-opt:l:inline",
@@ -59,7 +60,7 @@ object BuildHelper {
       )
     } else Nil
 
-  def extraOptions(scalaVersion: String, optimize: Boolean) =
+  def extraOptions(scalaVersion: String, optimize: Boolean): Seq[String] =
     CrossVersion.partialVersion(scalaVersion) match {
       case Some((3, 3))  =>
         std3xOptions
@@ -91,8 +92,9 @@ object BuildHelper {
     ThisBuild / scalaVersion := crossScalaVersions.value.head,
     scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
     libraryDependencies ++= testDeps ++ {
-      if (isDotty(scalaVersion.value)) Seq.empty
-      else Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.3") cross CrossVersion.full)
+      if (CrossVersion.partialVersion(scalaVersion.value).exists(_._1 == 2))
+        Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.3") cross CrossVersion.full)
+      else Seq.empty
     },
     Test / parallelExecution := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
@@ -126,38 +128,6 @@ object BuildHelper {
             file(sourceDirectory.value.getPath + "/test/scala-2.12+")
           )
         case _                       => Nil
-      }
-    }
-  )
-
-  def isDotty(scalaVersion: String): Boolean =
-    CrossVersion.partialVersion(scalaVersion).forall { case (major, _) =>
-      major >= 3
-    }
-
-  val dottySettings = Seq(
-    crossScalaVersions += Scala3,
-    scalacOptions ++= {
-      if (isDotty(scalaVersion.value)) Seq("-noindent")
-      else Seq()
-    },
-    scalacOptions --= {
-      if (isDotty(scalaVersion.value)) Seq("-Xfatal-warnings")
-      else Seq()
-    },
-    Compile / doc / sources  := {
-      val old = (Compile / doc / sources).value
-      if (isDotty(scalaVersion.value)) Nil
-      else {
-        old
-      }
-    },
-    Test / parallelExecution := {
-      val old = (Test / parallelExecution).value
-      if (isDotty(scalaVersion.value)) {
-        false
-      } else {
-        old
       }
     }
   )

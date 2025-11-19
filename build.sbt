@@ -63,7 +63,6 @@ lazy val zioInteropTracer = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-interop-tracer"))
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-interop-tracer"))
-  .settings(dottySettings)
   .settings(buildInfoSettingsInteropTracer)
   .settings(
     libraryDependencies ++= Seq(
@@ -80,7 +79,6 @@ lazy val zioInteropCats = crossProject(JSPlatform, JVMPlatform)
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-interop-cats"))
   .settings(buildInfoSettings)
-  .settings(dottySettings)
   .settings(
     libraryDependencies ++= {
       val optLibraries0 = List(
@@ -107,7 +105,6 @@ lazy val zioInteropCatsTests = crossProject(JSPlatform, JVMPlatform)
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-interop-cats-tests"))
   .settings(buildInfoSettings)
-  .settings(dottySettings)
   .settings(
     libraryDependencies ++= {
       val optLibraries0 = List(
@@ -142,7 +139,6 @@ lazy val zioTestInteropCats = crossProject(JSPlatform, JVMPlatform)
   .enablePlugins(BuildInfoPlugin)
   .settings(stdSettings("zio-test-interop-cats"))
   .settings(buildInfoSettings)
-  .settings(dottySettings)
   .settings(publish / skip := true)
   .settings(
     libraryDependencies ++= {
@@ -177,7 +173,6 @@ lazy val coreOnlyTest = crossProject(JSPlatform, JVMPlatform)
   .in(file("core-only-test"))
   .dependsOn(zioInteropCats)
   .settings(stdSettings("core-only-test"))
-  .settings(dottySettings)
   .settings(publish / skip := true)
   .settings(
     libraryDependencies ++= Seq(
