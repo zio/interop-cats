@@ -110,6 +110,10 @@ object Example extends ZIOAppDefault:
   }
 ```
 
+## Links
+
+- [Guide: How to Interop with Cats Effect?](https://zio.dev/guides/interop/with-cats-effect)
+
 ## Documentation
 
 Learn more on the [ZIO Interop Cats homepage](https://zio.dev)!
