@@ -62,8 +62,11 @@ final class FS2RIOStreamSyntax[R, A](private val stream: Stream[RIO[R, _], A]) {
                      .compile[RIO[R, _], RIO[R, _], Any]
                      .drain
                      .onExit {
-                       case Exit.Success(_)           => queue.offer(Take.end)
-                       case failure @ Exit.Failure(_) => queue.offer(Take.done(failure))
+                       case Exit.Success(_)           =>
+                         // must be interruptible for cleanup from forkScoped not to hang the stream if the queue is blocked
+                         queue.offer(Take.end).interruptible
+                       case failure @ Exit.Failure(_) =>
+                         queue.offer(Take.done(failure)).interruptible
                      }
                      .forkScoped
         } yield ZStream.fromQueue(queue).flattenTake

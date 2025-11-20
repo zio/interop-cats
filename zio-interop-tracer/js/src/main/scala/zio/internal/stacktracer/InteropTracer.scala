@@ -18,7 +18,7 @@ package zio.internal.stacktracer
 import scala.annotation.nowarn
 
 object InteropTracer {
-  @nowarn("cat=unused")
+  @nowarn("msg=used")
   final def newTrace(f: Any): Trace = "noop".asInstanceOf[Trace]
 
   private type Trace = Tracer.instance.Type with Tracer.Traced
