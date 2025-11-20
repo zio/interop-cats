@@ -184,6 +184,8 @@ lazy val coreOnlyTestJVM = coreOnlyTest.jvm
 lazy val coreOnlyTestJS  = coreOnlyTest.js
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
+// doc website
+
 lazy val docs = project
   .in(file("zio-interop-cats-docs"))
   .settings(notPublished)
