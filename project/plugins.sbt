@@ -11,5 +11,5 @@ addSbtPlugin("org.scoverage"                     % "sbt-scoverage"             %
 addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings"          % "3.0.2")
 addSbtPlugin("com.github.cb372"                  % "sbt-explicit-dependencies" % "0.3.1")
 addSbtPlugin("ch.epfl.scala"                     % "sbt-bloop"                 % "2.0.17")
-addSbtPlugin("com.github.sbt"                    % "sbt-ci-release"            % "1.9.3")
+addSbtPlugin("com.github.sbt"                    % "sbt-ci-release"            % "1.11.2")
 addSbtPlugin("com.timushev.sbt"                  % "sbt-updates"               % "0.6.4")
