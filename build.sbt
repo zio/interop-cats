@@ -192,6 +192,7 @@ lazy val docs = project
     projectName                                := "ZIO Interop Cats",
     mainModuleName                             := (zioInteropCatsJVM / moduleName).value,
     projectStage                               := ProjectStage.ProductionReady,
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects()
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(),
+    publishToNpm                               := publishHashverToNpm
   )
   .enablePlugins(WebsitePlugin)
