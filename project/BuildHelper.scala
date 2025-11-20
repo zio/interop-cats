@@ -93,7 +93,7 @@ object BuildHelper {
     scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
     libraryDependencies ++= testDeps ++ {
       if (CrossVersion.partialVersion(scalaVersion.value).exists(_._1 == 2))
-        Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.3") cross CrossVersion.full)
+        Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4") cross CrossVersion.full)
       else Seq.empty
     },
     Test / parallelExecution := true,
