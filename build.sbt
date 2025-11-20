@@ -1,6 +1,7 @@
 import BuildHelper._
 import explicitdeps.ExplicitDepsPlugin.autoImport.moduleFilterRemoveValue
 import sbtcrossproject.CrossPlugin.autoImport.crossProject
+import zio.sbt.WebsitePlugin.publishHashverToNpmTask
 
 name := "interop-cats"
 
@@ -195,6 +196,6 @@ lazy val docs = project
     mainModuleName                             := (zioInteropCatsJVM / moduleName).value,
     projectStage                               := ProjectStage.ProductionReady,
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(),
-    publishToNpm                               := publishHashverToNpm
+    publishToNpm                               := publishHashverToNpmTask.value
   )
   .enablePlugins(WebsitePlugin)
