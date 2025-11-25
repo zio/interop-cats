@@ -49,8 +49,10 @@ private class ZioAsync[R]
 
       ZIO.uninterruptibleMask(restore =>
         k({ e => p.trySuccess(e); () }).flatMap {
-          case Some(canceler) => onCancel(restore(get), canceler.orDie)
-          case None           => restore(get)
+          case Some(canceler) => onCancel(restore(get), canceler)
+          case None           =>
+            // uninterruptible because of https://github.com/typelevel/cats-effect/issues/3725
+            get
         }
       )
     }
