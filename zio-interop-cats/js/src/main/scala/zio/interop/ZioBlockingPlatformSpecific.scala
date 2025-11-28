@@ -1,7 +1,7 @@
 package zio.interop
 
-import cats.effect.kernel.Sync
-import zio.{ RIO, ZIO }
+import cats.effect.kernel.{Sync, Unique}
+import zio.{RIO, ZIO}
 
 private abstract class ZioBlockingPlatformSpecific[R]
     extends ZioTemporal[R, Throwable, Throwable]
@@ -16,5 +16,8 @@ private abstract class ZioBlockingPlatformSpecific[R]
 
   override def interruptible[A](thunk: => A): F[A] =
     ZIO.attempt(thunk)
+
+  override def unique: F[Unique.Token] =
+    ZIO.succeed(new Unique.Token)
 
 }

@@ -1,6 +1,6 @@
 package zio.interop
 
-import cats.effect.kernel.{ Async, Cont, Sync, Unique }
+import cats.effect.kernel.{ Async, Cont, Sync }
 import zio.{ RIO, ZIO }
 
 import scala.concurrent.{ ExecutionContext, Future }
@@ -12,9 +12,6 @@ private class ZioAsync[R] extends ZioBlockingPlatformSpecific[R] with Async[RIO[
 
   override def executionContext: F[ExecutionContext] =
     ZIO.executor.map(_.asExecutionContext)
-
-  override def unique: F[Unique.Token] =
-    ZIO.succeed(new Unique.Token)
 
   override def cont[K, Q](body: Cont[F, K, Q]): F[Q] =
     Async.defaultCont(body)(this)
