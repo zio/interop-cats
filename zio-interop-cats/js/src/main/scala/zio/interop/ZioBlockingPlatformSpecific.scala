@@ -1,9 +1,7 @@
 package zio.interop
 
-import cats.effect.kernel.{ Async, Cont, Sync, Unique }
+import cats.effect.kernel.Sync
 import zio.{ RIO, ZIO }
-
-import scala.concurrent.{ ExecutionContext, Future }
 
 private abstract class ZioBlockingPlatformSpecific[R]
     extends ZioTemporal[R, Throwable, Throwable]
