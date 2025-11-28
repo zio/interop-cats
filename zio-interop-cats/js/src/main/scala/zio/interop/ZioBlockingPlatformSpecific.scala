@@ -1,7 +1,7 @@
 package zio.interop
 
-import cats.effect.kernel.{Sync, Unique}
-import zio.{RIO, ZIO}
+import cats.effect.kernel.{ Sync, Unique }
+import zio.{ RIO, ZIO }
 
 private abstract class ZioBlockingPlatformSpecific[R]
     extends ZioTemporal[R, Throwable, Throwable]
