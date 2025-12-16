@@ -1,23 +1,17 @@
 package zio.interop
 
-import cats.effect.kernel.{ Async, Cont, Sync, Unique }
+import cats.effect.kernel.{ Async, Cont, Sync }
 import zio.{ RIO, ZIO }
 
 import scala.concurrent.{ ExecutionContext, Future }
 
-private class ZioAsync[R]
-    extends ZioTemporal[R, Throwable, Throwable]
-    with Async[RIO[R, _]]
-    with ZioMonadErrorExitThrowable[R] {
+private class ZioAsync[R] extends ZioBlockingPlatformSpecific[R] with Async[RIO[R, _]] {
 
   override def evalOn[A](fa: F[A], ec: ExecutionContext): F[A] =
     fa.onExecutionContext(ec)
 
   override def executionContext: F[ExecutionContext] =
     ZIO.executor.map(_.asExecutionContext)
-
-  override def unique: F[Unique.Token] =
-    ZIO.succeed(new Unique.Token)
 
   override def cont[K, Q](body: Cont[F, K, Q]): F[Q] =
     Async.defaultCont(body)(this)
@@ -28,17 +22,8 @@ private class ZioAsync[R]
     case Sync.Type.InterruptibleOnce | Sync.Type.InterruptibleMany => ZIO.attemptBlockingInterrupt(thunk)
   }
 
-  override def delay[A](thunk: => A): F[A] =
-    ZIO.attempt(thunk)
-
   override def defer[A](thunk: => F[A]): F[A] =
     ZIO.suspend(thunk)
-
-  override def blocking[A](thunk: => A): F[A] =
-    ZIO.attemptBlocking(thunk)
-
-  override def interruptible[A](thunk: => A): F[A] =
-    ZIO.attemptBlockingInterrupt(thunk)
 
   override def async[A](k: (Either[Throwable, A] => Unit) => F[Option[F[Unit]]]): F[A] =
     ZIO.suspendSucceed {
