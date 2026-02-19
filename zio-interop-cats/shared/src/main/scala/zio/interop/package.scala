@@ -94,13 +94,12 @@ package object interop {
         // ZIO 2, unlike ZIO 1, _does not_ guarantee that the presence of a typed failure
         // means we're NOT interrupting, so we have to check for interruption to matter what
         if (
-          (cause.isInterrupted || {
+          (cause.isInterrupted ||
             // deem empty cause to be interruption as well, due to occasional invalid ZIO states
             // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
             // NOTE: this line is for ZIO 1, it may not apply for ZIO 2, someone needs to debunk
             // whether this is required
-            cause.isEmpty
-          }) && actuallyInterrupted
+            cause.isEmpty) && actuallyInterrupted
         ) {
           Outcome.Canceled()
         } else {
@@ -139,13 +138,12 @@ package object interop {
       // ZIO 2, unlike ZIO 1, _does not_ guarantee that the presence of a typed failure
       // means we're NOT interrupting, so we have to check for interruption to matter what
       if (
-        cause.isInterrupted || {
-          // deem empty cause to be interruption as well, due to occasional invalid ZIO states
-          // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
-          // NOTE: this line is for ZIO 1, it may not apply for ZIO 2, someone needs to debunk
-          // whether this is required
-          cause.isEmpty
-        }
+        cause.isInterrupted ||
+        // deem empty cause to be interruption as well, due to occasional invalid ZIO states
+        // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
+        // NOTE: this line is for ZIO 1, it may not apply for ZIO 2, someone needs to debunk
+        // whether this is required
+        cause.isEmpty
       ) {
         ZIO.descriptorWith { descriptor =>
           if (descriptor.interrupters.nonEmpty)
@@ -175,13 +173,12 @@ package object interop {
         // ZIO 2, unlike ZIO 1, _does not_ guarantee that the presence of a typed failure
         // means we're NOT interrupting, so we have to check for interruption to matter what
         if (
-          cause.isInterrupted || {
-            // deem empty cause to be interruption as well, due to occasional invalid ZIO states
-            // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
-            // NOTE: this line is for ZIO 1, it may not apply for ZIO 2, someone needs to debunk
-            // whether this is required
-            cause.isEmpty
-          }
+          cause.isInterrupted ||
+          // deem empty cause to be interruption as well, due to occasional invalid ZIO states
+          // in `ZIO.fail().uninterruptible` caused by this line https://github.com/zio/zio/blob/22921ee5ac0d2e03531f8b37dfc0d5793a467af8/core/shared/src/main/scala/zio/internal/FiberContext.scala#L415=
+          // NOTE: this line is for ZIO 1, it may not apply for ZIO 2, someone needs to debunk
+          // whether this is required
+          cause.isEmpty
         ) {
           ZIO.descriptorWith { descriptor =>
             if (descriptor.interrupters.nonEmpty) {
