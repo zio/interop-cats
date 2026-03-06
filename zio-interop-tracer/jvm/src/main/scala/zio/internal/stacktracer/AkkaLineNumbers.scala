@@ -262,7 +262,7 @@ private[stacktracer] object AkkaLineNumbers {
 
   private[this] def skipMethodOrField(d: DataInputStream)(implicit c: Constants): Unit = {
     skip(d, 2) // access flags
-    val name = d.readUnsignedShort() // name
+    val name       = d.readUnsignedShort() // name
     skip(d, 2) // signature
     val attributes = d.readUnsignedShort()
     var i          = 1
@@ -308,7 +308,7 @@ private[stacktracer] object AkkaLineNumbers {
     implicit c: Constants
   ): Option[(Int, Int)] = {
     skip(d, 2) // access flags
-    val name = d.readUnsignedShort() // name
+    val name       = d.readUnsignedShort() // name
     skip(d, 2) // signature
     if (debug) println(s"LNB:   ${c(name)}")
     val attributes =

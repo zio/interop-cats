@@ -76,9 +76,7 @@ trait CatsMtlInstances1 {
       override def ask[R1 >: R]: ZIO[R, E, R1] = ZIO.environment[R].map(_.get)
 
       override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] =
-        fa.provideSomeEnvironment({ (env: ZEnvironment[R]) =>
-          env.update(f)
-        })(InteropTracer.newTrace(f))
+        fa.provideSomeEnvironment((env: ZEnvironment[R]) => env.update(f))(InteropTracer.newTrace(f))
     }
 
   implicit def zioAsk[R1: Tag, R <: R1, E](implicit
