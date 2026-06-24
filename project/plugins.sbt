@@ -1,15 +1,15 @@
-lazy val zioSbtVersion = "0.4.8"
+lazy val zioSbtVersion = "0.6.0"
 addSbtPlugin("dev.zio" % "zio-sbt-website"   % zioSbtVersion)
 addSbtPlugin("dev.zio" % "zio-sbt-ci"        % zioSbtVersion)
 addSbtPlugin("dev.zio" % "zio-sbt-ecosystem" % zioSbtVersion)
 
-addSbtPlugin("org.scala-js"                      % "sbt-scalajs"               % "1.20.1")
+addSbtPlugin("org.scala-js"                      % "sbt-scalajs"               % "1.22.0")
 addSbtPlugin("org.portable-scala"                % "sbt-scalajs-crossproject"  % "1.3.2")
-addSbtPlugin("org.scalameta"                     % "sbt-scalafmt"              % "2.5.6")
+addSbtPlugin("org.scalameta"                     % "sbt-scalafmt"              % "2.6.1")
 addSbtPlugin("com.eed3si9n"                      % "sbt-buildinfo"             % "0.13.1")
 addSbtPlugin("org.scoverage"                     % "sbt-scoverage"             % "2.4.4")
-addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings"          % "3.0.2")
+addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings"          % "3.0.3")
 addSbtPlugin("com.github.cb372"                  % "sbt-explicit-dependencies" % "0.3.1")
-addSbtPlugin("ch.epfl.scala"                     % "sbt-bloop"                 % "2.0.17")
+addSbtPlugin("ch.epfl.scala"                     % "sbt-bloop"                 % "2.1.0")
 addSbtPlugin("com.github.sbt"                    % "sbt-ci-release"            % "1.11.2")
 addSbtPlugin("com.timushev.sbt"                  % "sbt-updates"               % "0.6.4")

@@ -40,7 +40,7 @@ jobs:
     - name: Setup SBT
       uses: sbt/setup-sbt@v1
     - name: Cache Dependencies
-      uses: coursier/cache-action@v7
+      uses: coursier/cache-action@v8
     - name: Check all code compiles
       run: sbt +Test/compile
     - name: Check artifacts build process
@@ -67,7 +67,7 @@ jobs:
     - name: Setup SBT
       uses: sbt/setup-sbt@v1
     - name: Cache Dependencies
-      uses: coursier/cache-action@v7
+      uses: coursier/cache-action@v8
     - name: Check if the site workflow is up to date
       run: sbt ciCheckGithubWorkflow
     - name: Lint
@@ -80,9 +80,9 @@ jobs:
       fail-fast: false
       matrix:
         java:
-        - '11'
         - '17'
         - '21'
+        - '25'
     steps:
     - name: Install libuv
       run: sudo apt-get update && sudo apt-get install -y libuv1-dev
@@ -95,7 +95,7 @@ jobs:
     - name: Setup SBT
       uses: sbt/setup-sbt@v1
     - name: Cache Dependencies
-      uses: coursier/cache-action@v7
+      uses: coursier/cache-action@v8
     - name: Git Checkout
       uses: actions/checkout@v6
       with:
@@ -123,7 +123,7 @@ jobs:
     - name: Setup SBT
       uses: sbt/setup-sbt@v1
     - name: Cache Dependencies
-      uses: coursier/cache-action@v7
+      uses: coursier/cache-action@v8
     - name: Generate Readme
       run: sbt docs/generateReadme
     - name: Commit Changes
@@ -182,7 +182,7 @@ jobs:
     continue-on-error: false
     needs:
     - ci
-    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ ((github.event_name == 'release') && (github.event.action == 'published')) || (github.event_name == 'workflow_dispatch') }}
     steps:
     - name: Git Checkout
       uses: actions/checkout@v6
@@ -199,7 +199,7 @@ jobs:
     - name: Setup SBT
       uses: sbt/setup-sbt@v1
     - name: Cache Dependencies
-      uses: coursier/cache-action@v7
+      uses: coursier/cache-action@v8
     - name: Release
       run: sbt ci-release
       env:
@@ -230,7 +230,7 @@ jobs:
     - name: Setup SBT
       uses: sbt/setup-sbt@v1
     - name: Cache Dependencies
-      uses: coursier/cache-action@v7
+      uses: coursier/cache-action@v8
     - name: Setup NodeJs
       uses: actions/setup-node@v6
       with:
@@ -244,7 +244,7 @@ jobs:
     continue-on-error: false
     needs:
     - release-docs
-    if: ${{ (github.event_name == 'release') && (github.event.action == 'published') }}
+    if: ${{ ((github.event_name == 'release') && (github.event.action == 'published')) || (github.event_name == 'workflow_dispatch') }}
     steps:
     - name: Git Checkout
       uses: actions/checkout@v6

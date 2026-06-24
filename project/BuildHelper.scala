@@ -10,8 +10,8 @@ object BuildHelper {
   val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.19.0" % Test)
 
   val Scala212 = "2.12.21"
-  val Scala213 = "2.13.16"
-  val Scala3   = "3.3.7"
+  val Scala213 = "2.13.18"
+  val Scala3   = "3.3.8"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -69,7 +69,12 @@ object BuildHelper {
           "-Wextra-implicit",
           "-Wnumeric-widen",
           "-Wunused:_",
-          "-Wvalue-discard"
+          "-Wvalue-discard",
+          /* Traverse[Chunk] with Alternative[Chunk] inherit both a parameterless
+          `compose` from SemigroupK/MonoidK and the overloaded `compose(implicit ...)` from the Functor
+          family. cats uses the same shape in its own instances; silence the resulting 2.13 lint so it is
+           not promoted to an error by -Xfatal-warnings. */
+          "-Wconf:msg=will be easy to mistake for calls to overloads:s"
         ) ++ std2xOptions ++ optimizerOptions(optimize)
       case Some((2, 12)) =>
         Seq(
@@ -92,9 +97,21 @@ object BuildHelper {
     ThisBuild / scalaVersion := crossScalaVersions.value.head,
     scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
     libraryDependencies ++= testDeps ++ {
-      if (CrossVersion.partialVersion(scalaVersion.value).exists(_._1 == 2))
-        Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4") cross CrossVersion.full)
-      else Seq.empty
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        /*
+        The Scala 2 classfile parser eagerly resolves the @unused annotation that cats-effect carries on
+        its API (e.g. Async). cats-effect declares scalac-compat-annotation as `provided`, so it is not
+        propagated transitively and must be supplied explicitly.
+         */
+        case Some((2, _)) =>
+          Seq(
+            compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4") cross CrossVersion.full,
+            "org.typelevel" %% "scalac-compat-annotation" % "0.1.4" % Provided
+          )
+
+        case _ =>
+          Seq.empty
+      }
     },
     Test / parallelExecution := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),

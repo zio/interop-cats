@@ -49,21 +49,24 @@ abstract class CatsMtlInstances extends CatsMtlInstances1 {
       override def ask[R2 >: ZEnvironment[R1]]: ZIO[R, E, R2] = ZIO.environment
     }
 
-  implicit def fiberRefLocal[R, E](implicit
-    fiberRef: FiberRef[R],
-    ev: Applicative[ZIO[R, E, _]]
-  ): Local[ZIO[R, E, _], R] = new Local[ZIO[R, E, _], R] {
-    override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] = fiberRef.locallyWith(f)(fa)
+  implicit def fiberRefLocal[State, Env, Err](implicit
+    fiberRef: FiberRef[State],
+    ev: Applicative[ZIO[Env, Err, _]]
+  ): Local[ZIO[Env, Err, _], State] = new Local[ZIO[Env, Err, _], State] {
+    override def local[A](fa: ZIO[Env, Err, A])(f: State => State): ZIO[Env, Err, A] = fiberRef.locallyWith(f)(fa)
 
-    override def applicative: Applicative[ZIO[R, E, *]] = ev
+    override def applicative: Applicative[ZIO[Env, Err, *]] = ev
 
-    override def ask[E2 >: R]: ZIO[R, E, E2] = fiberRef.get
+    override def ask[S1 >: State]: ZIO[Env, Err, S1] = fiberRef.get
   }
 
-  implicit def fiberRefAsk[R, E](implicit fiberRef: FiberRef[R], ev: Applicative[ZIO[R, E, _]]): Ask[ZIO[R, E, _], R] =
-    new Ask[ZIO[R, E, _], R] {
-      override def applicative: Applicative[ZIO[R, E, *]] = ev
-      override def ask[E2 >: R]: ZIO[R, E, E2]            = fiberRef.get
+  implicit def fiberRefAsk[State, Env, Err](implicit
+    fiberRef: FiberRef[State],
+    ev: Applicative[ZIO[Env, Err, _]]
+  ): Ask[ZIO[Env, Err, _], State] =
+    new Ask[ZIO[Env, Err, _], State] {
+      override def applicative: Applicative[ZIO[Env, Err, *]] = ev
+      override def ask[S1 >: State]: ZIO[Env, Err, S1]        = fiberRef.get
     }
 
 }
