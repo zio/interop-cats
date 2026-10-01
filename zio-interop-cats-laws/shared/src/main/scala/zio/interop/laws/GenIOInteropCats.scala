@@ -1,18 +1,32 @@
-package zio.interop
+package zio.interop.laws
 
 import cats.effect.GenConcurrent
 import org.scalacheck.*
 import zio.*
 
+/**
+ * ScalaCheck generators for ZIO effects, used to derive the `Arbitrary` instances in `ZioTestInstances`.
+ */
 trait GenIOInteropCats {
 
+  /**
+   * Experimental, disabled by default. When `true`, `genIO` also generates `ZIO.die` and `ZIO.interrupt` (see
+   * `genDie`).
+   */
   // FIXME `genDie` and `genInternalInterrupt` surface multiple further unaddressed law failures
   //  See `genDie` scaladoc
   def betterGenerators: Boolean = false
 
-  // enables `genDie` alone, for instances that can recover from defects (`catz.autocatch`)
+  /**
+   * Disabled by default. When `true`, `genIO` also generates `ZIO.die`, for instances that can recover from defects
+   * (`catz.autocatch`).
+   */
   def defectGenerator: Boolean = false
 
+  /**
+   * Experimental, disabled by default. When `true`, `Arbitrary[Task[A]]` in `ZioTestInstances` also generates
+   * cats-effect `IO`s converted to `Task`.
+   */
   // FIXME cats conversion generator works most of the time
   //  but generates rare law failures in
   //   - `canceled sequences onCancel in order`

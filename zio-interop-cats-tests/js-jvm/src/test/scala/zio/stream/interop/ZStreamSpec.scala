@@ -4,6 +4,7 @@ import cats.effect.ParallelF
 import cats.implicits.*
 import cats.laws.discipline.*
 import zio.stream.*
+import zio.interop.laws.GenStreamInteropCats
 import zio.stream.interop.catz.*
 
 // Not run on Scala Native: with Scala Native 0.5.12 (multithreaded, Immix GC) this suite intermittently
