@@ -16,7 +16,7 @@
 
 package zio
 
-import cats.effect.kernel.{ Async, Outcome, Poll, Resource }
+import cats.effect.kernel.{ Async, Outcome, Resource }
 import cats.effect.std.Dispatcher
 import cats.syntax.all.*
 
@@ -199,11 +199,6 @@ package object interop {
       case Resource.ExitCase.Succeeded      => Exit.unit
       case Resource.ExitCase.Canceled       => Exit.interrupt(FiberId.None)
       case Resource.ExitCase.Errored(error) => Exit.fail(error)
-    }
-
-  @inline private[interop] def toPoll[R, E](restore: ZIO.InterruptibilityRestorer): Poll[ZIO[R, E, _]] =
-    new Poll[ZIO[R, E, _]] {
-      override def apply[T](fa: ZIO[R, E, T]): ZIO[R, E, T] = restore(fa)
     }
 
   @inline private[interop] def signalOnNoExternalInterrupt[R, E, A](

@@ -273,7 +273,7 @@ private abstract class ZioConcurrent[R, E, E1]
   override final def uncancelable[A](body: Poll[F] => F[A]): F[A] = {
     implicit def trace: Trace = InteropTracer.newTrace(body)
 
-    ZIO.uninterruptibleMask(restore => body(toPoll(restore)))
+    CatsMask.uncancelable[R, E, R, E, A](body)
   }
 
   override final def canceled: F[Unit] = {
@@ -347,10 +347,10 @@ private abstract class ZioConcurrent[R, E, E1]
   ): ZIO[R, E, B] = {
     implicit def trace: Trace = InteropTracer.newTrace(use)
 
-    ZIO.uninterruptibleMask[R, E, B] { restore =>
-      acquire(toPoll(restore)).flatMap { a =>
+    CatsMask.uncancelable[R, E, R, E, B] { poll =>
+      acquire(poll).flatMap { a =>
         ZIO
-          .suspendSucceed(restore(use(a)))
+          .suspendSucceed(poll(use(a)))
           .exit
           .flatMap { e =>
             ZIO
