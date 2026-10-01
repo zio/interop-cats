@@ -33,6 +33,7 @@ addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
 addCommandAlias("lint", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
 addCommandAlias("testJVM", ";zioInteropCatsTestsJVM/test;zioTestInteropCatsJVM/test;coreOnlyTestJVM/test")
 addCommandAlias("testJS", ";zioInteropCatsTestsJS/test;zioTestInteropCatsJS/test;coreOnlyTestJS/test")
+addCommandAlias("testNative", ";zioInteropCatsTestsNative/test;zioTestInteropCatsNative/test;coreOnlyTestNative/test")
 
 lazy val root = project
   .in(file("."))
@@ -40,12 +41,16 @@ lazy val root = project
   .aggregate(
     zioInteropTracerJVM,
     zioInteropTracerJS,
+    zioInteropTracerNative,
     zioInteropCatsJVM,
     zioInteropCatsJS,
+    zioInteropCatsNative,
     zioInteropCatsTestsJVM,
     zioInteropCatsTestsJS,
+    zioInteropCatsTestsNative,
     zioTestInteropCatsJVM,
     zioTestInteropCatsJS,
+    zioTestInteropCatsNative,
     docs
   )
   .settings(
@@ -55,13 +60,13 @@ lazy val root = project
 
 val zioVersion                 = "2.1.23"
 val catsVersion                = "2.13.0"
-val catsEffectVersion          = "3.6.3"
-val catsMtlVersion             = "1.6.0"
+val catsEffectVersion          = "3.7.1"
+val catsMtlVersion             = "1.7.0"
 val disciplineScalaTestVersion = "2.3.0"
-val fs2Version                 = "3.12.2"
+val fs2Version                 = "3.14.0"
 val scalaJavaTimeVersion       = "2.6.0"
 
-lazy val zioInteropTracer    = crossProject(JSPlatform, JVMPlatform)
+lazy val zioInteropTracer       = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("zio-interop-tracer"))
   .enablePlugins(BuildInfoPlugin)
   .settings(BuildHelper.stdSettings("zio-interop-tracer"))
@@ -71,10 +76,11 @@ lazy val zioInteropTracer    = crossProject(JSPlatform, JVMPlatform)
       "dev.zio" %%% "zio-stacktracer" % zioVersion
     )
   )
-lazy val zioInteropTracerJVM = zioInteropTracer.jvm
-lazy val zioInteropTracerJS  = zioInteropTracer.js
+lazy val zioInteropTracerJVM    = zioInteropTracer.jvm
+lazy val zioInteropTracerJS     = zioInteropTracer.js
+lazy val zioInteropTracerNative = zioInteropTracer.native
 
-lazy val zioInteropCats    = crossProject(JSPlatform, JVMPlatform)
+lazy val zioInteropCats       = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("zio-interop-cats"))
   .dependsOn(zioInteropTracer)
   .enablePlugins(BuildInfoPlugin)
@@ -94,12 +100,14 @@ lazy val zioInteropCats    = crossProject(JSPlatform, JVMPlatform)
       ("dev.zio" %%% "zio" % zioVersion) :: optLibraries
     }
   )
-lazy val zioInteropCatsJVM = zioInteropCats.jvm
-lazy val zioInteropCatsJS  = zioInteropCats.js
+lazy val zioInteropCatsJVM    = zioInteropCats.jvm
+lazy val zioInteropCatsJS     = zioInteropCats.js
+  .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
+lazy val zioInteropCatsNative = zioInteropCats.native
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
 // zio-test integration with cats
-lazy val zioTestInteropCats    = crossProject(JSPlatform, JVMPlatform)
+lazy val zioTestInteropCats       = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("zio-test-interop-cats"))
   .dependsOn(zioInteropCats)
   .enablePlugins(BuildInfoPlugin)
@@ -128,15 +136,17 @@ lazy val zioTestInteropCats    = crossProject(JSPlatform, JVMPlatform)
     ).map(_ % Test)
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
-lazy val zioTestInteropCatsJVM = zioTestInteropCats.jvm
-lazy val zioTestInteropCatsJS  = zioTestInteropCats.js
+lazy val zioTestInteropCatsJVM    = zioTestInteropCats.jvm
+lazy val zioTestInteropCatsJS     = zioTestInteropCats.js
+  .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
+lazy val zioTestInteropCatsNative = zioTestInteropCats.native
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
 // test artifacts
 
 val notPublished = publish / skip := true
 
-lazy val zioInteropCatsTests    = crossProject(JSPlatform, JVMPlatform)
+lazy val zioInteropCatsTests       = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("zio-interop-cats-tests"))
   .dependsOn(zioTestInteropCats % "test->test;compile->compile")
   .enablePlugins(BuildInfoPlugin)
@@ -166,11 +176,13 @@ lazy val zioInteropCatsTests    = crossProject(JSPlatform, JVMPlatform)
     ).map(_ % Test)
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
-lazy val zioInteropCatsTestsJVM = zioInteropCatsTests.jvm
-lazy val zioInteropCatsTestsJS  = zioInteropCatsTests.js
+lazy val zioInteropCatsTestsJVM    = zioInteropCatsTests.jvm
+lazy val zioInteropCatsTestsJS     = zioInteropCatsTests.js
+  .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
+lazy val zioInteropCatsTestsNative = zioInteropCatsTests.native
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
-lazy val coreOnlyTest    = crossProject(JSPlatform, JVMPlatform)
+lazy val coreOnlyTest       = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("core-only-test"))
   .dependsOn(zioInteropCats)
   .settings(BuildHelper.stdSettings("core-only-test"))
@@ -183,8 +195,10 @@ lazy val coreOnlyTest    = crossProject(JSPlatform, JVMPlatform)
     ).map(_ % Test)
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
-lazy val coreOnlyTestJVM = coreOnlyTest.jvm
-lazy val coreOnlyTestJS  = coreOnlyTest.js
+lazy val coreOnlyTestJVM    = coreOnlyTest.jvm
+lazy val coreOnlyTestJS     = coreOnlyTest.js
+  .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
+lazy val coreOnlyTestNative = coreOnlyTest.native
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
 // doc website
