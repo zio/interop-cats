@@ -9,6 +9,7 @@ import org.scalacheck.{ Arbitrary, Cogen, Gen, Prop }
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.Configuration
 import org.typelevel.discipline.Laws
+import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import zio.*
 import zio.managed.*
 
@@ -23,13 +24,13 @@ import scala.language.implicitConversions
 
 private[zio] trait CatsSpecBase
     extends AnyFunSuite
-    with CustomFunSuiteDiscipline
+    with FunSuiteDiscipline
     with Configuration
     with TestInstances
     with CatsSpecBaseLowPriority {
 
   def checkAllAsync(name: String, f: Ticker => Laws#RuleSet): Unit =
-    checkAll_(name, f(Ticker()))
+    checkAll(name, f(Ticker()))
 
   val environment: ZEnvironment[Any] =
     ZEnvironment(())
