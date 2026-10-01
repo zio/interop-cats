@@ -10,7 +10,7 @@ object BuildHelper {
   val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.19.0" % Test)
 
   val Scala212 = "2.12.21"
-  val Scala213 = "2.13.16"
+  val Scala213 = "2.13.18"
   val Scala3   = "3.3.7"
 
   private val stdOptions = Seq(
@@ -69,7 +69,10 @@ object BuildHelper {
           "-Wextra-implicit",
           "-Wnumeric-widen",
           "-Wunused:_",
-          "-Wvalue-discard"
+          "-Wvalue-discard",
+          // `Traverse[Chunk] with Alternative[Chunk]` inherits both the parameterless `compose` of `SemigroupK` and the
+          // overloaded `compose(implicit ...)` of the `Functor` family; cats' own instances have the same shape.
+          "-Wconf:msg=will be easy to mistake for calls to overloads:s"
         ) ++ std2xOptions ++ optimizerOptions(optimize)
       case Some((2, 12)) =>
         Seq(
@@ -93,7 +96,12 @@ object BuildHelper {
     scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
     libraryDependencies ++= testDeps ++ {
       if (CrossVersion.partialVersion(scalaVersion.value).exists(_._1 == 2))
-        Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4") cross CrossVersion.full)
+        Seq(
+          compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4") cross CrossVersion.full,
+          // Scala 2 cannot type-check subclasses of `Async` without this `provided` dependency of cats-effect-kernel:
+          // https://github.com/typelevel/cats-effect/issues/4693
+          "org.typelevel" %% "scalac-compat-annotation" % "0.1.4" % Provided
+        )
       else Seq.empty
     },
     Test / parallelExecution := true,
