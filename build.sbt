@@ -27,6 +27,8 @@ inThisBuild(
   )
 )
 
+ThisBuild / ciTargetJavaVersions := Seq("11", "17", "21", "25")
+
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
 addCommandAlias("lint", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
 addCommandAlias("testJVM", ";zioInteropCatsTestsJVM/test;zioTestInteropCatsJVM/test;coreOnlyTestJVM/test")
