@@ -97,6 +97,7 @@ abstract class CatsEffectPlatform
     with CatsZManagedInstances
     with CatsChunkInstances
     with CatsNonEmptyChunkInstances
+    with CatsNonEmptyListSyntax
     with CatsZManagedSyntax {
 
   trait CatsApp extends ZIOAppDefault {
@@ -112,6 +113,7 @@ abstract class CatsPlatform
     with CatsZManagedInstances
     with CatsChunkInstances
     with CatsNonEmptyChunkInstances
+    with CatsNonEmptyListSyntax
 
 abstract class CatsEffectInstances extends CatsZioInstances {
 
