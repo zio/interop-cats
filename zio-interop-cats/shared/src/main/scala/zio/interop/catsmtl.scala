@@ -49,22 +49,44 @@ abstract class CatsMtlInstances extends CatsMtlInstances1 {
       override def ask[R2 >: ZEnvironment[R1]]: ZIO[R, E, R2] = ZIO.environment
     }
 
+  /**
+   * `Local` for the value of a `FiberRef`, in a ZIO effect with any environment `R1`.
+   */
+  implicit def fiberRefLocalAnyEnv[R1, R, E](implicit
+    fiberRef: FiberRef[R],
+    ev: Applicative[ZIO[R1, E, _]]
+  ): Local[ZIO[R1, E, _], R] = new Local[ZIO[R1, E, _], R] {
+    override def local[A](fa: ZIO[R1, E, A])(f: R => R): ZIO[R1, E, A] = fiberRef.locallyWith(f)(fa)
+
+    override def applicative: Applicative[ZIO[R1, E, *]] = ev
+
+    override def ask[E2 >: R]: ZIO[R1, E, E2] = fiberRef.get
+  }
+
+  /**
+   * `Ask` for the value of a `FiberRef`, in a ZIO effect with any environment `R1`.
+   */
+  implicit def fiberRefAskAnyEnv[R1, R, E](implicit
+    fiberRef: FiberRef[R],
+    ev: Applicative[ZIO[R1, E, _]]
+  ): Ask[ZIO[R1, E, _], R] =
+    new Ask[ZIO[R1, E, _], R] {
+      override def applicative: Applicative[ZIO[R1, E, *]] = ev
+      override def ask[E2 >: R]: ZIO[R1, E, E2]            = fiberRef.get
+    }
+
+  // The instances below are the special case of the instances above where the `FiberRef` holds the environment type.
+  // They take priority over both `fiberRefLocalAnyEnv` and `zioLocal` in that case; with only the general instances,
+  // Scala 2 finds `fiberRefLocalAnyEnv` and `zioLocal` ambiguous.
+
   implicit def fiberRefLocal[R, E](implicit
     fiberRef: FiberRef[R],
     ev: Applicative[ZIO[R, E, _]]
-  ): Local[ZIO[R, E, _], R] = new Local[ZIO[R, E, _], R] {
-    override def local[A](fa: ZIO[R, E, A])(f: R => R): ZIO[R, E, A] = fiberRef.locallyWith(f)(fa)
-
-    override def applicative: Applicative[ZIO[R, E, *]] = ev
-
-    override def ask[E2 >: R]: ZIO[R, E, E2] = fiberRef.get
-  }
+  ): Local[ZIO[R, E, _], R] =
+    fiberRefLocalAnyEnv[R, R, E]
 
   implicit def fiberRefAsk[R, E](implicit fiberRef: FiberRef[R], ev: Applicative[ZIO[R, E, _]]): Ask[ZIO[R, E, _], R] =
-    new Ask[ZIO[R, E, _], R] {
-      override def applicative: Applicative[ZIO[R, E, *]] = ev
-      override def ask[E2 >: R]: ZIO[R, E, E2]            = fiberRef.get
-    }
+    fiberRefAskAnyEnv[R, R, E]
 
 }
 
