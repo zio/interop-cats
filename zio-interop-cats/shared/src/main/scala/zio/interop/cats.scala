@@ -68,6 +68,27 @@ object catz extends CatsEffectPlatform {
    * inspect the errors, but only uses `bracket` portion of `MonadCancel` for finalization.
    */
   object generic extends CatsEffectInstancesCause
+
+  /**
+   * `import zio.interop.catz.autocatch._` brings in alternative instances of
+   * `Async`, `Temporal` and `Concurrent` for `RIO[R, _]` that treat defects
+   * as recoverable errors.
+   *
+   * The default instances in `catz` capture exceptions thrown outside of
+   * `Sync#delay`, such as inside `map` or `flatMap`, as ZIO defects
+   * (`ZIO.die`), which cats-effect methods such as `handleErrorWith`,
+   * `attempt` or `recover` cannot recover from. The instances in this object
+   * make such defects recoverable, as cats-effect's own `IO` does with
+   * exceptions thrown inside `map` or `flatMap`. A defect is not recovered if
+   * the fiber is being interrupted. Causes without defects are recovered from
+   * exactly as by the default instances.
+   *
+   * These instances replace `asyncInstance`, `temporalInstance` and
+   * `concurrentInstance` from `catz`, so `zio.interop.catz._` must not be
+   * imported in the same scope. Instances for cats-core typeclasses may be
+   * imported alongside with `zio.interop.catz.core._`.
+   */
+  object autocatch extends CatsEffectInstancesAutoCatch
 }
 
 abstract class CatsEffectPlatform
@@ -122,6 +143,21 @@ abstract class CatsEffectInstances extends CatsZioInstances {
     temporalInstance[Any]
   }
 
+}
+
+sealed abstract class CatsEffectInstancesAutoCatch {
+
+  implicit final def asyncInstanceAutoCatch[R]: Async[RIO[R, _]] =
+    asyncInstanceAutoCatch0.asInstanceOf[Async[RIO[R, _]]]
+
+  implicit final def temporalInstanceAutoCatch[R]: GenTemporal[ZIO[R, Throwable, _], Throwable] =
+    asyncInstanceAutoCatch[R]
+
+  implicit final def concurrentInstanceAutoCatch[R]: GenConcurrent[ZIO[R, Throwable, _], Throwable] =
+    asyncInstanceAutoCatch[R]
+
+  private[this] val asyncInstanceAutoCatch0: Async[Task] =
+    new ZioAsync[Any] with ZioMonadErrorAutoCatch[Any]
 }
 
 sealed abstract class CatsEffectInstancesCause extends CatsZioInstances {
@@ -618,13 +654,13 @@ private abstract class ZioMonadError[R, E, E1] extends MonadError[ZIO[R, E, _], 
 
 private trait ZioMonadErrorE[R, E] extends ZioMonadError[R, E, E] {
 
-  override final def handleErrorWith[A](fa: F[A])(f: E => F[A]): F[A] = {
+  override def handleErrorWith[A](fa: F[A])(f: E => F[A]): F[A] = {
     implicit def trace: Trace = InteropTracer.newTrace(f)
 
     fa.catchAll(f)
   }
 
-  override final def recoverWith[A](fa: F[A])(pf: PartialFunction[E, F[A]]): F[A] = {
+  override def recoverWith[A](fa: F[A])(pf: PartialFunction[E, F[A]]): F[A] = {
     implicit def trace: Trace = CoreTracer.newTrace
 
     fa.catchSome(pf)
@@ -636,13 +672,13 @@ private trait ZioMonadErrorE[R, E] extends ZioMonadError[R, E, E] {
     ZIO.fail(e)
   }
 
-  override final def attempt[A](fa: F[A]): F[Either[E, A]] = {
+  override def attempt[A](fa: F[A]): F[Either[E, A]] = {
     implicit def trace: Trace = CoreTracer.newTrace
 
     fa.either
   }
 
-  override final def adaptError[A](fa: F[A])(pf: PartialFunction[E, E]): F[A] = {
+  override def adaptError[A](fa: F[A])(pf: PartialFunction[E, E]): F[A] = {
     implicit def trace: Trace = CoreTracer.newTrace
 
     fa.mapError(pf.orElse { case error => error })
@@ -683,6 +719,64 @@ private trait ZioMonadErrorExitThrowable[R]
     exit: Exit[Throwable, A]
   ): UIO[Outcome[F, Throwable, A]] =
     interruptedHandle.get.map(toOutcomeThrowableOtherFiber(_)(ZIO.succeed(_), exit))
+}
+
+/**
+ * Error handling of the `catz.autocatch` instances: in addition to typed failures,
+ * defects (`Cause.Die`) are recoverable, unless the fiber is being interrupted.
+ * A recovered defect is passed to the handler as the same `Throwable` that
+ * `guaranteeCase` reports in `Outcome.Errored`. Causes without defects are recovered
+ * from exactly as by the default instances.
+ */
+private trait ZioMonadErrorAutoCatch[R] extends ZioMonadErrorExitThrowable[R] {
+
+  private def catchErrored[A](fa: F[A])(f: (Throwable, Cause[Throwable]) => F[A])(implicit trace: Trace): F[A] =
+    fa.catchAllCause { cause =>
+      cause.failureOrCause match {
+        case Left(error)                       => f(error, cause)
+        case Right(_) if cause.defects.isEmpty => ZIO.refailCause(cause)
+        case Right(_)                          =>
+          toOutcomeThisFiber[A](Exit.failCause(cause)).flatMap {
+            case Outcome.Errored(error) => f(error, cause)
+            case _                      => ZIO.refailCause(cause)
+          }
+      }
+    }
+
+  override final def handleErrorWith[A](fa: F[A])(f: Throwable => F[A]): F[A] = {
+    implicit def trace: Trace = InteropTracer.newTrace(f)
+
+    catchErrored(fa)((error, _) => f(error))
+  }
+
+  override final def recoverWith[A](fa: F[A])(pf: PartialFunction[Throwable, F[A]]): F[A] = {
+    implicit def trace: Trace = CoreTracer.newTrace
+
+    catchErrored(fa)((error, cause) => pf.applyOrElse(error, (_: Throwable) => ZIO.refailCause(cause)))
+  }
+
+  override final def attempt[A](fa: F[A]): F[Either[Throwable, A]] = {
+    implicit def trace: Trace = CoreTracer.newTrace
+
+    catchErrored[Either[Throwable, A]](fa.map(Right(_)))((error, _) => ZIO.succeed(Left(error)))
+  }
+
+  override final def adaptError[A](fa: F[A])(pf: PartialFunction[Throwable, Throwable]): F[A] =
+    recoverWith(fa)(pf.andThen(raiseError[A](_)))
+
+  // the inherited implementations of the following methods evaluate their by-name arguments eagerly
+  override final def unlessA[A](cond: Boolean)(f: => F[A]): F[Unit] = {
+    val byName: () => F[A]    = () => f
+    implicit def trace: Trace = InteropTracer.newTrace(byName)
+
+    ZIO.unless(cond)(f).unit
+  }
+
+  override final def fromOption[A](oa: Option[A], ifEmpty: => Throwable): F[A] = {
+    implicit def trace: Trace = CoreTracer.newTrace
+
+    ZIO.suspendSucceed(oa.fold[F[A]](ZIO.fail(ifEmpty))(ZIO.succeed(_)))
+  }
 }
 
 private trait ZioMonadErrorExitCause[R, E] extends ZioMonadErrorExit[R, E, Cause[E]] with ZioMonadErrorCause[R, E] {
