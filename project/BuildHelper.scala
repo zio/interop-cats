@@ -2,7 +2,7 @@ import sbt._
 import Keys._
 
 import explicitdeps.ExplicitDepsPlugin.autoImport._
-import sbtcrossproject.CrossPlugin.autoImport.CrossType
+import sbtcrossproject.CrossPlugin.autoImport.{ crossProjectPlatform, CrossType, JVMPlatform }
 import sbtbuildinfo._
 import BuildInfoKeys._
 
@@ -10,8 +10,8 @@ object BuildHelper {
   val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.19.0" % Test)
 
   val Scala212 = "2.12.21"
-  val Scala213 = "2.13.16"
-  val Scala3   = "3.3.7"
+  val Scala213 = "2.13.18"
+  val Scala3   = "3.3.8"
 
   private val stdOptions = Seq(
     "-deprecation",
@@ -69,7 +69,10 @@ object BuildHelper {
           "-Wextra-implicit",
           "-Wnumeric-widen",
           "-Wunused:_",
-          "-Wvalue-discard"
+          "-Wvalue-discard",
+          // `Traverse[Chunk] with Alternative[Chunk]` inherits both the parameterless `compose` of `SemigroupK` and the
+          // overloaded `compose(implicit ...)` of the `Functor` family; cats' own instances have the same shape.
+          "-Wconf:msg=will be easy to mistake for calls to overloads:s"
         ) ++ std2xOptions ++ optimizerOptions(optimize)
       case Some((2, 12)) =>
         Seq(
@@ -91,9 +94,21 @@ object BuildHelper {
     crossScalaVersions       := Seq(Scala3, Scala213, Scala212),
     ThisBuild / scalaVersion := crossScalaVersions.value.head,
     scalacOptions ++= stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
+    scalacOptions ++= {
+      // Before Scala 3.8, lazy vals use `sun.misc.Unsafe` by default, which JDK 24+ warns about.
+      // The VarHandle-based encoding needs Java 9+ bytecode; ZIO itself targets Java 11.
+      if (scalaVersion.value.startsWith("3") && crossProjectPlatform.value == JVMPlatform)
+        Seq("-Yfuture-lazy-vals", "-java-output-version:11")
+      else Seq.empty
+    },
     libraryDependencies ++= testDeps ++ {
       if (CrossVersion.partialVersion(scalaVersion.value).exists(_._1 == 2))
-        Seq(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4") cross CrossVersion.full)
+        Seq(
+          compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4") cross CrossVersion.full,
+          // Scala 2 cannot type-check subclasses of `Async` without this `provided` dependency of cats-effect-kernel:
+          // https://github.com/typelevel/cats-effect/issues/4693
+          "org.typelevel" %% "scalac-compat-annotation" % "0.1.4" % Provided
+        )
       else Seq.empty
     },
     Test / parallelExecution := true,
