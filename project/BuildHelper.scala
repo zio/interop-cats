@@ -4,6 +4,8 @@ import Keys._
 import explicitdeps.ExplicitDepsPlugin.autoImport._
 import sbtcrossproject.CrossPlugin.autoImport.{ crossProjectPlatform, CrossType, JVMPlatform }
 import sbtbuildinfo._
+import com.typesafe.tools.mima.plugin.MimaKeys._
+import sbtdynver.DynVerPlugin.autoImport.previousStableVersion
 import BuildInfoKeys._
 
 object BuildHelper {
@@ -50,6 +52,10 @@ object BuildHelper {
     buildInfoKeys    := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
     buildInfoPackage := "zio.internal.stacktracer",
     buildInfoObject  := "BuildInfoInteropTracer"
+  )
+
+  val mimaSettings = Seq(
+    mimaPreviousArtifacts := previousStableVersion.value.map(organization.value %% moduleName.value % _).toSet
   )
 
   def optimizerOptions(optimize: Boolean): Seq[String] =

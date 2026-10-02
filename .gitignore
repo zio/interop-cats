@@ -11,3 +11,4 @@ test-output/
 .bsp
 .vscode
 .history/
+.codegraph/

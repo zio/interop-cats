@@ -30,7 +30,11 @@ inThisBuild(
 ThisBuild / ciTargetJavaVersions := Seq("11", "17", "21", "25")
 
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
-addCommandAlias("lint", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
+addCommandAlias(
+  "mimaCheck",
+  ";+zioInteropTracerJVM/mimaReportBinaryIssues;+zioInteropCatsJVM/mimaReportBinaryIssues;+zioTestInteropCatsJVM/mimaReportBinaryIssues"
+)
+addCommandAlias("lint", ";all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck;mimaCheck")
 addCommandAlias("testJVM", ";zioInteropCatsTestsJVM/test;zioTestInteropCatsJVM/test;coreOnlyTestJVM/test")
 addCommandAlias("testJS", ";zioInteropCatsTestsJS/test;zioTestInteropCatsJS/test;coreOnlyTestJS/test")
 addCommandAlias("testNative", ";zioInteropCatsTestsNative/test;zioTestInteropCatsNative/test;coreOnlyTestNative/test")
@@ -77,6 +81,7 @@ lazy val zioInteropTracer       = crossProject(JSPlatform, JVMPlatform, NativePl
     )
   )
 lazy val zioInteropTracerJVM    = zioInteropTracer.jvm
+  .settings(mimaSettings)
 lazy val zioInteropTracerJS     = zioInteropTracer.js
 lazy val zioInteropTracerNative = zioInteropTracer.native
 
@@ -101,6 +106,7 @@ lazy val zioInteropCats       = crossProject(JSPlatform, JVMPlatform, NativePlat
     }
   )
 lazy val zioInteropCatsJVM    = zioInteropCats.jvm
+  .settings(mimaSettings)
 lazy val zioInteropCatsJS     = zioInteropCats.js
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 lazy val zioInteropCatsNative = zioInteropCats.native
@@ -137,6 +143,7 @@ lazy val zioTestInteropCats       = crossProject(JSPlatform, JVMPlatform, Native
   )
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
 lazy val zioTestInteropCatsJVM    = zioTestInteropCats.jvm
+  .settings(mimaSettings)
 lazy val zioTestInteropCatsJS     = zioTestInteropCats.js
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 lazy val zioTestInteropCatsNative = zioTestInteropCats.native
