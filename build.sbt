@@ -26,7 +26,7 @@ inThisBuild(
   )
 )
 
-ThisBuild / ciTargetJavaVersions := Seq("11", "17", "21", "25")
+ThisBuild / ciTargetJavaVersions := Seq("17", "21", "25")
 
 addCommandAlias("fmt", "all scalafmtSbt scalafmt Test/scalafmt")
 addCommandAlias(
