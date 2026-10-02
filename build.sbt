@@ -28,6 +28,8 @@ inThisBuild(
 
 ThisBuild / ciTargetJavaVersions := Seq("17", "21", "25")
 
+Global / concurrentRestrictions += Tags.limit(Tags.Update, 1)
+
 addCommandAlias("fmt", "all scalafmtSbt scalafmt Test/scalafmt")
 addCommandAlias(
   "mimaCheck",
