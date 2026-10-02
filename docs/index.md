@@ -185,6 +185,21 @@ import zio.interop.catz.core._
 
 Note that this library only has an `Optional` dependency on cats-effect – if you or your libraries don't depend on it, this library will not add it to the classpath.
 
+### `NonEmptyList`
+
+`ZIO.foreach` cannot be overloaded for `cats.data.NonEmptyList`, because an extension method is not considered for a name `ZIO` already defines. The variants that return a `NonEmptyList` are therefore named `foreachNel` and friends. The same operations are also extension methods on `NonEmptyList`, where the `Nel` suffix is unnecessary. Both are available from `zio.interop.catz.core._` and `zio.interop.catz._`:
+
+```scala
+import cats.data.NonEmptyList
+import zio.*
+import zio.interop.catz.core.*
+
+val doubled = ZIO.foreachNel(NonEmptyList.of(1, 2, 3))(i => ZIO.succeed(i * 2))
+val doubledPar = NonEmptyList.of(1, 2, 3).foreachPar(i => ZIO.succeed(i * 2))
+```
+
+`foreachNel` / `foreach` run sequentially and stop at the first failure. `foreachParNel` / `foreachPar` run in parallel and preserve order. `collectAllNel` / `collectAll` and `collectAllParNel` / `collectAllPar` do the same for a `NonEmptyList` of effects.
+
 ### Example
 
 The following example shows how to use ZIO with Doobie (a library for JDBC access) and FS2 (a streaming library), which both rely on Cats Effect instances (`cats.effect.Async` and `cats.effect.Temporal`):
