@@ -122,6 +122,59 @@ There are many other typeclasses and useful conversions that this library provid
 * See `zio/stream/interop/FS2StreamSyntax.scala` for FS2 <-> ZStream conversions
 
 
+### `Resource` and `Dispatcher`
+
+A `Resource` whose effect type is ZIO converts to a scoped ZIO, or to a `ZManaged`, with `toScopedZIO` and `toManagedZIO`. These don't need a `Dispatcher`:
+
+```scala
+import cats.effect.Resource
+import zio._
+import zio.interop.catz._
+
+val resource: Resource[Task, String] =
+  Resource.make[Task, String](ZIO.succeed("connection"))(_ => ZIO.debug("released"))
+
+val program: Task[Unit] =
+  ZIO.scoped(resource.toScopedZIO.flatMap(conn => ZIO.debug(s"using $conn")))
+```
+
+`Dispatcher` is a `Resource`, not a typeclass, so this library can't provide an implicit instance of it. To get a `Dispatcher[Task]`, for example to run ZIO effects from callback-based code, allocate it as a resource:
+
+```scala
+import cats.effect.std.Dispatcher
+import zio._
+import zio.interop.catz._
+
+val program: Task[Unit] =
+  ZIO.scoped {
+    Dispatcher.parallel[Task].toScopedZIO.flatMap { dispatcher =>
+      ZIO.attempt(dispatcher.unsafeRunAndForget(ZIO.debug("called back")))
+    }
+  }
+```
+
+A `Resource` over another effect type `F` (`toManaged`) does need a `Dispatcher[F]`. That dispatcher has to come from `F`'s own runtime. For example, for `cats.effect.IO`:
+
+```scala
+import cats.effect.Resource
+import cats.effect.std.Dispatcher
+import cats.effect.unsafe.IORuntime
+import zio._
+import zio.interop.catz._
+
+def ioDispatcher(implicit runtime: IORuntime): ZIO[Scope, Throwable, Dispatcher[cats.effect.IO]] =
+  ZIO
+    .acquireRelease(ZIO.fromFuture(_ => Dispatcher.parallel[cats.effect.IO].allocated.unsafeToFuture())) {
+      case (_, release) => ZIO.fromFuture(_ => release.unsafeToFuture()).orDie
+    }
+    .map(_._1)
+
+def toZIO[A](resource: Resource[cats.effect.IO, A])(implicit runtime: IORuntime): ZIO[Scope, Throwable, A] =
+  ioDispatcher.flatMap(implicit dispatcher => resource.toManaged.scoped)
+```
+
+In the other direction, `ZManaged` provides `toResourceZIO` and `toResource[F]`, and `Resource.scopedZIO` converts a scoped ZIO into a `Resource`.
+
 ### cats-core
 
 If you only need instances for `cats-core` typeclasses, not `cats-effect` import `zio.interop.catz.core._`:
