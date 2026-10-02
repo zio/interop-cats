@@ -24,13 +24,22 @@ trait CatsNonEmptyListSyntax {
 
   implicit final def zioNonEmptyListSyntax(self: ZIO.type): ZIONonEmptyListSyntax =
     new ZIONonEmptyListSyntax(self)
+
+  implicit final def nonEmptyListSyntax[A](as: NonEmptyList[A]): NonEmptyListSyntax[A] =
+    new NonEmptyListSyntax(as)
+
+  implicit final def nonEmptyListOfZIOSyntax[R, E, A](
+    as: NonEmptyList[ZIO[R, E, A]]
+  ): NonEmptyListOfZIOSyntax[R, E, A] =
+    new NonEmptyListOfZIOSyntax(as)
 }
 
 /**
  * `ZIO.foreach` and friends for [[cats.data.NonEmptyList]], which return a `NonEmptyList`.
  *
  * They can't be overloads of `ZIO.foreach` and friends, because extension methods are not
- * considered for names that `ZIO` already defines.
+ * considered for names that `ZIO` already defines. The same operations are available without the
+ * `Nel` suffix as extension methods on `NonEmptyList` itself (`nel.foreach`, `nel.foreachPar`).
  */
 final class ZIONonEmptyListSyntax(private val self: ZIO.type) extends AnyVal {
 
@@ -67,4 +76,41 @@ final class ZIONonEmptyListSyntax(private val self: ZIO.type) extends AnyVal {
 
   private def toNonEmptyList[A](as: NonEmptyChunk[A]): NonEmptyList[A] =
     NonEmptyList(as.head, as.tail.toList)
+}
+
+/**
+ * `foreach` / `foreachPar` for a [[cats.data.NonEmptyList]]. The `Nel` suffix is unnecessary here:
+ * the receiver is already a `NonEmptyList`, and `NonEmptyList` does not define these methods.
+ */
+final class NonEmptyListSyntax[A](private val as: NonEmptyList[A]) extends AnyVal {
+
+  /**
+   * Like `ZIO.foreachNel`. Runs `f` sequentially and stops at the first failure.
+   */
+  def foreach[R, E, B](f: A => ZIO[R, E, B])(implicit trace: Trace): ZIO[R, E, NonEmptyList[B]] =
+    new ZIONonEmptyListSyntax(ZIO).foreachNel(as)(f)
+
+  /**
+   * Like `ZIO.foreachParNel`. Runs `f` in parallel and preserves the input order.
+   */
+  def foreachPar[R, E, B](f: A => ZIO[R, E, B])(implicit trace: Trace): ZIO[R, E, NonEmptyList[B]] =
+    new ZIONonEmptyListSyntax(ZIO).foreachParNel(as)(f)
+}
+
+/**
+ * `collectAll` / `collectAllPar` for a [[cats.data.NonEmptyList]] of effects.
+ */
+final class NonEmptyListOfZIOSyntax[R, E, A](private val as: NonEmptyList[ZIO[R, E, A]]) extends AnyVal {
+
+  /**
+   * Like `ZIO.collectAllNel`.
+   */
+  def collectAll(implicit trace: Trace): ZIO[R, E, NonEmptyList[A]] =
+    new ZIONonEmptyListSyntax(ZIO).collectAllNel(as)
+
+  /**
+   * Like `ZIO.collectAllParNel`.
+   */
+  def collectAllPar(implicit trace: Trace): ZIO[R, E, NonEmptyList[A]] =
+    new ZIONonEmptyListSyntax(ZIO).collectAllParNel(as)
 }
