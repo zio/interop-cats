@@ -9,7 +9,9 @@ import sbtdynver.DynVerPlugin.autoImport.previousStableVersion
 import BuildInfoKeys._
 
 object BuildHelper {
-  val testDeps = Seq("org.scalacheck" %% "scalacheck" % "1.19.0" % Test)
+  val scalacheckVersion = "1.19.0"
+
+  val testDeps = Seq("org.scalacheck" %% "scalacheck" % scalacheckVersion % Test)
 
   val Scala212 = "2.12.21"
   val Scala213 = "2.13.18"

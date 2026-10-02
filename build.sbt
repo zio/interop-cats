@@ -55,6 +55,9 @@ lazy val root = project
     zioTestInteropCatsJVM,
     zioTestInteropCatsJS,
     zioTestInteropCatsNative,
+    zioInteropCatsLawsJVM,
+    zioInteropCatsLawsJS,
+    zioInteropCatsLawsNative,
     docs
   )
   .settings(
@@ -149,13 +152,35 @@ lazy val zioTestInteropCatsJS     = zioTestInteropCats.js
 lazy val zioTestInteropCatsNative = zioTestInteropCats.native
   .settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion % Test)
 
+// Arbitrary/Cogen/Eq instances for ZIO data types, for use in cats/cats-effect law tests
+lazy val zioInteropCatsLaws       = crossProject(JSPlatform, JVMPlatform, NativePlatform)
+  .in(file("zio-interop-cats-laws"))
+  .dependsOn(zioInteropCats)
+  .settings(BuildHelper.stdSettings("zio-interop-cats-laws"))
+  .settings(
+    // scalacheck is a compile dependency of this module
+    libraryDependencies --= BuildHelper.testDeps,
+    libraryDependencies ++= Seq(
+      "dev.zio"        %%% "zio"                 % zioVersion,
+      "dev.zio"        %%% "zio-managed"         % zioVersion,
+      "dev.zio"        %%% "zio-streams"         % zioVersion,
+      "org.typelevel"  %%% "cats-core"           % catsVersion,
+      "org.typelevel"  %%% "cats-effect"         % catsEffectVersion,
+      "org.typelevel"  %%% "cats-effect-testkit" % catsEffectVersion,
+      "org.scalacheck" %%% "scalacheck"          % scalacheckVersion
+    )
+  )
+lazy val zioInteropCatsLawsJVM    = zioInteropCatsLaws.jvm
+lazy val zioInteropCatsLawsJS     = zioInteropCatsLaws.js
+lazy val zioInteropCatsLawsNative = zioInteropCatsLaws.native
+
 // test artifacts
 
 val notPublished = publish / skip := true
 
 lazy val zioInteropCatsTests       = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("zio-interop-cats-tests"))
-  .dependsOn(zioTestInteropCats % "test->test;compile->compile")
+  .dependsOn(zioTestInteropCats % "test->test;compile->compile", zioInteropCatsLaws % "test->compile")
   .enablePlugins(BuildInfoPlugin)
   .settings(BuildHelper.stdSettings("zio-interop-cats-tests"))
   .settings(BuildHelper.buildInfoSettings)

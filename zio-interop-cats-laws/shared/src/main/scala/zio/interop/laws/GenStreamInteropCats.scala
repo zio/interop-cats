@@ -1,8 +1,11 @@
-package zio.stream.interop
+package zio.interop.laws
 
 import org.scalacheck.*
 import zio.stream.*
 
+/**
+ * ScalaCheck generators for ZIO streams, used to derive the `Arbitrary` instances in `ZStreamTestInstances`.
+ */
 trait GenStreamInteropCats {
 
   /**
@@ -83,3 +86,5 @@ trait GenStreamInteropCats {
     Gen.const(stream.flatMap(a => ZStream.succeed(a)))
 
 }
+
+object GenStreamInteropCats extends GenStreamInteropCats
