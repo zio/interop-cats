@@ -1,7 +1,6 @@
 import sbt._
 import Keys._
 
-import explicitdeps.ExplicitDepsPlugin.autoImport._
 import sbtcrossproject.CrossPlugin.autoImport.{ crossProjectPlatform, CrossType, JVMPlatform }
 import sbtbuildinfo._
 import com.typesafe.tools.mima.plugin.MimaKeys._
@@ -45,13 +44,25 @@ object BuildHelper {
   )
 
   val buildInfoSettings = Seq(
-    buildInfoKeys    := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
+    buildInfoKeys    := Seq(
+      BuildInfoKey(name),
+      BuildInfoKey(version),
+      BuildInfoKey(scalaVersion),
+      BuildInfoKey(sbtVersion),
+      BuildInfoKey(isSnapshot)
+    ),
     buildInfoPackage := "zio",
     buildInfoObject  := "BuildInfoInteropCats"
   )
 
   val buildInfoSettingsInteropTracer = Seq(
-    buildInfoKeys    := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
+    buildInfoKeys    := Seq(
+      BuildInfoKey(name),
+      BuildInfoKey(version),
+      BuildInfoKey(scalaVersion),
+      BuildInfoKey(sbtVersion),
+      BuildInfoKey(isSnapshot)
+    ),
     buildInfoPackage := "zio.internal.stacktracer",
     buildInfoObject  := "BuildInfoInteropTracer"
   )
@@ -97,6 +108,10 @@ object BuildHelper {
       case _             => Seq.empty
     }
 
+  val nativeTestInterfaceScheme =
+    libraryDependencySchemes += ("org.scala-native" % s"test-interface_${platform.value}" % VersionScheme.Always)
+      .cross(CrossVersion.binary)
+
   def stdSettings(prjName: String) = Seq(
     name                     := s"$prjName",
     crossScalaVersions       := Seq(Scala3, Scala213, Scala212),
@@ -112,17 +127,17 @@ object BuildHelper {
     libraryDependencies ++= testDeps ++ {
       if (CrossVersion.partialVersion(scalaVersion.value).exists(_._1 == 2))
         Seq(
-          compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4") cross CrossVersion.full,
+          compilerPlugin(("org.typelevel" % "kind-projector" % "0.13.4").cross(CrossVersion.full)),
           // Scala 2 cannot type-check subclasses of `Async` without this `provided` dependency of cats-effect-kernel:
           // https://github.com/typelevel/cats-effect/issues/4693
-          "org.typelevel" %% "scalac-compat-annotation" % "0.1.5" % Provided
+          ("org.typelevel" %% "scalac-compat-annotation" % "0.1.5" % Provided).platform(Platform.jvm)
         )
       else Seq.empty
     },
     Test / parallelExecution := true,
+    nativeTestInterfaceScheme,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
     autoAPIMappings          := true,
-    unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library"),
     Compile / unmanagedSourceDirectories ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, x)) if x <= 11 =>
