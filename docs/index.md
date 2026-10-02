@@ -64,6 +64,56 @@ def ceAsync = {
 }
 ```
 
+## Recovering from defects with `catz.autocatch`
+
+The default instances capture exceptions thrown outside of `Sync#delay`, for example inside `map` or `flatMap`, as ZIO
+defects (`ZIO.die`). Cats Effect methods such as `handleErrorWith`, `attempt` or `recover` cannot recover from defects:
+
+```scala
+import cats.effect._
+import cats.syntax.all._
+import zio._
+import zio.interop.catz._
+
+// dies with the exception instead of recovering
+val dies: Task[Int] = Async[Task].unit.map(_ => throw new RuntimeException("boom")).handleError(_ => 1)
+```
+
+Code written against Cats Effect typeclasses often expects such exceptions to be recoverable, as they are with
+`cats.effect.IO`. For such code, `zio.interop.catz.autocatch._` provides alternative `Async`, `Temporal` and `Concurrent`
+instances for `RIO[R, *]` that make defects recoverable:
+
+```scala
+import cats.effect._
+import cats.syntax.all._
+import zio._
+import zio.interop.catz.autocatch._
+
+// succeeds with 1
+val recovers: Task[Int] = Async[Task].unit.map(_ => throw new RuntimeException("boom")).handleError(_ => 1)
+```
+
+With these instances:
+* `handleErrorWith`, `recoverWith`, `attempt`, `adaptError` and the methods derived from them recover from defects. A
+  single defect is passed to the handler as is, multiple defects are passed as a `FiberFailure` holding the whole
+  `Cause`. That is the same `Throwable` that `guaranteeCase` and `Fiber#join` report as `Outcome.Errored`.
+* A typed failure takes precedence over defects in the same `Cause`, as with the default instances.
+* A defect is not recovered if the fiber is being interrupted.
+* A `Cause` without defects is recovered from the same way as by the default instances.
+* `unlessA`, `raiseUnless` and `fromOption` suspend their by-name arguments, so that exceptions thrown by them are
+  recoverable too.
+
+Exceptions thrown while an effect is being constructed, before it is passed to a typeclass method, for example by the
+argument of `pure`, cannot be captured by any instance.
+
+These instances replace `zio.interop.catz._`, do not import both in the same scope. Instances for cats-core typeclasses,
+such as `Parallel`, can be imported alongside:
+
+```scala
+import zio.interop.catz.core._
+import zio.interop.catz.autocatch._
+```
+
 ## Other typeclasses
 
 There are many other typeclasses and useful conversions that this library provides implementations for:
