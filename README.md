@@ -185,6 +185,21 @@ import zio.interop.catz.core._
 
 Note that this library only has an `Optional` dependency on cats-effect – if you or your libraries don't depend on it, this library will not add it to the classpath.
 
+### `NonEmptyList`
+
+`ZIO.foreach` cannot be overloaded for `cats.data.NonEmptyList`, because an extension method is not considered for a name `ZIO` already defines. The variants that return a `NonEmptyList` are therefore named `foreachNel` and friends. The same operations are also extension methods on `NonEmptyList`, where the `Nel` suffix is unnecessary. Both are available from `zio.interop.catz.core._` and `zio.interop.catz._`:
+
+```scala
+import cats.data.NonEmptyList
+import zio.*
+import zio.interop.catz.core.*
+
+val doubled = ZIO.foreachNel(NonEmptyList.of(1, 2, 3))(i => ZIO.succeed(i * 2))
+val doubledPar = NonEmptyList.of(1, 2, 3).foreachPar(i => ZIO.succeed(i * 2))
+```
+
+`foreachNel` / `foreach` run sequentially and stop at the first failure. `foreachParNel` / `foreachPar` run in parallel and preserve order. `collectAllNel` / `collectAll` and `collectAllParNel` / `collectAllPar` do the same for a `NonEmptyList` of effects.
+
 ### Example
 
 The following example shows how to use ZIO with Doobie (a library for JDBC access) and FS2 (a streaming library), which both rely on Cats Effect instances (`cats.effect.Async` and `cats.effect.Temporal`):
@@ -212,6 +227,41 @@ object Example extends ZIOAppDefault:
       .exitCode
   }
 ```
+
+## Law testing
+
+The `zio-interop-cats-laws` artifact provides ScalaCheck `Arbitrary`, `Cogen` and cats `Eq`/`Order` instances for ZIO data types, so that cats and cats-effect laws (e.g. from `cats-laws` and `cats-effect-laws`) can be checked against your own ZIO-based typeclass instances. These are the same instances that this library uses to test its own typeclass instances.
+
+```sbt
+libraryDependencies += "dev.zio" %% "zio-interop-cats-laws" % "<latest-version>" % Test
+```
+
+The instances are provided as traits in the `zio.interop.laws` package that are mixed into a test suite:
+* `CatsTestInstances` – `Eq`, `Order` and `Cogen` instances for `ZIO`, `ZManaged` and `Cause`, and the implicit `ZIO[Any, E, Boolean] => Prop` conversion required by the cats-effect law tests. It extends `cats.effect.testkit.TestInstances`: effects are compared by running them deterministically on the `TestContext` of an implicit `Ticker`.
+* `ZioTestInstances` – adds `Arbitrary` instances for `ZIO`, `ZManaged` and `Cause` (see `GenIOInteropCats` for the generators).
+* `ZStreamTestInstances` – adds `Eq` and `Arbitrary` instances for `ZStream` (see `GenStreamInteropCats` for the generators).
+
+The traits do not depend on a test framework. For example, with [discipline-scalatest](https://github.com/typelevel/discipline-scalatest):
+
+```scala
+import cats.effect.laws.GenTemporalTests
+import org.scalatest.funsuite.AnyFunSuite
+import org.typelevel.discipline.scalatest.FunSuiteDiscipline
+import org.scalatest.prop.Configuration
+import zio.{ durationInt as _, * }
+import zio.interop.catz.*
+import zio.interop.laws.ZioTestInstances
+import scala.concurrent.duration.*
+
+class TaskLawsSpec extends AnyFunSuite with FunSuiteDiscipline with Configuration with ZioTestInstances {
+  implicit val ticker: Ticker = Ticker()
+
+  checkAll("Temporal[Task]", GenTemporalTests[Task, Throwable].temporal[Int, Int, Int](100.millis))
+}
+```
+
+This library's own law checks deviate from the stock cats-effect law tests as follows:
+* ZIO does not satisfy the `evalOn local pure` and `executionContext commutativity` laws of `AsyncTests`, as `ZIO.executor.asExecutionContext` does not preserve the original `ExecutionContext`. These laws are checked with an `Eq[ExecutionContext]` that considers all execution contexts equal, which is deliberately not part of `zio-interop-cats-laws`.
 
 ## Links
 
