@@ -7,7 +7,7 @@ sidebar_label: "ZIO 2.x Interop Cats 3.x"
 ## Installation
 
 ```sbt
-libraryDependencies += "dev.zio" %% "zio-interop-cats" % "<latest-version>"
+libraryDependencies += "dev.zio" %% "zio-interop-cats" % "@VERSION@"
 ```
 
 ## `ZIO` Cats Effect 3 instances
@@ -233,7 +233,7 @@ object Example extends ZIOAppDefault:
 The `zio-interop-cats-laws` artifact provides ScalaCheck `Arbitrary`, `Cogen` and cats `Eq`/`Order` instances for ZIO data types, so that cats and cats-effect laws (e.g. from `cats-laws` and `cats-effect-laws`) can be checked against your own ZIO-based typeclass instances. These are the same instances that this library uses to test its own typeclass instances.
 
 ```sbt
-libraryDependencies += "dev.zio" %% "zio-interop-cats-laws" % "<latest-version>" % Test
+libraryDependencies += "dev.zio" %% "zio-interop-cats-laws" % "@VERSION@" % Test
 ```
 
 The instances are provided as traits in the `zio.interop.laws` package that are mixed into a test suite:
