@@ -10,6 +10,9 @@ trait GenIOInteropCats {
   //  See `genDie` scaladoc
   def betterGenerators: Boolean = false
 
+  // enables `genDie` alone, for instances that can recover from defects (`catz.autocatch`)
+  def defectGenerator: Boolean = false
+
   // FIXME cats conversion generator works most of the time
   //  but generates rare law failures in
   //   - `canceled sequences onCancel in order`
@@ -56,6 +59,8 @@ trait GenIOInteropCats {
    * (Which I believe is acceptable, if confusing, as long
    * as the generic instances are moved to a separate `generic`
    * object.)
+   * The `catz.autocatch` instances do recover from defects, their laws are
+   * checked with `genDie` enabled in `CatsAutoCatchSpec`.
    */
   def genDie(implicit arbThrowable: Arbitrary[Throwable]): Gen[UIO[Nothing]] = arbThrowable.arbitrary.map(ZIO.die(_))
   def genInternalInterrupt: Gen[UIO[Nothing]]                                = ZIO.interrupt
@@ -74,6 +79,14 @@ trait GenIOInteropCats {
       genFail[E, A],
       genDie,
       genInternalInterrupt,
+      genNever,
+      genCancel[E, A]
+    )
+  else if (defectGenerator)
+    Gen.oneOf(
+      genSuccess[E, A],
+      genFail[E, A],
+      genDie,
       genNever,
       genCancel[E, A]
     )
