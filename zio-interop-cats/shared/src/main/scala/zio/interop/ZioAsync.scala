@@ -33,7 +33,7 @@ private class ZioAsync[R] extends ZioBlockingPlatformSpecific[R] with Async[RIO[
         ZIO.fromFuture(_ => p.future).flatMap[Any, Throwable, A](ZIO.fromEither(_))
 
       ZIO.uninterruptibleMask(restore =>
-        k({ e => p.trySuccess(e); () }).flatMap {
+        k { e => p.trySuccess(e); () }.flatMap {
           case Some(canceler) => onCancel(restore(get), canceler)
           case None           =>
             // uninterruptible because of https://github.com/typelevel/cats-effect/issues/3725
