@@ -9,7 +9,7 @@ import sbtdynver.DynVerPlugin.autoImport.previousStableVersion
 import BuildInfoKeys._
 
 object BuildHelper {
-  val scalacheckVersion = "1.19.0"
+  val scalacheckVersion = "1.20.0"
 
   val testDeps = Seq("org.scalacheck" %% "scalacheck" % scalacheckVersion % Test)
 
@@ -115,7 +115,7 @@ object BuildHelper {
           compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4") cross CrossVersion.full,
           // Scala 2 cannot type-check subclasses of `Async` without this `provided` dependency of cats-effect-kernel:
           // https://github.com/typelevel/cats-effect/issues/4693
-          "org.typelevel" %% "scalac-compat-annotation" % "0.1.4" % Provided
+          "org.typelevel" %% "scalac-compat-annotation" % "0.1.5" % Provided
         )
       else Seq.empty
     },
