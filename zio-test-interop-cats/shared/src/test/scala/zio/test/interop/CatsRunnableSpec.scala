@@ -6,11 +6,8 @@ import cats.effect.IO as CIO
 import zio.*
 import zio.test.{ TestAspect, ZIOSpecDefault }
 
-import scala.util.Success
-
 abstract class CatsRunnableSpec extends ZIOSpecDefault {
-  private[this] var openDispatcher: Dispatcher[CIO] = _
-  private[this] var closeDispatcher: CIO[Unit]      = _
+  @volatile private[this] var openDispatcher: Dispatcher[CIO] = _
 
   implicit val zioRuntime: Runtime[Any] =
     Runtime.default
@@ -29,19 +26,14 @@ abstract class CatsRunnableSpec extends ZIOSpecDefault {
       openDispatcher.unsafeToFutureCancelable(fa)
   }
 
-  Unsafe.unsafe { implicit u =>
-    runtime.unsafe.runToFuture {
-      ZIO.fromFuture { implicit ec =>
-        Dispatcher.parallel[CIO].allocated.unsafeToFuture().andThen { case Success((disp, close)) =>
-          openDispatcher = disp
-          closeDispatcher = close
-        }
-      }.orDie
-    }
-  }
-
+  // The dispatcher is allocated before any test runs, so `dispatcher` never sees an unassigned `openDispatcher`.
   override val aspects: Chunk[TestAspect[Nothing, Any, Nothing, Any]] = Chunk(
     TestAspect.timeout(1.minute),
-    TestAspect.afterAll(ZIO.fromFuture(_ => closeDispatcher.unsafeToFuture()).orDie)
+    TestAspect.aroundAllWith(
+      ZIO
+        .fromFuture(_ => Dispatcher.parallel[CIO].allocated.unsafeToFuture())
+        .tap { case (disp, _) => ZIO.succeed { openDispatcher = disp } }
+        .orDie
+    ) { case (_, close) => ZIO.fromFuture(_ => close.unsafeToFuture()).orDie }
   )
 }
