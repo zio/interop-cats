@@ -6,6 +6,9 @@ import cats.laws.discipline.*
 import zio.stream.*
 import zio.stream.interop.catz.*
 
+// Not run on Scala Native: with Scala Native 0.5.12 (multithreaded, Immix GC) this suite intermittently
+// crashes the test binary with SIGSEGV caused by heap corruption in the Scala Native runtime,
+// https://github.com/scala-native/scala-native/issues/5086. The other suites have not shown the crash.
 class ZStreamSpec extends ZStreamSpecBase with GenStreamInteropCats {
 
   checkAllAsync(
