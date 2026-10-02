@@ -44,6 +44,21 @@ class CatsMtlSpec extends ZioSpecBase {
     )
   }
 
+  Unsafe.unsafe { implicit unsafe =>
+    type State = Int
+    implicit val f: FiberRef[State] = FiberRef.unsafe.make(42)
+
+    checkAllAsync(
+      "FiberRef Ask[ZIO[Ctx, Error, _]] for a FiberRef state other than the environment",
+      implicit tc => AskTests[ZIO[Ctx, Error, _], State].ask[State]
+    )
+
+    checkAllAsync(
+      "FiberRef Local[ZIO[Ctx, Error, _]] for a FiberRef state other than the environment",
+      implicit tc => LocalTests[ZIO[Ctx, Error, _], State].local[State, Int]
+    )
+  }
+
   checkAllAsync(
     "Raise[ZIO[Ctx, Error, _]]",
     implicit tc => RaiseTests[ZIO[Ctx, Error, _], Error].raise[Int]
