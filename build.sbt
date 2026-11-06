@@ -65,7 +65,7 @@ lazy val root = project
     publish / skip := true
   )
 
-val zioVersion                 = "2.1.26"
+val zioVersion                 = "2.1.27"
 val catsVersion                = "2.13.0"
 val catsEffectVersion          = "3.7.1"
 val catsMtlVersion             = "1.7.0"
