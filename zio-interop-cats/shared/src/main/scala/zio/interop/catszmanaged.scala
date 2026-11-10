@@ -71,10 +71,14 @@ final class ZIOResourceSyntax[R, E <: Throwable, A](private val resource: Resour
     def go[B](resource: Resource[F, B]): ZIO[R with Scope, E, B] =
       resource match {
         case allocate: Resource.Allocate[F, b] =>
-          ZIO.uninterruptibleMask { restore =>
+          CatsMask.uncancelable[R with Scope, E, R, E, b] { poll =>
             ZIO.acquireReleaseExit {
-              allocate.resource(toPoll(restore))
-            } { case ((_, release), exit) => toExitCaseThisFiber(exit).flatMap(t => release(t)).orDie }.map(_._1)
+              allocate.resource(poll)
+            } { case ((_, release), exit) =>
+              toExitCaseThisFiber(exit)
+                .flatMap(exitCase => CatsMask.finalizer(exitCase == Resource.ExitCase.Canceled)(release(exitCase)))
+                .orDie
+            }.map(_._1)
           }
 
         case bind: Resource.Bind[F, a, B] =>
