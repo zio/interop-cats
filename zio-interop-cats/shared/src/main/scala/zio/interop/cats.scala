@@ -286,7 +286,7 @@ private abstract class ZioConcurrent[R, E, E1]
 
     for {
       interrupted <- zio.Ref.make(true) // fiber could be interrupted before executing a single op
-      fiber       <- signalOnNoExternalInterrupt(fa.interruptible)(interrupted.set(false)).forkDaemon
+      fiber       <- signalOnNoExternalInterrupt(CatsMask.unmasked(fa))(interrupted.set(false)).forkDaemon
     } yield toFiber(interrupted)(fiber)
   }
 
@@ -311,7 +311,7 @@ private abstract class ZioConcurrent[R, E, E1]
   override final def uncancelable[A](body: Poll[F] => F[A]): F[A] = {
     implicit def trace: Trace = InteropTracer.newTrace(body)
 
-    ZIO.uninterruptibleMask(restore => body(toPoll(restore)))
+    CatsMask.uncancelable(body)
   }
 
   override final def canceled: F[Unit] = {
@@ -338,8 +338,8 @@ private abstract class ZioConcurrent[R, E, E1]
       interruptedA <- zio.Ref.make(true)
       interruptedB <- zio.Ref.make(true)
       res          <- raceWith(
-                        signalOnNoExternalInterrupt(fa.interruptible)(interruptedA.set(false)),
-                        signalOnNoExternalInterrupt(fb.interruptible)(interruptedB.set(false))
+                        signalOnNoExternalInterrupt(CatsMask.unmasked(fa))(interruptedA.set(false)),
+                        signalOnNoExternalInterrupt(CatsMask.unmasked(fb))(interruptedB.set(false))
                       )(
                         (exit, fiber) =>
                           toOutcomeOtherFiber(interruptedA)(exit).map(outcome => Left((outcome, toFiber(interruptedB)(fiber)))),
@@ -352,32 +352,21 @@ private abstract class ZioConcurrent[R, E, E1]
   override final def race[A, B](fa: F[A], fb: F[B]): F[Either[A, B]] = super.race(fa, fb)
   override final def both[A, B](fa: F[A], fb: F[B]): F[(A, B)]       = super.both(fa, fb)
 
-  override final def guarantee[A](fa: F[A], fin: F[Unit]): F[A] = {
-    implicit def trace: Trace = CoreTracer.newTrace
-
-    fa.ensuring(fin.orDieWith(toThrowableOrFiberFailure))
-  }
-
   override final def guaranteeCase[A](fa: ZIO[R, E, A])(
     fin: Outcome[ZIO[R, E, _], E1, A] => ZIO[R, E, Unit]
   ): ZIO[R, E, A] =
-    fa.onExit(exit => toOutcomeThisFiber(exit).flatMap(fin).orDieWith(toThrowableOrFiberFailure))
-
-  override final def bracket[A, B](acquire: F[A])(use: A => F[B])(release: A => F[Unit]): F[B] = {
-    implicit def trace: Trace = InteropTracer.newTrace(use)
-
-    ZIO.acquireReleaseWith(acquire)(release.andThen(_.orDieWith(toThrowableOrFiberFailure)))(use)
-  }
+    fa.onExit(exit =>
+      toOutcomeThisFiber(exit)
+        .flatMap(outcome => CatsMask.finalizer(outcome.isCanceled)(fin(outcome)))
+        .orDieWith(toThrowableOrFiberFailure)
+    )
 
   override final def bracketCase[A, B](acquire: ZIO[R, E, A])(use: A => ZIO[R, E, B])(
     release: (A, Outcome[ZIO[R, E, _], E1, B]) => ZIO[R, E, Unit]
   ): ZIO[R, E, B] = {
     implicit def trace: Trace = InteropTracer.newTrace(use)
 
-    def handleRelease(a: A, exit: Exit[E, B]): URIO[R, Any] =
-      toOutcomeThisFiber(exit).flatMap(release(a, _)).orDieWith(toThrowableOrFiberFailure)
-
-    ZIO.acquireReleaseExitWith(acquire)(handleRelease)(use)
+    bracketFull[A, B](_ => acquire)(use)((a, outcome) => release(a, outcome).orDieWith(toThrowableOrFiberFailure))
   }
 
   override final def bracketFull[A, B](acquire: Poll[ZIO[R, E, _]] => ZIO[R, E, A])(use: A => ZIO[R, E, B])(
@@ -385,15 +374,15 @@ private abstract class ZioConcurrent[R, E, E1]
   ): ZIO[R, E, B] = {
     implicit def trace: Trace = InteropTracer.newTrace(use)
 
-    ZIO.uninterruptibleMask[R, E, B] { restore =>
-      acquire(toPoll(restore)).flatMap { a =>
+    CatsMask.uncancelable[R, E, R, E, B] { poll =>
+      acquire(poll).flatMap { a =>
         ZIO
-          .suspendSucceed(restore(use(a)))
+          .suspendSucceed(poll(use(a)))
           .exit
           .flatMap { e =>
             ZIO
               .suspendSucceed(
-                toOutcomeThisFiber(e).flatMap(release(a, _))
+                toOutcomeThisFiber(e).flatMap(outcome => CatsMask.finalizer(outcome.isCanceled)(release(a, outcome)))
               )
               .foldCauseZIO(
                 cause2 => ZIO.failCause(e.foldExit(_ ++ cause2, _ => cause2)),
@@ -851,7 +840,7 @@ private class ZioParApplicative[R, E] extends CommutativeApplicative[ParallelF[Z
   final override def map2[A, B, Z](fa: F[A], fb: F[B])(f: (A, B) => Z): F[Z] = {
     implicit def trace: Trace = InteropTracer.newTrace(f)
 
-    ParallelF(ParallelF.value(fa).interruptible.zipWithPar(ParallelF.value(fb).interruptible)(f))
+    ParallelF(CatsMask.unmasked(ParallelF.value(fa)).zipWithPar(CatsMask.unmasked(ParallelF.value(fb)))(f))
   }
 
   final override def ap[A, B](ff: F[A => B])(fa: F[A]): F[B] =
@@ -860,7 +849,7 @@ private class ZioParApplicative[R, E] extends CommutativeApplicative[ParallelF[Z
   final override def product[A, B](fa: F[A], fb: F[B]): F[(A, B)] = {
     implicit def trace: Trace = CoreTracer.newTrace
 
-    ParallelF(ParallelF.value(fa).interruptible.zipPar(ParallelF.value(fb).interruptible))
+    ParallelF(CatsMask.unmasked(ParallelF.value(fa)).zipPar(CatsMask.unmasked(ParallelF.value(fb))))
   }
 
   final override def map[A, B](fa: F[A])(f: A => B): F[B] = {
