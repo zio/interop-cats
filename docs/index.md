@@ -119,7 +119,7 @@ import zio.interop.catz.autocatch._
 There are many other typeclasses and useful conversions that this library provides implementations for:
 * See `zio/interop/cats.scala` file to see all available typeclass implementations for the Cats Effect 3 typeclasses
 * See `zio/stream/interop/cats.scala` for ZStream typeclass implementations
-* See `zio/stream/interop/FS2StreamSyntax.scala` for FS2 <-> ZStream conversions
+* See `zio/stream/interop/FS2StreamSyntax.scala` for `FS2 <-> ZStream` conversions
 
 
 ### `Resource` and `Dispatcher`
