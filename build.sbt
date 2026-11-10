@@ -65,13 +65,13 @@ lazy val root = project
     publish / skip := true
   )
 
-val zioVersion                 = "2.1.26"
+val zioVersion                 = "2.1.27"
 val catsVersion                = "2.13.0"
 val catsEffectVersion          = "3.7.1"
 val catsMtlVersion             = "1.7.0"
 val disciplineScalaTestVersion = "2.3.0"
 val fs2Version                 = "3.14.0"
-val scalaJavaTimeVersion       = "2.7.0"
+val scalaJavaTimeVersion       = "2.9.0"
 
 lazy val zioInteropTracer       = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("zio-interop-tracer"))
